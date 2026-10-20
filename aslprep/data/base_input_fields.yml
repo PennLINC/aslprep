@@ -218,7 +218,9 @@ mean_cbf_gm_lr:
   Units: mL/100 g/min
   Description: >-
     Gray matter cerebral blood flow after partial volume correction by local linear
-    regression of the CBF map. Zero where it was not estimated.
+    regression: of the CBF map for single-delay data, or of each delta-M volume followed
+    by a kinetic fit of each tissue curve for multi-delay data. Calibrated by the
+    voxel's M0. Zero where it was not estimated.
 
 cbf_gm_se_lr:
   desc: lrGMSE
@@ -235,7 +237,9 @@ mean_cbf_wm_lr:
   Units: mL/100 g/min
   Description: >-
     White matter cerebral blood flow after partial volume correction by local linear
-    regression of the CBF map. Zero where it was not estimated.
+    regression: of the CBF map for single-delay data, or of each delta-M volume followed
+    by a kinetic fit of each tissue curve for multi-delay data. Calibrated by the
+    voxel's M0. Zero where it was not estimated.
 
 cbf_wm_se_lr:
   desc: lrWMSE
@@ -282,7 +286,9 @@ rmse_lr:
   desc: lr
   suffix: pvrmse
   Description: >-
-    Root mean square residual of each local regression, in units of CBF times M0.
+    Root mean square residual of each local regression, in units of the regressed
+    signal: CBF times M0 for single-delay data, and delta-M (pooled over volumes)
+    for multi-delay data. A spatial-regression diagnostic only.
 
 mean_cbf_csf_lr:
   desc: lrCSF
@@ -290,11 +296,14 @@ mean_cbf_csf_lr:
   Units: mL/100 g/min
   Description: >-
     Apparent CSF cerebral blood flow, from a separate local regression on gray matter,
-    white matter and CSF partial volume maps of the CBF map, for quality control.
-    CSF has no perfusion, so values far from zero indicate partial volume map errors,
-    macrovascular or choroid plexus signal, or model error. The gray and white matter
-    maps (desc-lrGM, desc-lrWM) do not come from this fit. Zero where it was not estimated.
-    Valid in this (native) space only.
+    white matter and CSF partial volume maps, for quality control: of the CBF map
+    for single-delay data, or of each delta-M volume for multi-delay data, where the
+    CSF curve is fit (with its sign) as a multiple of a unit-CBF tissue curve without
+    an arterial term, at the voxel's uncorrected ATT (or the median uncorrected ATT
+    where it was not estimated). CSF has no perfusion, so values far from zero
+    indicate partial volume map errors, macrovascular or choroid plexus signal, or
+    model error. The gray and white matter maps (desc-lrGM, desc-lrWM) do not come
+    from this fit. Zero where it was not estimated. Valid in this (native) space only.
 
 cbf_csf_se_lr:
   desc: lrCSFSE
@@ -433,3 +442,112 @@ csf_noise_lr_score:
   Description: >-
     Noise amplification of the CSF estimate: its standard error per unit of voxel
     noise, assuming independent noise.
+
+att_gm_lr:
+  desc: lrGM
+  suffix: att
+  Units: s
+  Description: >-
+    Gray matter arterial transit time from multi-delay local-regression partial volume
+    correction: the kinetic fit of the tissue curve unmixed at each delay. Written
+    only where that fit had positive CBF within its bounds; zero elsewhere. Check
+    the native-space bounds (desc-lrGMLower_att, desc-lrGMUpper_att) for identifiability.
+
+att_wm_lr:
+  desc: lrWM
+  suffix: att
+  Units: s
+  Description: >-
+    White matter arterial transit time from multi-delay local-regression partial volume
+    correction: the kinetic fit of the tissue curve unmixed at each delay. Written
+    only where that fit had positive CBF within its bounds; zero elsewhere. Check
+    the native-space bounds (desc-lrWMLower_att, desc-lrWMUpper_att) for identifiability.
+
+att_gm_lower_lr:
+  desc: lrGMLower
+  suffix: att
+  Units: s
+  Description: >-
+    Shortest gray matter arterial transit time that fits the tissue curve as well
+    as desc-lrGM. Valid in this (native) space only.
+
+att_gm_upper_lr:
+  desc: lrGMUpper
+  suffix: att
+  Units: s
+  Description: >-
+    Longest gray matter arterial transit time that fits the tissue curve as well as
+    desc-lrGM. Valid in this (native) space only.
+
+att_wm_lower_lr:
+  desc: lrWMLower
+  suffix: att
+  Units: s
+  Description: >-
+    Shortest white matter arterial transit time that fits the tissue curve as well
+    as desc-lrWM. Valid in this (native) space only.
+
+att_wm_upper_lr:
+  desc: lrWMUpper
+  suffix: att
+  Units: s
+  Description: >-
+    Longest white matter arterial transit time that fits the tissue curve as well
+    as desc-lrWM. Valid in this (native) space only.
+
+kinstatus_gm_lr:
+  desc: lrGM
+  suffix: pvkinstatus
+  Description: Outcome of the kinetic fit of the gray matter curve.
+  Levels:
+    '0': >-
+      Not fitted: the spatial regression did not estimate this tissue, its partial
+      volume is below 10%, or the voxel's M0 cannot calibrate it.
+    '1': Fitted.
+    '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
+    '3': CBF at its upper bound; not written.
+    '4': Input not finite.
+    '5': >-
+      Arterial blood volume at its upper bound: the remaining arterial signal would
+      bias CBF and ATT, so neither is written.
+
+kinstatus_wm_lr:
+  desc: lrWM
+  suffix: pvkinstatus
+  Description: Outcome of the kinetic fit of the white matter curve.
+  Levels:
+    '0': >-
+      Not fitted: the spatial regression did not estimate this tissue, its partial
+      volume is below 10%, or the voxel's M0 cannot calibrate it.
+    '1': Fitted.
+    '2': 'CBF at its lower bound (0): no positive tissue signal; ATT undefined.'
+    '3': CBF at its upper bound; not written.
+    '4': Input not finite.
+    '5': >-
+      Arterial blood volume at its upper bound: the remaining arterial signal would
+      bias CBF and ATT, so neither is written.
+
+kinres_gm_lr:
+  desc: lrGM
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the kinetic fit of the gray matter curve (norm of the curve
+    minus the fitted model, divided by the norm of the curve). Large values point
+    at kinetics the single-ATT model does not describe, such as arterial contamination
+    or within-kernel ATT variation.
+
+kinres_wm_lr:
+  desc: lrWM
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the kinetic fit of the white matter curve (norm of the curve
+    minus the fitted model, divided by the norm of the curve). Large values point
+    at kinetics the single-ATT model does not describe, such as arterial contamination
+    or within-kernel ATT variation.
+
+csf_kinres_lr:
+  desc: lrCSF
+  suffix: pvkinres
+  Description: >-
+    Relative residual of the CSF curve against the fitted multiple of the unit-CBF
+    tissue curve used for the multi-delay CSF quality-control estimate (desc-lrCSF_cbf).

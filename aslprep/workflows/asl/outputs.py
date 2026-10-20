@@ -22,32 +22,28 @@ BASE_INPUT_FIELDS = yaml.safe_load(load_data.readable('base_input_fields.yml').r
 LR_PVC_SOURCES = {'mean_cbf': 'lr', 'mean_cbf_score': 'scoreLR'}
 
 
-def lr_pvc_names(source):
+def lr_pvc_names(source, multi_delay=False):
     """Return the output names of local-regression PVC applied to one CBF map.
 
     Parameters
     ----------
     source : :obj:`str`
         ``'mean_cbf'`` or ``'mean_cbf_score'``.
+    multi_delay : :obj:`bool`
+        Whether the data have several delays (PVC design spec Section 5.7.5).
 
     Returns
     -------
     :obj:`dict`
-        ``cbf`` (corrected CBF maps), ``se`` (their standard errors), ``valid`` (where they
-        were estimated, by corrected map), ``diagnostics`` (native-only fit diagnostics), and
-        ``csf`` (the native-only CSF quality-control map, its standard error, fit status and
-        noise amplification).
+        ``cbf`` (corrected CBF maps), ``se`` (their standard errors; single-delay only),
+        ``valid`` (where each corrected CBF map was estimated), ``diagnostics`` (native-only
+        spatial-regression diagnostics), ``csf`` (the native-only CSF quality-control outputs),
+        and, for multi-delay data, ``att`` (corrected ATT maps), ``att_valid`` (where each was
+        estimated), ``att_bounds`` and ``kinetic`` (native-only kinetic-fit outputs).
     """
     suffix = '' if source == 'mean_cbf' else '_score'
-    return {
-        'csf': [
-            f'mean_cbf_csf_lr{suffix}',
-            f'cbf_csf_se_lr{suffix}',
-            f'status_csf_lr{suffix}',
-            f'csf_noise_lr{suffix}',
-        ],
+    names = {
         'cbf': [f'mean_cbf_gm_lr{suffix}', f'mean_cbf_wm_lr{suffix}'],
-        'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
         'valid': {
             f'mean_cbf_gm_lr{suffix}': f'gm_valid_lr{suffix}',
             f'mean_cbf_wm_lr{suffix}': f'wm_valid_lr{suffix}',
@@ -60,6 +56,56 @@ def lr_pvc_names(source):
             f'rmse_lr{suffix}',
         ],
     }
+    if not multi_delay:
+        names.update(
+            {
+                'se': [f'cbf_gm_se_lr{suffix}', f'cbf_wm_se_lr{suffix}'],
+                'csf': [
+                    f'mean_cbf_csf_lr{suffix}',
+                    f'cbf_csf_se_lr{suffix}',
+                    f'status_csf_lr{suffix}',
+                    f'csf_noise_lr{suffix}',
+                ],
+                'att': [],
+                'att_valid': {},
+                'att_bounds': [],
+                'kinetic': [],
+            }
+        )
+        return names
+
+    if source != 'mean_cbf':
+        raise ValueError('Multi-delay partial volume correction only applies to mean_cbf.')
+    names.update(
+        {
+            'se': [],
+            'csf': ['mean_cbf_csf_lr', 'status_csf_lr', 'csf_noise_lr', 'csf_kinres_lr'],
+            'att': ['att_gm_lr', 'att_wm_lr'],
+            'att_valid': {'att_gm_lr': 'gm_att_valid_lr', 'att_wm_lr': 'wm_att_valid_lr'},
+            'att_bounds': [
+                'att_gm_lower_lr',
+                'att_gm_upper_lr',
+                'att_wm_lower_lr',
+                'att_wm_upper_lr',
+            ],
+            'kinetic': ['kinstatus_gm_lr', 'kinstatus_wm_lr', 'kinres_gm_lr', 'kinres_wm_lr'],
+        }
+    )
+    return names
+
+
+def lr_pvc_native(source, multi_delay=False):
+    """Native-only output names of local-regression PVC (written by ``init_ds_pvc_native_wf``)."""
+    names = lr_pvc_names(source, multi_delay)
+    return (
+        names['cbf']
+        + names['se']
+        + names['diagnostics']
+        + names['csf']
+        + names['att']
+        + names['att_bounds']
+        + names['kinetic']
+    )
 
 
 def prepare_timing_parameters(metadata: dict):
@@ -651,13 +697,14 @@ def init_ds_pvc_native_wf(
     source_file: str,
     output_dir: str,
     sources: list[str],
+    multi_delay: bool = False,
     name: str = 'ds_pvc_native_wf',
 ) -> pe.Workflow:
     """Write out local-regression partial volume correction outputs in aslref space.
 
-    The corrected CBF maps, their standard errors, the fit diagnostics and the PV maps are
-    always written in aslref space, because the standard errors, diagnostics and PV maps only
-    exist there.
+    The corrected maps, their standard errors (single-delay data), the fit diagnostics and the
+    PV maps are always written in aslref space, because the standard errors, diagnostics and
+    PV maps only exist there.
 
     Parameters
     ----------
@@ -667,6 +714,8 @@ def init_ds_pvc_native_wf(
         The output directory.
     sources : list of str
         The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
+    multi_delay : bool
+        Whether the data have several delays, which changes the outputs (spec Section 5.7.5).
     name : str
         Workflow name.
 
@@ -695,6 +744,19 @@ def init_ds_pvc_native_wf(
         The same outputs for the SCORE CBF (``desc-scoreLR*``), when ``'mean_cbf_score'`` is in
         ``sources``.
 
+    With ``multi_delay``, there are no standard errors (``cbf_gm_se_lr``, ``cbf_wm_se_lr``,
+    ``cbf_csf_se_lr``), and these are also written:
+
+    att_gm_lr, att_wm_lr
+        Tissue arterial transit times (``desc-lr{GM,WM}_att``).
+    att_gm_lower_lr, att_gm_upper_lr, att_wm_lower_lr, att_wm_upper_lr
+        Their bounds (``desc-lr{GM,WM}{Lower,Upper}_att``).
+    kinstatus_gm_lr, kinstatus_wm_lr, kinres_gm_lr, kinres_wm_lr
+        Kinetic-fit status and residuals (``desc-lr{GM,WM}_pvkinstatus``,
+        ``desc-lr{GM,WM}_pvkinres``).
+    csf_kinres_lr
+        Residual of the CSF quality-control curve (``desc-lrCSF_pvkinres``).
+
     Outputs
     -------
     None. The inputs are written to ``output_dir``.
@@ -703,8 +765,7 @@ def init_ds_pvc_native_wf(
 
     names = []
     for source in sources:
-        lr_names = lr_pvc_names(source)
-        names += lr_names['cbf'] + lr_names['se'] + lr_names['diagnostics'] + lr_names['csf']
+        names += lr_pvc_native(source, multi_delay)
 
     inputnode = pe.Node(
         niu.IdentityInterface(

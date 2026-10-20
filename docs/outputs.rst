@@ -468,7 +468,7 @@ Keep the following in mind:
 - There is no standard deviation map for the arterial blood volume,
   because ``oxford_asl`` does not write its variance.
 
-If ``--pvc-method local-regression`` is used (single-delay data only)::
+If ``--pvc-method local-regression`` is used with single-delay data::
 
    sub-<label>/[ses-<label>/]
       perf/
@@ -491,6 +491,28 @@ If ``--pvc-method local-regression`` is used (single-delay data only)::
 
 With ``--scorescrub``, the same correction is applied to the SCORE map,
 with ``desc-scoreLR`` in place of ``desc-lr``.
+
+With multi-delay data, the outputs are::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>[_space-<label>]_desc-lrGM_cbf.nii.gz  # GM CBF after local-regression PVC
+         <source_entities>[_space-<label>]_desc-lrWM_cbf.nii.gz  # WM CBF after local-regression PVC
+         <source_entities>[_space-<label>]_desc-lrGM_att.nii.gz  # GM arterial transit time
+         <source_entities>[_space-<label>]_desc-lrWM_att.nii.gz  # WM arterial transit time
+         <source_entities>_desc-lrGMLower_att.nii.gz  # shortest GM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrGMUpper_att.nii.gz  # longest GM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrWMLower_att.nii.gz  # shortest WM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrWMUpper_att.nii.gz  # longest WM ATT that fits as well (aslref only)
+         <source_entities>_desc-lrGM_pvkinstatus.nii.gz  # GM kinetic fit status (aslref only)
+         <source_entities>_desc-lrWM_pvkinstatus.nii.gz  # WM kinetic fit status (aslref only)
+         <source_entities>_desc-lrGM_pvkinres.nii.gz  # GM kinetic fit residual (aslref only)
+         <source_entities>_desc-lrWM_pvkinres.nii.gz  # WM kinetic fit residual (aslref only)
+         <source_entities>_desc-lrCSF_cbf.nii.gz  # signed apparent CSF CBF, for QC (aslref only)
+         <source_entities>_desc-lrCSF_pvkinres.nii.gz  # residual of the CSF projection (aslref only)
+
+plus the spatial-regression diagnostics and partial volume maps listed above.
+No standard error maps are written for multi-delay data.
 
 .. _lr_pvc_outputs:
 
@@ -545,6 +567,58 @@ additional analysis, not a replacement :footcite:p:`chappell2021partial`.
   neighbors' values.
 - With slice-timed (2D multi-slice) data, the kernel must span a single slice,
   because the tissue signal depends on each slice's delay.
+
+With multi-delay data, the regression is applied to the delta-M of every volume, with one design
+for all volumes, which gives a gray matter and a white matter curve across the delays.
+Each curve is then fit with the same general kinetic model as the uncorrected data,
+calibrated by the voxel's M0, giving tissue CBF and ATT.
+
+.. warning::
+
+   The multi-delay extension is experimental and specific to *ASLPrep*.
+   Its components are established: local regression :footcite:p:`asllani2008regression`, the
+   linear superposition of tissue signals at each delay, and the general kinetic model.
+   Their combination has not been validated, and has not been compared systematically with
+   joint kinetic partial volume correction such as BASIL :footcite:p:`chappell2011partial`,
+   which also uses the tissues' kinetics to separate them.
+   Treat its tissue CBF and ATT as an additional analysis, alongside BASIL and the uncorrected
+   maps, rather than as a validated estimate.
+
+- The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
+  raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
+  exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
+  The arterial blood volume bound is raised from 0.1 to 1 for the same reason: unmixing assigns
+  a voxel's arterial signal to its tissue fraction. A fit with aBV still at that bound is flagged
+  (status 5), and neither its CBF nor its ATT is written, because the arterial signal it could
+  not absorb would bias both.
+- Tissue curves are noisier than the voxel's own curve, and the non-negative fit skews noisy
+  estimates upward, so a parcel's mean tissue CBF can be biased up in noisy data; its median is
+  more robust.
+- Tissue ATT is written only where the tissue's CBF is positive. As for the uncorrected ATT,
+  check its bounds (``desc-lr*Lower_att``, ``desc-lr*Upper_att``): where a range of ATT fits
+  equally well, for example when ATT is shorter than every delay, the middle of the range is
+  reported.
+- The unmixing assumes each tissue's signal, including its arrival time, is the same throughout
+  the kernel. Where CBF or ATT varies within the kernel, a tissue curve is a weighted mixture of
+  different kinetic curves, which one ATT cannot represent exactly. The fitted ATT then need not
+  be the centre voxel's, even when the fit looks good; this affects ATT more than CBF.
+- Arterial (macrovascular) signal does not follow the tissue maps: the kinetic fit's
+  arterial term absorbs some of it, but it can bias the tissue estimates, in either direction.
+  ``desc-lr*_pvkinres`` is the relative residual of each tissue's kinetic fit, and is the
+  diagnostic for these problems; the spatial residual (``desc-lr_pvrmse``) cannot detect them,
+  and neither can detect every case.
+- Each volume is unmixed on its own, from the partial volume maps alone. The tissues' different
+  kinetics are used only afterwards, so where the gray and white matter maps are similar within
+  the kernel, the separation is no better conditioned than at a single delay.
+- The spatial diagnostics (conditioning, noise amplification) are not propagated to the tissue
+  CBF and ATT, so they are not standard errors of those estimates, and none are written.
+- As for single-delay data, the tissue CBF is calibrated by the voxel's mixed M0, not a
+  tissue-specific M0, and the results depend on the accuracy of the partial volume maps and of
+  the effective resolution.
+- ``desc-lrCSF_cbf`` is the signed least-squares CBF of the CSF curve against a unit-CBF tissue
+  curve without an arterial term, calibrated by the voxel's M0, at the voxel's uncorrected ATT
+  (or the median uncorrected ATT where it was not estimated, as in most CSF). Like the
+  single-delay map, it should be near zero.
 
 .. _effective_resolution:
 
