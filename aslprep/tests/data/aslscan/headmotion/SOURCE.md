@@ -14,8 +14,11 @@ Motion:
     volumes 12 and 13;
   - a twitch of (1.5, 0, 0 mm; 0, 0, 0.03 rad) from 83.9 s to 84.3 s, inside volume 16's readout.
 - `events.tsv` adds two slice-group events (the `desc-motionEvents_gt.tsv` format): volume 3,
-  group 7 jumps (0, 0, 0.8 mm; 0.014, 0, 0 rad) with its slices at 70 % signal, and volume 14,
-  group 4 jumps (-0.6, 0, 0 mm; 0, 0, -0.01 rad) at 80 %. A jump holds for the rest of its volume.
+  group 7 jumps (0, 0, 0.8 mm; 0.014, 0, 0 rad), and volume 14, group 4 jumps
+  (-0.6, 0, 0 mm; 0, 0, -0.01 rad). A jump holds for the rest of its volume. Neither drops
+  signal (attenuation 1): aslscan's dropout is the diffusion model `eddy --repol` targets, and
+  a 30 % drop in one slice group of a control or label volume swamps delta-M (about 1 % of the
+  tissue signal) in those slices, which made the T1w-space resampling check insensitive.
 - `spin_history = true`: through-plane motion between slice excitations changes the tissue
   magnetization (aslscan's box-slab model).
 

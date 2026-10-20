@@ -26,6 +26,7 @@ def f8_run(data_dir, output_dir, working_dir):
         output_dir,
         working_dir,
         spaces=('asl', 'T1w'),
+        extra_args=('--atlases', '4S156Parcels'),
         score_spaces=('T1w',),
     )
 
