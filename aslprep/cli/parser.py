@@ -602,9 +602,22 @@ any spatial references.""",
         choices=('91k', '170k'),
         type=str,
         help=(
-            'Output preprocessed ASL as a CIFTI dense timeseries. '
+            'Output CBF derivatives in the HCP grayordinates (CIFTI) space. '
+            'With --output-timeseries, the preprocessed ASL and CBF time series are also '
+            'written as CIFTI dense timeseries. '
             'Optionally, the number of grayordinate can be specified '
             '(default is 91k, which equates to 2mm resolution)'
+        ),
+    )
+    g_outputs.add_argument(
+        '--output-timeseries',
+        action='store_true',
+        default=False,
+        help=(
+            'Write out the preprocessed ASL time series and the volume-wise CBF time series '
+            '(including SCORE-denoised CBF time series) in each output space. '
+            'These outputs are large and rarely used directly, so they are not written by '
+            'default, and the resampling steps that only produce them are skipped.'
         ),
     )
     g_outputs.add_argument(

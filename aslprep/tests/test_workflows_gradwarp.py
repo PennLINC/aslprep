@@ -261,6 +261,8 @@ def test_prequantified_cbf_is_not_modulated(tmp_path, monkeypatch):
         config.workflow.gradient_file = _grad_file(tmp_path)
         config.workflow.level = 'full'
         config.workflow.cifti_output = False
+        # Resample the ASL series to T1w space
+        config.workflow.output_timeseries = True
         config.execution.output_spaces = 'asl T1w'
         config.init_spaces()
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
@@ -341,6 +343,8 @@ def test_init_asl_wf_gradwarp(tmp_path, fieldmap_id):
         config.workflow.gradient_file = _grad_file(tmp_path)
         config.workflow.level = 'full'
         config.workflow.cifti_output = False
+        # Resample the ASL series to every output space
+        config.workflow.output_timeseries = True
         config.execution.output_spaces = 'asl T1w MNI152NLin2009cAsym'
         config.init_spaces()
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'

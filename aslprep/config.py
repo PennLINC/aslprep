@@ -591,6 +591,8 @@ class workflow(_Config):
     """
     run_msmsulc = True
     """Run Multimodal Surface Matching surface registration."""
+    output_timeseries = False
+    """Write out the preprocessed ASL time series and the volume-wise CBF time series."""
     medial_surface_nan = None
     """Fill medial surface with :abbr:`NaNs (not-a-number)` when sampling."""
     project_goodvoxels = False

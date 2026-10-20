@@ -102,6 +102,7 @@ def test_test_001(data_dir, output_dir, working_dir):
         '--atlases',
         '4S156Parcels',
         '4S1056Parcels',
+        '--output-timeseries',
     ]
 
     _run_and_generate(TEST_NAME, PARTICIPANT_LABEL, parameters, out_dir)
@@ -215,6 +216,7 @@ def test_test_003_full(data_dir, output_dir, working_dir):
             '91k',
             '--project-goodvoxels',
             '--no-msm',
+            '--output-timeseries',
         ],
         # fsLR:den-32k exercises Workbench resampling to surface templates
         output_spaces=['asl', 'fsLR:den-32k'],
