@@ -44,7 +44,9 @@ Non-goals (this change):
 
 These were measured with aslscan `82919454d11ee63a1bc8032e4a362f9b745e5d97` and mrsim-acq
 `e64caff8b18358704ef876b5a16a344192b3a014`, both the current `main` of their public PennLINC
-repositories.
+repositories. The pins have since moved (`aslprep/tests/aslscan_fixtures.py`); the within-volume
+motion of F7 and F8 needs aslscan `bf58c8cd8533ec0b0fc2f152f68492cadb0ea365` (per-shot poses, timed
+trajectories, spin history) and mrsim-acq `63fb68aaa302407d7489682366976b8699a3e9a2`.
 
 **Build.**
 
@@ -66,7 +68,9 @@ repositories.
   each with a JSON giving its `Units` and `Resampling`.
 - Motion adds `desc-motion_gt.tsv` (translations in mm, rotations in radians, rotation
   `Rz Ry Rx` about the field-of-view centre; `mrsim-acq/src/motion.rs`) and
-  `desc-motionEvents_gt.tsv`.
+  `desc-motionEvents_gt.tsv`. Within-volume motion (per-shot sampling of a timed trajectory,
+  or slice-group events) adds `desc-motionShots_gt.tsv`: each 2D slice group's, or each 3D
+  readout segment's, time and absolute pose, with its slices (`n/a` for a 3D segment).
 - `.bidsignore` hides `ground-truth/`.
 
 **Geometry.**
@@ -95,7 +99,7 @@ repositories.
   - `perfusion` (`ml/100g/min`), `att` (`s`), `T1map` (`s`), `T2map` (`s`), `T2starmap` (`s`);
   - `M0map` (`arbitrary`);
   - `dseg` (`label indices`, plus a `LabelMap`).
-- Optional: `abv` (`fraction`), `aatt` (`s`), `fieldmap` (`Hz`), and `phantom.json`
+- Optional: `abv` (`fraction`), `att_arterial` (`s`), `fieldmap` (`Hz`), and `phantom.json`
   (`LambdaBloodBrain`, `T1ArterialBlood`, `MagneticFieldStrength`).
 - Background M0 must be 0. Foreground T1, T2, T2* and M0 must be positive, and T2* < T2,
   because T2' is derived from them.
@@ -205,7 +209,7 @@ the registry maps names to builders. Every phantom produces the same directory c
 ```
 _phantoms/<name>/
   perfusion.nii.gz/.json  att  T1map  T2map  T2starmap  M0map  dseg   (required, aslscan contract)
-  abv.nii.gz/.json  aatt.nii.gz/.json                                 (optional)
+  abv.nii.gz/.json  att_arterial.nii.gz/.json                         (optional)
   phantom.json                                                        (LambdaBloodBrain, T1ArterialBlood, MagneticFieldStrength)
   anat/T1w.nii.gz                                                     (anatomical image in the phantom's world)
   anat/probseg-{GM,WM,CSF}.nii.gz                                     (priors for derivatives; never used for scoring)
@@ -242,7 +246,7 @@ The crop keeps the affine origin shifted correctly, so world coordinates are unc
 
 **Real-subject phantom (future, interface only).** A builder named `subject:<id>` downloads a
 pinned tarball (URL and SHA-256 in the registry, as in `data_versions.txt`) containing
-perfusion, ATT, aBAT (`aatt`), aBV (`abv`), T1, T2, T2*, M0 and dseg maps, the subject's T1w,
+perfusion, ATT, aBAT (`att_arterial`), aBV (`abv`), T1, T2, T2*, M0 and dseg maps, the subject's T1w,
 and optional anatomical derivatives.
 
 The builder sanitizes the maps to the aslscan contract, and records every change it makes in
@@ -258,7 +262,7 @@ the T1w, it resamples them to the T1w grid. Such a phantom lacks sub-voxel parti
 detail, which the provenance records.
 
 Everything downstream, including the T1w as anatomical image, `anat_offset`, scoring against
-truth maps and macrovascular truth, works unchanged. When `abv` and `aatt` are present,
+truth maps and macrovascular truth, works unchanged. When `abv` and `att_arterial` are present,
 multi-delay recipes gain `abv` and `abat` metrics (Section 7).
 
 Nothing in scoring may assume tissue constants. Expected values always come from the truth maps
@@ -440,6 +444,11 @@ All transforms are 4x4 RAS point mappings unless stated otherwise:
   - The exact composition comes from `motion.rs` and is pinned by the simulator landmark test
     (Section 9.4).
   - Without motion, `P_v = I`.
+  - Under within-volume motion a volume has no single pose. `P_v` is then the rigid
+    least-squares fit, over the truth brain voxels, that maps each voxel's phantom point
+    (`Q_s^-1 x`, with `Q_s` the pose of the shot that imaged voxel `x`; every shot, for a 3D
+    segment) to `x`: what a perfect rigid correction would undo. Its RMS misfit, the
+    within-volume motion no rigid transform removes, is reported (`within_volume_rms_*`).
 - `H_v`: ASLPrep's HMC transform for volume `v`, from
   `from-orig_to-aslref_mode-image_desc-hmc_xfm.txt`. As stored it is a pull mapping (an aslref
   point to a volume-`v` point); the scorer converts ITK LPS to RAS.
@@ -742,7 +751,8 @@ cell means `--output-spaces asl` only.
 | F4 `aslscan_pasl1pld` | 2D EPI PASL Q2TIPS (0.7, 1.6), PLD 1.8, separate M0, interleaved slice order | single-delay PASL Q2TIPS, interleaved timing | derivatives | | A, B |
 | F5 `aslscan_pcasl_multipld` | asl004-derived 2D EPI, 6 PLDs, label-first, unequal repeats (8/8/8/6/6/6 pairs), separate M0, `m0_divisor` 10, arterial compartment (per-label aBV/aBAT) | multi-delay PCASL, label-first ordering, unequal repeats, abv/abat | derivatives | `--m0_scale=10 --scorescrub`, atlases | A (fit), B (CBF, ATT; abv/abat report) |
 | F6 `aslscan_pasl_multipld` | asl003-derived 3D GRASE Q2TIPS, TIs 0.9-3.0 s, separate M0, `m0_divisor` 10 | multi-delay PASL | derivatives | `--m0_scale=10 --basil --scorescrub`, atlases | A (fit), B |
-| F7 `aslscan_motion` | F1 protocol with multiband 3 (13 slice groups), committed trajectory (≤ 2 mm, ≤ 2°, spikes at three volumes), noise at GM ΔM SNR 5 per pair, T1w `anat_offset` [3, -4, 2, 5, -3, 4] | HMC, FD, coregistration under a known pose, smriprep from raw T1w, multiband | raw | `--output-spaces T1w --scorescrub` | motion, coreg, hmc_consistency, cbf_t1w, scorescrub (report) |
+| F7 `aslscan_motion` | F1 protocol with multiband 3 (13 slice groups), committed timed trajectory sampled per slice group (drift, a step between volumes, a nod and a twitch inside readouts; ≤ 3.5 mm, ≤ 3.5°), two slice-group jump and dropout events, spin history, noise at GM ΔM SNR 5 per pair, T1w `anat_offset` [3, -4, 2, 5, -3, 4] | HMC under between- and within-volume motion, FD, coregistration under a known pose, smriprep from raw T1w, multiband | raw | `--output-spaces T1w --scorescrub` | motion, coreg, hmc_consistency, cbf_t1w, scorescrub (report) |
+| F8 `aslscan_grase_motion` | F3 protocol (3D GRASE, 4 ky segments, one per labeling, BS) with 6 pairs, separate M0 TR 6 s, committed timed trajectory sampled per segment (drift, a step between volumes, a nod between the segments of a volume; ≤ 2.5 mm, ≤ 2.5°), noise at GM ΔM SNR 10 per pair, `anat_offset` [-2, 3, 1.5, -3, 2, 4] | HMC on a segmented 3D readout under between- and within-volume motion, coregistration under a known pose | derivatives (offset) | `--output-spaces T1w` | motion, coreg, cbf_t1w |
 
 **Implemented deviations from the table** (recorded in each recipe's `SOURCE.md`):
 
@@ -754,8 +764,9 @@ cell means `--output-spaces asl` only.
 - **F6** is 2D EPI at 4x4x6 mm without background suppression. asl003's 3D GRASE geometry does
   not fit the full phantom with its `NumberShots`, 3D GRASE is covered by F3, and suppression
   is covered by the PCASL recipes.
-- **F7** scores motion, coregistration, T1w-space alignment and coverage. Native-space Tier A
-  and B are report-only there, because the motion-corrected series sits in the aslref frame.
+- **F7** and **F8** score motion, coregistration, T1w-space alignment and coverage.
+  Native-space Tier A and B are report-only there, because the motion-corrected series sits in
+  the aslref frame.
 - **Recipe names** drop the `aslscan_` prefix (for example `pcasl1pld`); the pytest markers keep
   it.
 
@@ -788,7 +799,7 @@ The target, σ² and the achieved SNR are recorded in `truth.json`.
 - The fast recipes are noise-free.
 - F1-F6 use SNR 50 per pair, so Tier A is not noise-limited and SCORE/SCRUB have finite
   variance.
-- F7 uses SNR 5 per pair.
+- F7 uses SNR 5 per pair, F8 SNR 10.
 
 ## 6. Replacement policy and equivalence map
 

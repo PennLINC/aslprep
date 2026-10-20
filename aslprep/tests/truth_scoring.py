@@ -60,6 +60,9 @@ class Fixture:
             for t in ('GM', 'WM', 'CSF')
         }
         self.motion = _read_tsv(gt / 'sub-01_desc-motion_gt.tsv')
+        # Within-volume motion: each 2D slice group's (or 3D segment's) absolute pose
+        self.motion_shots = _read_tsv(gt / 'sub-01_desc-motionShots_gt.tsv')
+        self._shot_fits = None
         self.affine = self.asl_img.affine
         self.shape = self.asl_img.shape[:3]
         self.R = np.asarray(self.truth['R'])
@@ -75,21 +78,71 @@ class Fixture:
         return ijk, tg.apply_points(self.affine, ijk)
 
     def poses(self):
-        """``P_v`` for every volume (identity without motion)."""
+        """``P_v`` for every volume (identity without motion).
+
+        Under within-volume motion, ``P_v`` is the rigid fit of :meth:`shot_fits`.
+        """
         n = self.asl_img.shape[3]
         if self.motion is None:
             return np.repeat(np.eye(4)[None], n, axis=0)
-        center = self.truth['motion_center']
-        return np.stack(
-            [
-                tg.pose_matrix(
-                    [row['trans_x'], row['trans_y'], row['trans_z']],
-                    [row['rot_x'], row['rot_y'], row['rot_z']],
-                    center,
-                )
-                for row in self.motion
-            ]
+        if self.motion_shots is not None:
+            return self.shot_fits()[0]
+        return np.stack([self._pose(row) for row in self.motion])
+
+    def _pose(self, row):
+        return tg.pose_matrix(
+            [row['trans_x'], row['trans_y'], row['trans_z']],
+            [row['rot_x'], row['rot_y'], row['rot_z']],
+            self.truth['motion_center'],
         )
+
+    def shot_fits(self):
+        """Per-volume rigid fits to the shot poses, and their RMS misfit (mm) over the brain.
+
+        Brain voxel ``x`` of a volume was imaged at its shot's pose ``Q_s`` (a 2D slice group's,
+        from ``slices``; every voxel for each segment of a 3D readout, whose ``slices`` are
+        n/a), so it shows the phantom point ``Q_s^-1 x``. ``P_v`` is the rigid mapping that best
+        takes those points to where they were imaged: what a perfect rigid motion correction
+        would undo. The misfit is the within-volume motion no rigid transform removes.
+        """
+        if self._shot_fits is None:
+            self._shot_fits = self._fit_shots()
+        return self._shot_fits
+
+    def _fit_shots(self):
+        ijk, points = self.voxel_centers(self.brain)
+        poses, misfits = [], []
+        for v in range(self.asl_img.shape[3]):
+            src, dst = [], []
+            for row in (r for r in self.motion_shots if int(r['volume']) == v):
+                sel = _slice_mask(row['slices'], ijk[:, 2])
+                src.append(tg.apply_points(np.linalg.inv(self._pose(row)), points[sel]))
+                dst.append(points[sel])
+            src, dst = np.concatenate(src), np.concatenate(dst)
+            fit = _rigid_fit(src, dst)
+            poses.append(fit)
+            residual = tg.apply_points(fit, src) - dst
+            misfits.append(float(np.sqrt(np.mean(np.sum(residual**2, axis=1)))))
+        return np.stack(poses), np.array(misfits)
+
+
+def _slice_mask(slices, k):
+    """Voxels of a shot's slices (comma-separated indices), or all of them for ``n/a``."""
+    if isinstance(slices, float):
+        return np.ones(len(k), bool) if np.isnan(slices) else k == int(slices)
+    return np.isin(k, [int(s) for s in str(slices).split(',')])
+
+
+def _rigid_fit(src, dst):
+    """The rigid mapping minimizing ``sum |m src - dst|^2`` (Kabsch), as a 4x4 matrix."""
+    cs, cd = src.mean(0), dst.mean(0)
+    u, _, vt = np.linalg.svd((src - cs).T @ (dst - cd))
+    d = np.sign(np.linalg.det(vt.T @ u.T))
+    r = vt.T @ np.diag([1.0, 1.0, d]) @ u.T
+    m = np.eye(4)
+    m[:3, :3] = r
+    m[:3, 3] = cd - r @ cs
+    return m
 
 
 def _read_tsv(path):
@@ -482,6 +535,12 @@ def score_frames(fixture, aslprep_dir):
         'rms_error_max_mm': float(np.max(errors_hmc)),
         'rms_error_by_volume_mm': [float(e) for e in errors_hmc],
     }
+    if fixture.motion_shots is not None:
+        # Report-only: the within-volume motion of each volume that no rigid correction can
+        # remove, the floor under rms_error for a volume whose slices or segments moved apart.
+        misfit = fixture.shot_fits()[1]
+        out['motion']['within_volume_rms_max_mm'] = float(misfit.max())
+        out['motion']['within_volume_rms_by_volume_mm'] = [float(m) for m in misfit]
     if not moving:
         # Without motion every A_v should be the identity. A displacement shared by all volumes
         # is a constant offset between the corrected series and the static frame (report-only:

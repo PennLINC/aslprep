@@ -1,0 +1,17 @@
+seed = 20261008
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+[readout]
+ky_segments = 4
+kz_segments = 1
+phase_encoding_direction = "j-"
+[m0]
+repetition_time = 6.0
+[background_suppression]
+inversion_efficiency = 0.975
+[motion]
+mode = "trajectory"
+trajectory = "motion.tsv"
+within_volume_sampling = "shot"
