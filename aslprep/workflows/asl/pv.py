@@ -314,8 +314,10 @@ CSF was left out of the gray and white matter fit.
 
     if multi_delay:
         workflow.__desc__ = f"""\
-Partial volume correction was additionally performed by local linear regression
-[@asllani2008regression], extended to multi-delay data.
+Partial volume correction was additionally performed with an experimental extension of local
+linear regression [@asllani2008regression] to multi-delay data, which is specific to *ASLPrep*
+and has not been validated against joint kinetic partial volume correction
+[@chappell2011partial].
 Within a {kernel_str} voxel kernel (in-plane, in-plane, slice) around each voxel,
 the delta-M of each volume was regressed on the gray and white matter partial volume maps,
 without an intercept, assuming CSF has no perfusion and that each tissue's signal is constant
@@ -332,6 +334,8 @@ Tissue estimates were retained where that tissue's partial volume was at least 1
 and tissue arterial transit times only where the tissue's CBF was positive.
 Arterial signal and variation of the kinetics within the kernel are not modelled by the
 unmixing; the residual of each tissue's kinetic fit is reported.
+The kinetic model did not constrain the unmixing, and the uncertainty of the regression was not
+propagated to the tissue CBF and arterial transit time.
 The uncorrected CBF maps were retained, as partial volume correction is recommended as an
 additional analysis [@chappell2021partial].
 For quality control, a separate regression on the gray matter, white matter and CSF partial

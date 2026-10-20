@@ -515,7 +515,9 @@ any spatial references.""",
             'maps within a local kernel (Asllani et al., 2008), using partial volume maps that '
             'model the effective resolution of the acquisition. '
             'Multi-delay data are unmixed at each delay, then each tissue curve is fit with the '
-            'kinetic model. The uncorrected CBF maps are always kept.'
+            'kinetic model; this multi-delay extension is experimental and not yet validated '
+            'against joint kinetic correction such as BASIL. '
+            'The uncorrected CBF maps are always kept.'
         ),
     )
     g_conf.add_argument(

@@ -161,7 +161,11 @@ def test_init_cbf_wf_lr_pvc_multidelay(tmp_path):
         # No standard errors for multi-delay data
         assert 'cbf_gm_se_lr' not in to_output
         assert 'cbf_csf_se_lr' not in to_output
-        assert 'arterial transit time' in wf.visit_desc()
+        desc = wf.visit_desc()
+        assert 'arterial transit time' in desc
+        # No published method validates the multi-delay extension, so it says so.
+        assert 'experimental extension of local' in desc
+        assert '@chappell2011partial' in desc
 
 
 def test_ds_pvc_native_wf_multidelay():

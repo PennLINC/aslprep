@@ -661,6 +661,29 @@ delay is linear in the tissue signals. BASIL also corrects single- and multi-del
 overlap is not a reason to skip this. LR adds the PSF-aware PV maps, explicit identifiability
 rules and diagnostics, and a regression-based estimate to compare with BASIL.
 
+**Literature basis and status (added 2026-10-20, after a literature assessment).**
+
+- **What has a basis.**
+  - The regression step is Asllani et al. (2008).
+  - Per-delay unmixing rests on the linear superposition of tissue signals at a fixed delay,
+    not on a published multi-delay method.
+  - The tissue fit is the general kinetic model that ASLPrep already uses.
+  - Joint kinetic and spatial PVC of multi-delay data is established: Chappell et al. (2011,
+    BASIL). Zhao et al. (2017) and Petr et al. (2018) compare regression with spatially
+    regularized PVC, and show the sensitivity to PV maps and effective resolution.
+- **What does not.** No reference we know of validates this two-stage estimator: unconstrained
+  per-delay regression, then an independent kinetic fit of each tissue. The method is therefore
+  described everywhere (boilerplate, CLI help, docs) as an **experimental ASLPrep extension** of
+  Asllani-style LR followed by tissue-specific kinetic modelling. It stays opt-in and additional
+  to BASIL and the uncorrected maps. No accuracy claims or default use until it has been
+  validated (§5.7.7, "Still required").
+- **How it differs from joint kinetic PVC.**
+  - BASIL-style methods use the tissues' different kinetics to constrain the spatial
+    separation. This method uses them only after unmixing, so where p̃_GM and p̃_WM are
+    similar in the kernel, each delay is no better conditioned than a single-delay fit.
+  - The two solve different estimation problems and are not interchangeable. Neither is
+    expected to be better for every acquisition.
+
 #### 5.7.1 Model and assumptions
 
 - **The model.** For delay volume v, with delay PLD_k,v (slice-shifted with slice timing),
@@ -886,6 +909,32 @@ unchanged. For multi-delay data:
    comes with PR 2.
 7. **Integration (report only).** The `pcasl_multipld` run adds `--pvc-method local-regression`.
    The manifest and `lr_pvc` scores are updated.
+
+**Still required (not in this PR).** Items 1-7 test internal consistency, mostly where the
+generating model matches the fitted one. Before any accuracy claim or default use, the method
+needs the following (from the 2026-10-20 literature assessment). Existing issues are noted.
+
+- **Within-kernel heterogeneity.** Simulate CBF and ATT varying independently within GM and WM,
+  and measure the tissue bias against kernel size and local ATT dispersion, for ATT especially.
+  Item 4 asserts only the direction of the error.
+- **Matched comparison with BASIL.** Use the same signal, PV maps, calibration, kinetic
+  assumptions and macrovascular settings. Compare CBF and ATT bias, RMSE, valid coverage,
+  sharpness and failures. Related: #740 (BASIL with voxel-averaged PV maps), #739 (blockiness).
+- **PV and PSF errors.** Perturb the segmentation, registration, through-plane resolution and
+  assumed readout blur, including systematic errors.
+- **Noise and schedule.** Vary SNR, the number of delays, repeats, arrival-time coverage and
+  late-only schedules. Evaluate both the spatial identifiability and the ATT bounds. Related:
+  #742 (unidentifiable ATT).
+- **Arterial contamination.** Add vessel-localized and multi-arrival macrovascular signal, and
+  find where neither the spatial nor the kinetic residual flags a biased estimate.
+- **Real data.** Test-retest repeatability, sensitivity to kernel size, agreement with BASIL,
+  dependence on PV fraction, and regions of heterogeneous transit time. Agreement between
+  methods is not ground truth. Related: the truth-free consistency tests (#746) and #741 (CSF
+  QC on real data).
+- **Isolate the modelling choice.** Compare the two-stage estimator with a joint nonlinear
+  spatiotemporal least-squares fit of the same local data and PV matrix. That separates the
+  value of kinetic constraints during unmixing from differences in BASIL's priors and
+  implementation.
 
 #### 5.7.8 Clauses elsewhere that change
 
@@ -1441,6 +1490,25 @@ accepted. Changes by finding:
 12. **Cost and conflicting clauses.** The added cost is now separated from the total, resources
     are declared, and §1, §5.5, §6.2 and §12 are updated (§5.7.6, §5.7.8).
 
+A literature assessment of the multi-delay extension (2026-10-20) found:
+
+- a strong basis for its components (Asllani-style LR, linear superposition at each delay, and
+  the kinetic model);
+- no direct validation of the two-stage combination.
+
+All of its points were accepted. None changes the estimator; they change how it is described and
+what remains to be validated:
+
+- The method is labelled an experimental ASLPrep extension in the boilerplate, CLI help and docs
+  (§5.7, "Literature basis and status").
+- Limitations that were missing from the docs are now stated:
+  - within-kernel kinetic heterogeneity, and its effect on ATT;
+  - no kinetic constraint during unmixing;
+  - spatial diagnostics that are not propagated to CBF and ATT.
+- Limitations that were already stated: arterial contamination, the mixed-M0 calibration, and
+  PV/PSF sensitivity.
+- The validation the assessment recommends is listed under §5.7.7, "Still required".
+
 ## 12. Acceptance criteria
 
 - **Defaults.** With no new flags, the workflow graph and the derivative list are unchanged (unit
@@ -1450,7 +1518,8 @@ accepted. Changes by finding:
     method, the kernel, the thresholds, the FWHM and its source, and the calibration;
   - passes unit tests 1-8 and 12-14;
   - reports §7.2(a) and (b).
-  - On CBF-only data it fails with a clear message. Multi-delay data write the §5.7.5 outputs.
+  - On CBF-only data it fails with a clear message. Multi-delay data write the §5.7.5 outputs,
+    described as experimental until the §5.7.7 "Still required" validation is done.
 - **`--surface-weighting`**:
   - runs the Workbench nodes with `-weighted` and a single `volume_roi` source;
   - writes the support GIFTIs;

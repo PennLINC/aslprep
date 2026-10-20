@@ -573,6 +573,17 @@ for all volumes, which gives a gray matter and a white matter curve across the d
 Each curve is then fit with the same general kinetic model as the uncorrected data,
 calibrated by the voxel's M0, giving tissue CBF and ATT.
 
+.. warning::
+
+   The multi-delay extension is experimental and specific to *ASLPrep*.
+   Its components are established: local regression :footcite:p:`asllani2008regression`, the
+   linear superposition of tissue signals at each delay, and the general kinetic model.
+   Their combination has not been validated, and has not been compared systematically with
+   joint kinetic partial volume correction such as BASIL :footcite:p:`chappell2011partial`,
+   which also uses the tissues' kinetics to separate them.
+   Treat its tissue CBF and ATT as an additional analysis, alongside BASIL and the uncorrected
+   maps, rather than as a validated estimate.
+
 - The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
   raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
   exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
@@ -588,10 +599,22 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
   equally well, for example when ATT is shorter than every delay, the middle of the range is
   reported.
 - The unmixing assumes each tissue's signal, including its arrival time, is the same throughout
-  the kernel. Arterial (macrovascular) signal does not follow the tissue maps: the kinetic fit's
+  the kernel. Where CBF or ATT varies within the kernel, a tissue curve is a weighted mixture of
+  different kinetic curves, which one ATT cannot represent exactly. The fitted ATT then need not
+  be the centre voxel's, even when the fit looks good; this affects ATT more than CBF.
+- Arterial (macrovascular) signal does not follow the tissue maps: the kinetic fit's
   arterial term absorbs some of it, but it can bias the tissue estimates, in either direction.
   ``desc-lr*_pvkinres`` is the relative residual of each tissue's kinetic fit, and is the
-  diagnostic for these problems; the spatial residual (``desc-lr_pvrmse``) cannot detect them.
+  diagnostic for these problems; the spatial residual (``desc-lr_pvrmse``) cannot detect them,
+  and neither can detect every case.
+- Each volume is unmixed on its own, from the partial volume maps alone. The tissues' different
+  kinetics are used only afterwards, so where the gray and white matter maps are similar within
+  the kernel, the separation is no better conditioned than at a single delay.
+- The spatial diagnostics (conditioning, noise amplification) are not propagated to the tissue
+  CBF and ATT, so they are not standard errors of those estimates, and none are written.
+- As for single-delay data, the tissue CBF is calibrated by the voxel's mixed M0, not a
+  tissue-specific M0, and the results depend on the accuracy of the partial volume maps and of
+  the effective resolution.
 - ``desc-lrCSF_cbf`` is the signed least-squares CBF of the CSF curve against a unit-CBF tissue
   curve without an arterial term, calibrated by the voxel's M0, at the voxel's uncorrected ATT
   (or the median uncorrected ATT where it was not estimated, as in most CSF). Like the
