@@ -548,7 +548,8 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     aslref_out = bool(nonstd_spaces.intersection(('func', 'run', 'asl', 'aslref', 'sbref')))
     aslref_out &= config.workflow.level == 'full'
 
-    if (config.workflow.level in ('minimal', 'resampling')) or aslref_out:
+    write_native = (config.workflow.level in ('minimal', 'resampling')) or aslref_out
+    if write_native:
         ds_asl_native_wf = init_ds_asl_native_wf(
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
@@ -1158,9 +1159,15 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 deriv for deriv in att_derivs if deriv not in basil_sd_derivs
             ]
             parcellated_sparse = {**lr_sparse, **lr_sparse_other}
+            # The scalarstats columns list the written aslref-space maps they came from.
+            # The PVC maps are always written in aslref space; the others only when it is an
+            # output space.
+            written_native = parcellated_derivs if write_native else []
+            written_pvc = list(parcellated_sparse)
             parcellate_cbf_wf = init_parcellate_cbf_wf(
                 maps_3d=parcellated_derivs,
                 sparse_3d=parcellated_sparse,
+                written_maps=written_native + written_pvc,
                 mem_gb=mem_gb['resampled'],
                 omp_nthreads=omp_nthreads,
                 name='parcellate_cbf_wf',
@@ -1194,6 +1201,21 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
                 workflow.connect([
                     (cbf_wf, parcellate_cbf_wf, [
                         (f'outputnode.{cbf_deriv}', f'inputnode.{cbf_deriv}'),
+                    ]),
+                ])  # fmt:skip
+
+            if written_native:
+                workflow.connect([
+                    (ds_asl_native_wf, parcellate_cbf_wf, [
+                        (f'outputnode.{deriv}', f'inputnode.{deriv}_file')
+                        for deriv in written_native
+                    ]),
+                ])  # fmt:skip
+            if written_pvc:
+                workflow.connect([
+                    (ds_pvc_native_wf, parcellate_cbf_wf, [
+                        (f'outputnode.{deriv}', f'inputnode.{deriv}_file')
+                        for deriv in written_pvc
                     ]),
                 ])  # fmt:skip
 

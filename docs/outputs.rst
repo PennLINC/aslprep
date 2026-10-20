@@ -828,6 +828,11 @@ Every CBF, ATT, aBAT and aBV map is parcellated,
 but not the BASIL posterior standard deviations (``desc-basilSD``),
 whose parcel means are not parcel standard deviations.
 The sidecar describes each column and gives its units.
+In the ``scalarstats`` sidecar, each map's column also has ``Sources``:
+the BIDS-URI of the ASL reference-space map it was computed from,
+when that map is written to the output directory.
+The partial volume corrected maps are always written in ASL reference space;
+the other maps only when ``asl`` is in ``--output-spaces``.
 The ``scalarstats`` table gives each parcel's mean,
 and is ``n/a`` for parcels with too little coverage.
 The coverage table gives the fraction of each parcel in which that map was estimated.

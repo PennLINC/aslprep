@@ -782,6 +782,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 def init_parcellate_cbf_wf(
     maps_3d,
     sparse_3d=None,
+    written_maps=(),
     min_coverage=0.5,
     mem_gb=0.1,
     omp_nthreads=1,
@@ -813,6 +814,10 @@ def init_parcellate_cbf_wf(
         validity mask as the value. They are parcellated within that mask, so voxels that were
         not estimated (stored as zero) do not enter parcel means, and their coverage columns
         report estimation coverage.
+    written_maps : sequence of str
+        The maps in ``maps_3d`` or ``sparse_3d`` that are written to the output directory in
+        ASL reference space. Their written paths are listed, as BIDS-URIs, in the ``Sources``
+        of their ``scalarstats`` columns.
     min_coverage : float
         Parcels with less coverage than this are set to n/a.
     mem_gb : float
@@ -842,6 +847,8 @@ def init_parcellate_cbf_wf(
         The maps to parcellate within ``asl_mask``.
     <each key and value of sparse_3d> : str
         The sparsely estimated maps, and the validity masks they are parcellated within.
+    <each name in written_maps>_file : str
+        The written path of that map.
 
     Outputs
     -------
@@ -872,6 +879,10 @@ or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% c
     ]
     input_fields += maps_3d
     input_fields += list(sparse_3d) + sorted(set(sparse_3d.values()))
+    map_names = maps_3d + list(sparse_3d)
+    if unknown := sorted(set(written_maps) - set(map_names)):
+        raise ValueError(f'Written maps {unknown} are not parcellated.')
+    input_fields += [f'{map_name}_file' for map_name in map_names if map_name in written_maps]
     inputnode = pe.Node(
         niu.IdentityInterface(fields=input_fields),
         name='inputnode',
@@ -944,7 +955,6 @@ or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% c
 
     # Every map is parcellated with each atlas in one node, which writes one table of parcel
     # means (scalarstats) and one coverage table, with a row per parcel and a column per map.
-    map_names = maps_3d + list(sparse_3d)
     columns = []
     for map_name in map_names:
         fields = BASE_INPUT_FIELDS[map_name]
@@ -984,54 +994,113 @@ or the whole parcel was set to n/a (when the parcel had <{min_coverage * 100}% c
     # Describe each column in the sidecars, as BIDS does for tabular files.
     node_meta = {'Description': 'Name of the parcel, from the atlas labels table.'}
     column_meta = {
-        'scalarstats': {
-            column: {
-                'Description': (
-                    f'Mean of {column} in each parcel, '
-                    f'or n/a for parcels with less than {min_coverage * 100}% coverage. '
-                    f'{BASE_INPUT_FIELDS[map_name]["Description"]}'
-                ),
-                'Units': BASE_INPUT_FIELDS[map_name]['Units'],
-            }
-            for column, map_name in zip(columns, map_names, strict=True)
-        },
-        'coverage': {
-            column: {
-                'Description': f'Fraction of each parcel in which {column} was estimated.',
-            }
-            for column in columns
-        },
+        'scalarstats': {'node': node_meta},
+        'coverage': {'node': node_meta},
     }
-    # The column descriptions are passed to the datasinks as metadata keyword arguments.
-    reserved = set(DerivativesDataSink._allowed_entities) | set(
-        DerivativesDataSink.input_spec().copyable_trait_names()
-    )
-    if clashes := reserved & ({'node'} | set(columns)):
-        raise ValueError(f'Column names {sorted(clashes)} are datasink inputs or entities.')
+    for column, map_name in zip(columns, map_names, strict=True):
+        column_meta['scalarstats'][column] = {
+            'Description': (
+                f'Mean of {column} in each parcel, '
+                f'or n/a for parcels with less than {min_coverage * 100}% coverage. '
+                f'{BASE_INPUT_FIELDS[map_name]["Description"]}'
+            ),
+            'Units': BASE_INPUT_FIELDS[map_name]['Units'],
+        }
+        column_meta['coverage'][column] = {
+            'Description': f'Fraction of each parcel in which {column} was estimated.',
+        }
+
+    # Each scalarstats column also lists the written map it came from, when there is one.
+    # The column metadata goes in meta_dict, rather than the datasinks' keyword arguments,
+    # because the datasinks would replace each column's entry (with its Sources) with theirs.
+    sourced_maps = [map_name for map_name in map_names if map_name in written_maps]
+    if sourced_maps:
+        merge_written = pe.Node(
+            niu.Merge(len(sourced_maps)),
+            name='merge_written',
+            run_without_submitting=True,
+        )
+        for i_map, map_name in enumerate(sourced_maps, start=1):
+            workflow.connect([
+                (inputnode, merge_written, [(f'{map_name}_file', f'in{i_map}')]),
+            ])  # fmt:skip
 
     for suffix in ('scalarstats', 'coverage'):
+        table_meta = pe.MapNode(
+            niu.Function(
+                function=_add_column_metadata,
+                input_names=[
+                    'meta_dict',
+                    'column_meta',
+                    'sourced_columns',
+                    'source_files',
+                    'dataset_links',
+                    'out_dir',
+                ],
+                output_names=['metadata'],
+            ),
+            name=f'{suffix}_meta',
+            iterfield=['meta_dict'],
+            run_without_submitting=True,
+        )
+        table_meta.inputs.column_meta = column_meta[suffix]
+        table_meta.inputs.dataset_links = config.execution.dataset_links
+        table_meta.inputs.out_dir = str(output_dir)
+        if suffix == 'scalarstats' and sourced_maps:
+            table_meta.inputs.sourced_columns = [
+                columns[map_names.index(map_name)] for map_name in sourced_maps
+            ]
+            workflow.connect([(merge_written, table_meta, [('out', 'source_files')])])
+        else:
+            table_meta.inputs.sourced_columns = []
+            table_meta.inputs.source_files = []
+
         ds_table = pe.MapNode(
             DerivativesDataSink(
                 base_directory=config.execution.aslprep_dir,
                 check_hdr=False,
                 suffix=suffix,
-                node=node_meta,
-                **column_meta[suffix],
             ),
             name=f'ds_{suffix}',
             iterfield=['atlas', 'in_file', 'meta_dict'],
             run_without_submitting=True,
         )
         workflow.connect([
+            (atlas_srcs, table_meta, [('metadata', 'meta_dict')]),
             (inputnode, ds_table, [
                 ('source_file', 'source_file'),
                 ('atlas_names', 'atlas'),
             ]),
             (parcellate, ds_table, [(suffix, 'in_file')]),
-            (atlas_srcs, ds_table, [('metadata', 'meta_dict')]),
+            (table_meta, ds_table, [('metadata', 'meta_dict')]),
         ])  # fmt:skip
 
     return workflow
+
+
+def _add_column_metadata(
+    meta_dict,
+    column_meta,
+    sourced_columns,
+    source_files,
+    dataset_links,
+    out_dir,
+):
+    """Add column descriptions, and each sourced column's Sources, to a table's metadata."""
+    from copy import deepcopy
+
+    from aslprep.utils.bids import _get_bidsuris
+
+    if len(sourced_columns) != len(source_files):
+        raise ValueError(
+            f'Got {len(sourced_columns)} sourced columns but {len(source_files)} files.'
+        )
+
+    metadata = deepcopy(meta_dict)
+    metadata.update(deepcopy(column_meta))
+    for column, source_file in zip(sourced_columns, source_files, strict=True):
+        metadata[column]['Sources'] = _get_bidsuris([source_file], dataset_links, out_dir)
+    return metadata
 
 
 def init_load_atlases_wf(
