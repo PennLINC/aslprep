@@ -249,8 +249,10 @@ Cerebral blood flow computation and denoising
 
     elif m0type == 'Estimate':
         m0_str = (
-            f'A single M0 estimate of {metadata["M0Estimate"]} was used to produce a calibration '
-            f"'image' and was scaled by {m0_scale}."
+            f'A single M0 estimate of {metadata["M0Estimate"]}, scaled by {m0_scale}, was used '
+            'as a uniform calibration image. '
+            'As BIDS defines this estimate as the M0 of arterial blood, it was not divided by '
+            'the blood-brain partition coefficient.'
         )
     else:
         m0_str = (
@@ -292,6 +294,11 @@ Cerebral blood flow computation and denoising
                 'That product, which does not, was also written out.'
             )
 
+        m0b_str = (
+            'the M0 estimate'
+            if m0type == 'Estimate'
+            else 'M0 divided by the blood-brain partition coefficient'
+        )
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
@@ -300,7 +307,7 @@ This model contains separate terms for tissue and macrovascular delta-M signals.
 
 {m0_str}
 The equilibrium magnetization of arterial blood (M0b) was estimated voxel-wise as
-M0 divided by the blood-brain partition coefficient,
+{m0b_str},
 and was used in both the tissue and the macrovascular terms of the GKM.
 
 CBF, arterial transit time (ATT; the arrival time of the labeled blood in the tissue),
@@ -385,11 +392,16 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 f'the value for {field_strength:g} T [{t1blood_citation}].'
             )
 
-        workflow.__desc__ += (
-            ' CBF was calculated with a blood-brain partition coefficient of '
-            f'{calibration_value(calibration, "PartitionCoefficient"):g} mL/g '
-            f'[@alsop_recommended_2015] and {describe_labeling_efficiency(metadata)}.'
-        )
+        if m0type == 'Estimate':
+            workflow.__desc__ += (
+                f' CBF was calculated with {describe_labeling_efficiency(metadata)}.'
+            )
+        else:
+            workflow.__desc__ += (
+                ' CBF was calculated with a blood-brain partition coefficient of '
+                f'{calibration_value(calibration, "PartitionCoefficient"):g} mL/g '
+                f'[@alsop_recommended_2015] and {describe_labeling_efficiency(metadata)}.'
+            )
 
     # End the paragraph, so that the next workflow's description does not run into it.
     workflow.__desc__ += '\n'
@@ -721,16 +733,20 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
 
         workflow.connect([
             (inputnode, basilcbf, [('asl_mask', 'mask')]),
-            (extract_deltam, basilcbf, [
-                ('out_file', 'deltam'),
-                ('m0_file', 'mzero'),
-            ]),
+            (extract_deltam, basilcbf, [('out_file', 'deltam')]),
             (determine_bolus_duration, basilcbf, [('bolus', 'bolus')]),
             (basilcbf, outputnode, [
                 ('mean_cbf_basil', 'mean_cbf_basil'),
                 ('cbf_sd_basil', 'cbf_sd_basil'),
             ]),
         ])  # fmt:skip
+        if m0type == 'Estimate':
+            # BASIL gets the M0 estimate as a single value of blood M0 (m0_value)
+            workflow.__desc__ += (
+                'BASIL was given the scaled M0 estimate as the M0 of arterial blood.\n'
+            )
+        else:
+            workflow.connect([(extract_deltam, basilcbf, [('m0_file', 'mzero')])])
 
         if use_tiimg:
             make_tiimg = pe.Node(

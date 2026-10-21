@@ -199,9 +199,10 @@ def resolve_calibration(
             'metadata',
             'M0Estimate in the ASL sidecar',
             (
-                'Single M0 value used as a uniform calibration image. '
-                'It is calibrated like an M0 image, including division by the '
-                'blood-brain partition coefficient.'
+                'Single M0 value of arterial blood, as BIDS defines M0Estimate, used as a '
+                'uniform calibration image. It is not divided by the blood-brain partition '
+                'coefficient, which converts the M0 of tissue to that of blood, so the '
+                'specification has no PartitionCoefficient.'
             ),
             units='arbitrary',
         )
@@ -437,16 +438,18 @@ def resolve_calibration(
         units='s',
     )
 
-    params['PartitionCoefficient'] = _parameter(
-        PARTITION_COEFFICIENT,
-        'default',
-        'Alsop et al. (2015)',
-        (
-            'Blood-brain partition coefficient (lambda). The calibration image divided by it '
-            'is the equilibrium magnetization of arterial blood.'
-        ),
-        units='mL/g',
-    )
+    if m0type != 'Estimate':
+        # An M0Estimate is already the M0 of blood (see m0_partition_coefficient).
+        params['PartitionCoefficient'] = _parameter(
+            PARTITION_COEFFICIENT,
+            'default',
+            'Alsop et al. (2015)',
+            (
+                'Blood-brain partition coefficient (lambda). The calibration image divided by '
+                'it is the equilibrium magnetization of arterial blood.'
+            ),
+            units='mL/g',
+        )
     params['CBFUnitConversion'] = _parameter(
         CBF_UNIT_CONVERSION,
         'default',
@@ -491,6 +494,23 @@ def calibration_value(calibration, name, default=None):
     """
     param = calibration['Parameters'].get(name)
     return default if param is None else param['Value']
+
+
+def m0_partition_coefficient(calibration):
+    """Get the factor the calibration image is divided by to give the M0 of arterial blood.
+
+    This is the blood-brain partition coefficient, which converts the M0 of tissue to that of
+    blood (Alsop et al., 2015), except for an ``M0Estimate``: BIDS defines it as the M0 of
+    blood already, so it is divided by 1.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`.
+    """
+    if calibration_value(calibration, 'M0Type') == 'Estimate':
+        return 1.0
+    return calibration_value(calibration, 'PartitionCoefficient')
 
 
 #: The models that quantify ASLPrep's outputs, as named in :func:`describe_model`.
@@ -598,6 +618,10 @@ def basil_calibration_inputs(calibration):
     ASLPrep therefore always gives ``--tr``, so that BASIL corrects the same calibration
     images as ASLPrep, with the same tissue T1.
 
+    An ``M0Estimate`` is the M0 of blood, so it is given as a single value (``--M0``),
+    which oxford_asl does not divide by the partition coefficient.
+    oxford_asl does not apply ``--cgain`` to it, so it is multiplied by ``M0Scale`` here.
+
     Parameters
     ----------
     calibration : :obj:`dict`
@@ -613,6 +637,16 @@ def basil_calibration_inputs(calibration):
     ValueError
         If the specification has a partition coefficient that oxford_asl cannot use.
     """
+    inputs = {
+        'alpha': calibration_value(calibration, 'EffectiveLabelingEfficiency'),
+        't1blood': calibration_value(calibration, 'BloodT1'),
+        't1tissue': calibration_value(calibration, 'BASILTissueT1', BASIL_TISSUE_T1),
+    }
+    m0_scale = calibration_value(calibration, 'M0Scale')
+    if calibration_value(calibration, 'M0Type') == 'Estimate':
+        inputs['m0_value'] = calibration_value(calibration, 'M0Estimate') * m0_scale
+        return inputs
+
     partition_coefficient = calibration_value(calibration, 'PartitionCoefficient')
     if not np.isclose(partition_coefficient, 0.9):
         raise ValueError(
@@ -620,12 +654,7 @@ def basil_calibration_inputs(calibration):
             f'calibration uses {partition_coefficient}.'
         )
 
-    inputs = {
-        'm0_scale': calibration_value(calibration, 'M0Scale'),
-        'alpha': calibration_value(calibration, 'EffectiveLabelingEfficiency'),
-        't1blood': calibration_value(calibration, 'BloodT1'),
-        't1tissue': calibration_value(calibration, 'BASILTissueT1', BASIL_TISSUE_T1),
-    }
+    inputs['m0_scale'] = m0_scale
     if calibration_value(calibration, 'M0RecoveryCorrection') == 'saturation recovery':
         inputs['m0tr'] = calibration_value(calibration, 'M0RepetitionTime')
         inputs['t1tissue_calib'] = calibration_value(calibration, 'TissueT1')

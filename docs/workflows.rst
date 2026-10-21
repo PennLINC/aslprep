@@ -492,6 +492,13 @@ so *ASLPrep* divides the M0 image by :math:`1 - e^{-TR / T_{1,tissue}}`
 :footcite:p:`alsop_recommended_2015`.
 BASIL makes the same correction from the repetition time it is given.
 
+BIDS defines ``M0Estimate`` as the M0 of arterial blood,
+so *ASLPrep* does not divide it by the blood-brain partition coefficient
+(:math:`\lambda` in the equations below), as it does for an M0 image of tissue.
+Its CBF equals that from a uniform M0 image of :math:`\lambda` times the estimate.
+If a dataset's ``M0Estimate`` is the M0 of tissue instead,
+divide it by 0.9 before running *ASLPrep*.
+
 CBF is proportional to the ASL difference signal (ΔM) divided by M0,
 so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,
 which resampling to other spaces would then spread into the neighboring voxels.

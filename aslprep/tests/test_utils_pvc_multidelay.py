@@ -144,6 +144,20 @@ def test_multidelay_slice_timing_single_slice_kernel():
     np.testing.assert_allclose(result['att'], 1.0, atol=0.01)
 
 
+@pytest.mark.parametrize('partition_coefficient', [0.9, 1.0])
+def test_fit_tissue_curves_partition_coefficient(partition_coefficient):
+    """The fit and its kinetic residual use the same partition coefficient.
+
+    It is 1 for an M0Estimate, which is already the M0 of blood.
+    """
+    kinetics = {**KINETICS, 'partition_coefficient': partition_coefficient}
+    curve = _tissue_curve(60.0, 1.0, 1000.0, **kinetics)
+    result = pvc.fit_tissue_curves(curve[None, :], np.array([1000.0]), PLDS[None, :], **kinetics)
+    assert result['status'][0] == 1
+    np.testing.assert_allclose(result['cbf'], 60.0, rtol=0.01)
+    assert result['kinres'][0] < 1e-3
+
+
 @pytest.mark.parametrize('abv', [0.01, 0.05, 0.1])
 def test_fit_tissue_curves_pure_arterial(abv):
     """A curve with only arterial signal has no tissue CBF, so its ATT is not claimed.

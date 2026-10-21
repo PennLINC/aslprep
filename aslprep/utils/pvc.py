@@ -1128,6 +1128,7 @@ def fit_tissue_curves(
             is_casl=is_casl,
             tau=tau,
             ti1=ti1,
+            partition_coefficient=partition_coefficient,
         )
     norm = np.linalg.norm(curves, axis=1)
     kinres = np.zeros(n_voxels)

@@ -62,6 +62,8 @@ def m0_image(asl, context, metadata, affine, m0scan=None, m0_metadata=None, fwhm
     """The calibration image and its repetition time, by ``M0Type`` (BIDS ASL).
 
     Returns ``(m0, tr)``; ``tr`` is None when no TR correction applies (``Estimate``).
+    ``m0`` is the M0 of tissue, which the equations below divide by lambda. BIDS defines
+    ``M0Estimate`` as the M0 of arterial blood, so the tissue M0 is lambda times it.
     """
     idx = volume_indices(context)
     m0_type = metadata['M0Type']
@@ -72,7 +74,7 @@ def m0_image(asl, context, metadata, affine, m0scan=None, m0_metadata=None, fwhm
         data = smooth(asl[..., idx['m0scan']], affine, fwhm).mean(axis=-1)
         return data, _tr_of(metadata, idx['m0scan'])
     if m0_type == 'Estimate':
-        return np.full(asl.shape[:3], float(metadata['M0Estimate'])), None
+        return np.full(asl.shape[:3], LAMBDA * float(metadata['M0Estimate'])), None
     if m0_type == 'Absent':
         if metadata.get('BackgroundSuppression'):
             raise ValueError('background-suppressed control volumes cannot calibrate CBF')
