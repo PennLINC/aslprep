@@ -57,37 +57,3 @@ def _fslicense(working_dir):
     )
     with open(FS_LICENSE, 'w') as f:
         f.write(base64.b64decode(LICENSE_CODE).decode())
-
-
-# TEMPORARY (PR 767 CI diagnosis; to be reverted): after each test, can `python` on PATH
-# still import surfa, as mri_synthstrip needs?
-_SURFA_PROBE = []
-
-
-def _surfa_probe():
-    import shutil
-    import subprocess
-
-    proc = subprocess.run(
-        ['python', '-c', 'import sys, surfa; print(sys.executable, surfa.__file__)'],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    tail = (proc.stdout or proc.stderr).strip().splitlines()[-1:]
-    return proc.returncode, shutil.which('python'), tail
-
-
-@pytest.fixture(autouse=True)
-def _surfa_probe_fixture(request):
-    yield
-    code, which, tail = _surfa_probe()
-    if code or not _SURFA_PROBE:
-        _SURFA_PROBE.append((request.node.nodeid, code, which, tail, os.environ.get('PATH')))
-
-
-def pytest_terminal_summary(terminalreporter):
-    for nodeid, code, which, tail, path in _SURFA_PROBE[:4]:
-        terminalreporter.write_line(
-            f'SURFA-PROBE after {nodeid}: exit {code}, python {which}, {tail}, PATH {path}'
-        )
