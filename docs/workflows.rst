@@ -262,7 +262,14 @@ three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`,
 for a more accurate estimation of head-motion.
 
-Each volume type (control, label, M0, ...) is registered to the reference separately.
+Each volume type (control, label, M0, ...) is registered to the reference separately,
+through a reference of its own contrast: the type's volumes are first aligned to their middle
+volume with ``mcflirt`` and averaged,
+that mean is aligned rigidly to the reference image (FSL ``flirt``, mutual information),
+and the volumes are then registered to the aligned mean.
+Registering background-suppressed control and label volumes directly to a separate M0 scan,
+whose contrast and intensity differ, recovered only about half of the head motion
+in simulations (`#762 <https://github.com/PennLINC/aslprep/issues/762>`_).
 This leaves a small rigid offset between the corrected label and control volumes,
 which appears at the edges of the brain after subtraction.
 With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),

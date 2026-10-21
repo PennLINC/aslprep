@@ -10,6 +10,7 @@ import pytest
 from aslprep.interfaces.hmc import CorrectLabelOffset, _resample, plan_label_offset_groups
 
 needs_afni = pytest.mark.skipif(shutil.which('3dvolreg') is None, reason='AFNI 3dvolreg not found')
+needs_fsl = pytest.mark.skipif(shutil.which('mcflirt') is None, reason='FSL mcflirt not found')
 
 
 def test_plan_label_offset_groups_pcasl_borrows_early_delays():
@@ -52,8 +53,12 @@ def test_plan_label_offset_groups_all_early_and_no_pairs():
     assert borrowed == {}
 
 
-def _phantom(shape, affine, shift_mm=(0.0, 0.0, 0.0)):
-    """A smooth analytic head-like image, sampled with its content displaced by ``shift_mm``."""
+def _phantom(shape, affine, shift_mm=(0.0, 0.0, 0.0), blob_contrast=0.3):
+    """A smooth analytic head-like image, sampled with its content displaced by ``shift_mm``.
+
+    ``blob_contrast`` scales the internal structure against the head envelope; a negative value
+    inverts it, giving another contrast of the same anatomy.
+    """
     ijk = np.indices(shape).reshape(3, -1)
     xyz = (affine @ np.vstack([ijk, np.ones((1, ijk.shape[1]))]))[:3]
     xyz = xyz - np.asarray(shift_mm, float)[:, None]
@@ -64,7 +69,7 @@ def _phantom(shape, affine, shift_mm=(0.0, 0.0, 0.0)):
         a * np.exp(-((r - np.array(c)[:, None]) ** 2).sum(0) / (2 * s**2))
         for a, c, s in ((0.6, (12, 8, 0), 7), (-0.4, (-14, -6, 6), 9), (0.5, (0, -20, -8), 6))
     )
-    return (1000 * (head + 0.3 * head * blobs)).reshape(shape).astype(np.float32)
+    return (1000 * (head + blob_contrast * head * blobs)).reshape(shape).astype(np.float32)
 
 
 def _write_series(tmp_path, volumes, types, affine, pulls=None):
@@ -218,3 +223,92 @@ def test_init_asl_hmc_wf_adds_label_offset_only_when_asked():
         wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
         assert 'correct_label_offset' in wf.list_node_names()
         config.workflow.hmc_method = 'typewise'
+
+
+def test_init_asl_hmc_wf_registers_to_the_aligned_type_mean():
+    """MCFLIRT's reference is each type's own mean aligned to the ASL reference, not the latter."""
+    from aslprep.tests.tests import mock_config
+    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+
+    with mock_config():
+        wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
+    edges = {
+        (u.name, v.name, src, dst)
+        for u, v, data in wf._graph.edges(data=True)
+        for src, dst in data['connect']
+    }
+    assert ('type_mean_to_ref', 'mcflirt', 'out_file', 'ref_file') in edges
+    assert ('inputnode', 'type_mean_to_ref', 'raw_ref_image', 'reference') in edges
+    assert not any(u == 'inputnode' and v == 'mcflirt' for u, v, *_ in edges)
+
+
+@needs_fsl
+def test_asl_hmc_wf_tracks_motion_against_a_reference_of_another_contrast(tmp_path):
+    """Volumes whose contrast differs from the reference (background-suppressed controls and
+    labels against a separate M0) still have their motion recovered (PennLINC/aslprep#762)."""
+    import nitransforms as nt
+    from scipy import ndimage
+
+    from aslprep.tests.tests import mock_config
+    from aslprep.workflows.asl.hmc import init_asl_hmc_wf
+
+    voxel = 3.0
+    shape, affine = (40, 44, 30), np.diag([voxel, voxel, voxel, 1.0])
+    rng = np.random.default_rng(762)
+    shifts = np.array(
+        [[0, 0, 0], [0, 0, 0], [0.3, 0.2, -0.2], [0.3, 0.2, -0.2], [0.6, 0.4, -0.4],
+         [0.6, 0.4, -0.4], [-0.4, 1.0, 0.9], [-0.4, 1.0, 0.9]]
+    )  # fmt: skip
+    types = ['control', 'label'] * 4
+
+    # Anatomy with structure at a few voxels' scale inside a head envelope
+    half_axes = np.array([16, 18, 12])[:, None, None, None]
+    r = (np.indices(shape).T - (np.array(shape) - 1) / 2).T / half_axes
+    envelope = 1.0 / (1.0 + np.exp(((r**2).sum(0) - 1) * 12))
+    texture = ndimage.gaussian_filter(rng.standard_normal(shape), 1.5)
+    texture /= texture.std()
+
+    def image(contrast, scale, shift=(0.0, 0.0, 0.0)):
+        # ndimage.shift displaces the content by +shift, which the HMC pull undoes
+        img = scale * envelope * (1 + contrast * texture)
+        return ndimage.shift(img, np.asarray(shift) / voxel, order=3, mode='constant')
+
+    def suppressed(shift, label):
+        # Tissue at 15% of the M0 with its internal contrast inverted, as after suppression;
+        # labels lose 1% to perfusion.
+        img = image(-0.4, 150.0 * (0.99 if label else 1.0), shift)
+        return (img + rng.normal(0, 2.0, shape)).astype(np.float32)
+
+    vols = [suppressed(s, t == 'label') for s, t in zip(shifts, types, strict=True)]
+    asl = tmp_path / 'asl.nii.gz'
+    nb.Nifti1Image(np.stack(vols, -1), affine).to_filename(asl)
+    ctx = tmp_path / 'aslcontext.tsv'
+    ctx.write_text('\n'.join(['volume_type', *types]) + '\n')
+    m0 = tmp_path / 'm0.nii.gz'
+    nb.Nifti1Image(image(0.3, 1000.0).astype(np.float32), affine).to_filename(m0)
+
+    with mock_config():
+        wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
+        wf.base_dir = str(tmp_path / 'work')
+        wf.inputs.inputnode.asl_file = str(asl)
+        wf.inputs.inputnode.aslcontext = str(ctx)
+        wf.inputs.inputnode.raw_ref_image = str(m0)
+        wf.inputs.inputnode.processing_target = 'control'
+        graph = wf.run()
+    (fsl2itk,) = (n for n in graph.nodes() if n.name == 'fsl2itk')
+    pulls = np.asarray(nt.linear.load(fsl2itk.result.outputs.out_file, fmt='itk').matrix)
+    pulls = pulls.reshape(-1, 4, 4)
+    # Content displaced by s is pulled from y + s: relative to volume 0, H_v H_0^-1 translates
+    # by s_v - s_0 (both types share volume 0's pose here).
+    trans_err, rot_err = [], []
+    for start in (0, 1):
+        idx = list(range(start, len(types), 2))
+        for v in idx[1:]:
+            rel = pulls[v] @ np.linalg.inv(pulls[idx[0]])
+            trans_err.append(np.linalg.norm(rel[:3, 3] - (shifts[v] - shifts[idx[0]])))
+            cos = np.clip((np.trace(rel[:3, :3]) - 1) / 2, -1, 1)
+            rot_err.append(np.degrees(np.arccos(cos)))
+    report = f'translation errors {np.round(trans_err, 3)} mm, rotations {np.round(rot_err, 3)}°'
+    # Measured: at most 0.11 mm and 0.13 degrees; registering to the M0 itself gave 0.20 mm
+    assert max(trans_err) < 0.15, report
+    assert max(rot_err) < 0.2, report

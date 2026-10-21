@@ -88,6 +88,7 @@ def init_asl_hmc_wf(
     from aslprep.interfaces.hmc import CorrectLabelOffset
     from aslprep.interfaces.utility import (
         CombineMotionParameters,
+        MeanImage,
         PairwiseRMSDiff,
         SplitByVolumeType,
     )
@@ -100,6 +101,8 @@ Motion correction was performed separately for each of the volume types
 in order to account for intensity differences between different contrasts,
 which, when motion corrected together, can conflate intensity differences with
 head motions [@wang2008empirical].
+The volumes of each type were registered to the mean of that type, which was first
+aligned rigidly to the ASL reference image.
 Next, ASLPrep concatenated the motion parameters across volume types and
 re-calculated relative root mean-squared deviation.
 
@@ -141,15 +144,43 @@ re-calculated relative root mean-squared deviation.
         ]),
     ])  # fmt:skip
 
+    # Each volume type is registered to a reference of its own contrast: registering background-
+    # suppressed controls and labels straight to a separate M0 recovered only about half of the
+    # motion (PennLINC/aslprep#762). The type's mean is aligned to the ASL reference once, and
+    # the volumes are registered to that aligned mean, so the transforms still map to the ASL
+    # reference. The type's volumes are first aligned to its middle volume (MCFLIRT's default
+    # reference) and averaged; nipype cannot collect the output of MCFLIRT's own -meanvol.
+    type_mcflirt = pe.MapNode(
+        fsl.MCFLIRT(cost='mutualinfo'),
+        name='type_mcflirt',
+        mem_gb=mem_gb * 3,
+        iterfield=['in_file'],
+    )
+    type_mean = pe.MapNode(
+        MeanImage(),
+        name='type_mean',
+        mem_gb=mem_gb,
+        iterfield=['in_file'],
+    )
+    type_mean_to_ref = pe.MapNode(
+        fsl.FLIRT(dof=6, cost='mutualinfo', interp='spline'),
+        name='type_mean_to_ref',
+        mem_gb=DEFAULT_MEMORY_MIN_GB,
+        iterfield=['in_file'],
+    )
     mcflirt = pe.MapNode(
         fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False, cost='mutualinfo'),
         name='mcflirt',
         mem_gb=mem_gb * 3,
-        iterfield=['in_file'],
+        iterfield=['in_file', 'ref_file'],
     )
     workflow.connect([
-        (inputnode, mcflirt, [('raw_ref_image', 'ref_file')]),
+        (split_by_volume_type, type_mcflirt, [('out_files', 'in_file')]),
+        (type_mcflirt, type_mean, [('out_file', 'in_file')]),
+        (type_mean, type_mean_to_ref, [('out_file', 'in_file')]),
+        (inputnode, type_mean_to_ref, [('raw_ref_image', 'reference')]),
         (split_by_volume_type, mcflirt, [('out_files', 'in_file')]),
+        (type_mean_to_ref, mcflirt, [('out_file', 'ref_file')]),
     ])  # fmt:skip
 
     listify_mat_files = pe.MapNode(

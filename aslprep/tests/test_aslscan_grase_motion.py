@@ -63,9 +63,9 @@ def test_coregistration_rotation(f8_run):
 @known_failure(
     'f8_run',
     Known(
-        'PennLINC/aslprep#762: head-motion correction recovers about half of the motion on '
-        'segmented 3D GRASE, and the end-to-end coregistration error composes it; measured '
-        '0.2508 voxels',
+        'PennLINC/aslprep#762: the end-to-end error composes the M0-to-T1w registration '
+        '(0.17 voxels alone) with the constant offset left by aligning the background-'
+        "suppressed series' mean to the M0 (0.13 voxels); measured 0.2521 voxels",
         ('frames', 'coreg', 'rms_voxels'),
         0.25,
         0.35,
