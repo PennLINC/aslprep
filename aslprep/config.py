@@ -579,6 +579,10 @@ class workflow(_Config):
     field (``.nii``/``.nii.gz``) for gradient nonlinearity correction."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
+    hmc_method = 'typewise'
+    """Head-motion correction method: ``typewise`` (MCFLIRT per volume type) or
+    ``typewise_offset`` (experimental: the same, then the offset it leaves between the corrected
+    label and control volumes is removed; :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`)."""
     fs_no_resume = None
     """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
@@ -599,6 +603,9 @@ class workflow(_Config):
     """Exclude voxels with locally high coefficient of variation from sampling."""
     run_reconall = True
     """Run FreeSurfer's surface reconstruction."""
+    skull_strip_asl = 'synthstrip'
+    """Brain extraction method for the ASL reference image: ``synthstrip`` (default) or
+    ``legacy`` (BET and ``3dAutomask``)."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = 'OASIS30ANTs'

@@ -412,6 +412,161 @@ def test_init_synthstrip_aslref_wf_nodes(disable_n4):
     assert outputs == {'bias_corrected_file', 'mask_file'}
 
 
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_init_enhance_and_skullstrip_asl_wf_nodes(disable_n4):
+    """The legacy workflow intersects BET and 3dAutomask masks (gh-749).
+
+    The template registration only weights N4, so it is dropped along with N4.
+    """
+    from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_enhance_and_skullstrip_asl_wf(disable_n4=disable_n4)
+        graph = wf._create_flat_graph()
+
+    names = {node.name for node in graph.nodes()}
+    assert {'skullstrip_first_pass', 'unifize', 'skullstrip_second_pass', 'combine_masks'} <= names
+    registration = {'init_aff', 'norm', 'map_brainmask', 'fix_header', 'n4_correct'}
+    if disable_n4:
+        assert not names & registration
+    else:
+        assert registration <= names
+
+    edges = {
+        (dst.name, dst_field): (src.name, src_field)
+        for src, dst, data in graph.edges(data=True)
+        for src_field, dst_field in data['connect']
+    }
+    assert edges[('outputnode', 'mask_file')] == ('combine_masks', 'out_file')
+    assert edges[('combine_masks', 'in_file')] == ('skullstrip_first_pass', 'mask_file')
+    assert edges[('combine_masks', 'operand_file')] == ('fixhdr_skullstrip2', 'out_file')
+    # BET and the output both take the (possibly) bias-corrected image
+    assert edges[('skullstrip_first_pass', 'in_file')] == ('n4_buffer', 'bias_corrected_file')
+    assert edges[('outputnode', 'bias_corrected_file')] == ('n4_buffer', 'bias_corrected_file')
+    if disable_n4:
+        assert edges[('n4_buffer', 'bias_corrected_file')] == ('inputnode', 'in_file')
+    else:
+        assert edges[('n4_correct', 'weight_image')] == ('fix_header', 'out_file')
+        assert edges[('n4_buffer', 'bias_corrected_file')] == ('n4_correct', 'output_image')
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+@pytest.mark.parametrize('disable_n4', [False, True])
+def test_skull_strip_asl_boilerplate(method, disable_n4):
+    """Each brain extraction method describes itself, citing only references in the bib file."""
+    import re
+
+    from aslprep.data import load as load_data
+    from aslprep.workflows.asl.reference import (
+        init_enhance_and_skullstrip_asl_wf,
+        init_synthstrip_aslref_wf,
+    )
+
+    reset_config()
+    with mock_config():
+        if method == 'legacy':
+            wf = init_enhance_and_skullstrip_asl_wf(disable_n4=disable_n4)
+        else:
+            wf = init_synthstrip_aslref_wf(disable_n4=disable_n4)
+        desc = wf.visit_desc()
+
+    cited = set(re.findall(r'@([\w-]+)', desc))
+    if method == 'synthstrip':
+        expected = {'synthstrip'} | ({'n4'} if not disable_n4 else set())
+    else:
+        # N4 is weighted by a template mask, so the registration is only cited along with N4
+        n4_refs = {'n4', 'ants', 'mni152nlin2009casym'}
+        expected = {'bet', 'afni'} | (n4_refs if not disable_n4 else set())
+    assert cited == expected
+
+    bib = load_data('boilerplate.bib').read_text()
+    bib_keys = set(re.findall(r'^@\w+\{([^,]+),', bib, re.MULTILINE))
+    assert cited <= bib_keys
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+def test_init_skullstrip_aslref_wf(method):
+    """Final references are masked with the method from --skull-strip-asl (gh-749)."""
+    from aslprep.workflows.asl.reference import init_skullstrip_aslref_wf
+
+    reset_config()
+    with mock_config():
+        config.workflow.skull_strip_asl = method
+        wf = init_skullstrip_aslref_wf(name='mask_wf')
+        names = {node.name for node in wf._create_flat_graph().nodes()}
+
+    assert wf.name == 'mask_wf'
+    assert {'inputnode', 'outputnode'} <= names
+    assert 'in_file' in wf.get_node('inputnode').inputs.copyable_trait_names()
+    assert 'mask_file' in wf.get_node('outputnode').outputs.copyable_trait_names()
+    # Mock SynthStrip stands in for SynthStrip in sloppy mode
+    uses_synthstrip = bool(names & {'synthstrip', 'mocksynthstrip'})
+    assert uses_synthstrip is (method == 'synthstrip')
+    assert ('skullstrip_second_pass' in names) is (method == 'legacy')
+    # The reference is already final, so SynthStrip's N4 is skipped
+    assert 'n4_correct' not in names
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+@pytest.mark.parametrize('case', ['plain', 'fieldmap', 'gradwarp', 'precomputed'])
+def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
+    """--skull-strip-asl picks the brain extraction for every ASL reference (gh-749).
+
+    With distortion or gradient nonlinearity correction, the final mask comes from the
+    corrected reference, and with a precomputed reference, from that reference.
+    Both use the same method as the coregistration reference.
+    """
+    from aslprep.tests.test_workflows_gradwarp import _grad_file
+    from aslprep.utils.gradwarp import GradwarpPlan
+    from aslprep.workflows.asl.fit import init_asl_fit_wf
+
+    reset_config()
+    with mock_config():
+        config.workflow.skull_strip_asl = method
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        kwargs = {}
+        if case == 'fieldmap':
+            kwargs['fieldmap_id'] = 'auto_00000'
+        elif case == 'gradwarp':
+            kwargs['gradwarp_plan'] = GradwarpPlan(
+                str(_grad_file(tmp_path)), '3D', False, 'metadata'
+            )
+        elif case == 'precomputed':
+            kwargs['precomputed'] = {'coreg_aslref': str(asl_file)}
+        wf = init_asl_fit_wf(
+            asl_file=str(asl_file),
+            aslcontext=str(asl_file).replace('.nii.gz', 'context.tsv'),
+            m0scan=None,
+            use_ge=False,
+            **kwargs,
+        )
+        desc = wf.visit_desc()
+
+    legacy = wf.get_node('enhance_and_skullstrip_asl_wf')
+    synthstrip = wf.get_node('synthstrip_aslref_wf')
+    if case == 'precomputed':
+        # The reference is not recomputed, so only its mask is
+        assert legacy is synthstrip is None
+        final_mask_wf = wf.get_node('skullstrip_precomp_ref_wf')
+    else:
+        assert (legacy is not None) is (method == 'legacy')
+        assert (synthstrip is not None) is (method == 'synthstrip')
+        assert ('[@bet]' in desc) is (method == 'legacy')
+        final_mask_wf = wf.get_node('skullstrip_asl_wf')
+    assert ('[@synthstrip]' in desc) is (method == 'synthstrip')
+
+    if case == 'plain':
+        assert final_mask_wf is None
+    else:
+        names = {node.name for node in final_mask_wf._create_flat_graph().nodes()}
+        assert bool(names & {'synthstrip', 'mocksynthstrip'}) is (method == 'synthstrip')
+        assert ('skullstrip_second_pass' in names) is (method == 'legacy')
+    if case in ('fieldmap', 'gradwarp'):
+        # The method is described once, by the coregistration reference workflow
+        assert desc.count('A brain mask was computed') == 1
+
+
 @pytest.mark.parametrize(
     ('sloppy', 'delays'),
     [(False, 1.8), (True, 1.8), (False, [1.0, 1.0, 1.5, 1.5, 2.0, 2.0])],
