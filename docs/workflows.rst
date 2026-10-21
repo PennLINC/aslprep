@@ -281,6 +281,8 @@ a motion-correction transform, M0 or fieldmap registration, or coregistration re
 only together with the motion-correction reference it was made from,
 and a brain mask or ASL-to-anatomical transform only together with its coregistration
 reference, each pair from the same derivatives dataset.
+The coregistration reference and brain mask likewise record the brain extraction method
+(``SkullStripASL``) and are reused only with the requested ``--skull-strip-asl``.
 Anything else is recomputed, and the log says so.
 
 

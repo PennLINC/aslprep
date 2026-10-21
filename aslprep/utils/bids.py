@@ -367,8 +367,26 @@ DERIVATIVE_PARENTS = (
     (('transforms', 'aslref2anat'), ('coreg_aslref',)),
 )
 
+#: Products whose method is recorded in their sidecar: product -> (sidecar field, option,
+#: value assumed when the field is missing, i.e. the behaviour before the option existed).
+DERIVATIVE_METHODS = (
+    (('transforms', 'hmc'), 'HMCMethod', '--hmc-method', 'typewise'),
+    (('coreg_aslref',), 'SkullStripASL', '--skull-strip-asl', 'synthstrip'),
+    (('aslref_mask',), 'SkullStripASL', '--skull-strip-asl', 'synthstrip'),
+)
 
-def merge_functional_derivatives(caches, hmc_method='typewise'):
+
+def _sidecar(path):
+    """The JSON sidecar of a derivative (``.nii.gz``, ``.nii`` or ``.txt``)."""
+    path = Path(path if isinstance(path, str | Path) else path[0])
+    name = path.name
+    for ext in ('.nii.gz', '.nii', '.txt'):
+        if name.endswith(ext):
+            return path.with_name(name[: -len(ext)] + '.json')
+    return path.with_suffix('.json')
+
+
+def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl='synthstrip'):
     """Merge the caches of several derivatives datasets into one consistent set of products.
 
     Each dataset's ``collect_derivatives`` cache has a ``transforms`` entry, even when empty, so
@@ -376,9 +394,10 @@ def merge_functional_derivatives(caches, hmc_method='typewise'):
     the internal atlas datasets, which are collected last; PennLINC/aslprep#738). Here every
     product is merged on its own (a later dataset wins), and then reuse is all-or-nothing along
     :data:`DERIVATIVE_PARENTS`: a product whose parent is not reused, or comes from another
-    dataset, is dropped and recomputed. Precomputed head-motion transforms whose sidecar records
-    another ``HMCMethod`` than ``hmc_method`` are dropped as well (a missing record means
-    ``typewise``, the method before the option existed).
+    dataset, is dropped and recomputed. Products made with another method than the requested one
+    (:data:`DERIVATIVE_METHODS`: the head-motion transforms and ``HMCMethod``; the coregistration
+    reference and brain mask and ``SkullStripASL``) are dropped first, so that their dependents
+    follow them.
 
     Parameters
     ----------
@@ -386,6 +405,8 @@ def merge_functional_derivatives(caches, hmc_method='typewise'):
         ``collect_derivatives`` outputs, in the order of the derivatives datasets.
     hmc_method : str
         The requested head-motion correction method.
+    skull_strip_asl : str
+        The requested ASL brain extraction method.
 
     Returns
     -------
@@ -404,17 +425,18 @@ def merge_functional_derivatives(caches, hmc_method='typewise'):
                 found[(key,)] = (value, i)
 
     dropped = []
-    if ('transforms', 'hmc') in found:
-        path = found['transforms', 'hmc'][0]
-        sidecar = Path(path if isinstance(path, str) else path[0]).with_suffix('.json')
-        method = 'typewise'
+    requested = {'HMCMethod': hmc_method, 'SkullStripASL': skull_strip_asl}
+    for key, field, option, default in DERIVATIVE_METHODS:
+        if key not in found:
+            continue
+        sidecar = _sidecar(found[key][0])
+        method = default
         if sidecar.exists():
-            method = json.loads(sidecar.read_text()).get('HMCMethod', 'typewise')
-        if method != hmc_method:
-            del found['transforms', 'hmc']
+            method = json.loads(sidecar.read_text()).get(field, default)
+        if method != requested[field]:
+            del found[key]
             dropped.append(
-                f'head-motion transforms (made with --hmc-method {method}, '
-                f'not {hmc_method}): estimated anew'
+                f'{"/".join(key)} (made with {option} {method}, not {requested[field]})'
             )
 
     for key, parent in DERIVATIVE_PARENTS:

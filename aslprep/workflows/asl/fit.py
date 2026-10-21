@@ -765,6 +765,11 @@ def init_asl_fit_wf(
             desc='brain',
             name='ds_aslmask_wf',
         )
+        # Provenance: both depend on the brain extraction method, and are reused only with it.
+        for ds_wf, ds_node in ((ds_coreg_aslref_wf, 'ds_aslref'), (ds_aslmask_wf, 'ds_boldmask')):
+            ds_wf.get_node(ds_node).inputs.meta_dict = {
+                'SkullStripASL': config.workflow.skull_strip_asl
+            }
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),

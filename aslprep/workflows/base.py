@@ -884,6 +884,7 @@ tasks and sessions), the following preprocessing was performed.
                     for deriv_dir in config.execution.derivatives.values()
                 ],
                 hmc_method=config.workflow.hmc_method,
+                skull_strip_asl=config.workflow.skull_strip_asl,
             )
             for note in dropped:
                 config.loggers.workflow.warning(

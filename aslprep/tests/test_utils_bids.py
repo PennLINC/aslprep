@@ -151,6 +151,44 @@ def test_merge_functional_derivatives_checks_hmc_method(tmp_path):
     assert precomputed['hmc_aslref'] == 'ref.nii.gz'
 
 
+def test_merge_functional_derivatives_checks_skull_strip_asl(tmp_path):
+    """A coregistration reference made with another --skull-strip-asl goes, and its dependents too.
+
+    The HMC products do not depend on the brain extraction method and are kept.
+    """
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    coreg = tmp_path / 'sub-01_desc-coreg_aslref.nii.gz'
+    mask = tmp_path / 'sub-01_desc-brain_mask.nii.gz'
+    for f in (coreg, mask):
+        f.write_text('')
+    cache = _cache(
+        hmc_aslref='ref.nii.gz',
+        coreg_aslref=str(coreg),
+        aslref_mask=str(mask),
+        transforms={'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'},
+    )
+
+    # No sidecar: made before the option existed, i.e. with SynthStrip.
+    precomputed, dropped = merge_functional_derivatives([cache])
+    assert precomputed['coreg_aslref'] == str(coreg)
+    assert dropped == []
+
+    precomputed, dropped = merge_functional_derivatives([cache], skull_strip_asl='legacy')
+    assert precomputed == {'hmc_aslref': 'ref.nii.gz', 'transforms': {'hmc': 'hmc.txt'}}
+    assert any('--skull-strip-asl synthstrip, not legacy' in d for d in dropped)
+
+    # The record sits next to the image, not as a ".nii.json".
+    for f in (coreg, mask):
+        f.with_name(f.name.replace('.nii.gz', '.json')).write_text(
+            json.dumps({'SkullStripASL': 'legacy'})
+        )
+    precomputed, dropped = merge_functional_derivatives([cache], skull_strip_asl='legacy')
+    assert precomputed['aslref_mask'] == str(mask)
+    assert precomputed['transforms'] == {'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'}
+    assert dropped == []
+
+
 def test_write_derivative_description(tmp_path, monkeypatch):
     """DatasetLinks declare the datasets referenced by BIDS URIs in Sources."""
     from aslprep.utils.bids import write_derivative_description
