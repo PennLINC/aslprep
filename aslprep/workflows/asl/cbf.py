@@ -662,11 +662,16 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
                 'BASIL CBF image.'
             )
 
+        # ASLPrep's own models treat the bolus duration as known, so BASIL fixes it, too.
+        # Without --fixbolus, oxford_asl estimates it for multi-delay PASL data (gh-759).
+        bolus_str = 'labeling duration' if is_casl else 'bolus cut-off delay time'
         workflow.__desc__ += f"""
 
 CBF was also computed with Bayesian Inference for Arterial Spin Labeling (BASIL)
 [@chappell2008variational], as implemented in *FSL* {Info.version()}.
 BASIL computes CBF using a spatial regularization of the estimated perfusion image{pvc_str}
+As in *ASLPrep*'s own model, the bolus duration was fixed to the {bolus_str},
+rather than estimated.
 """
         if not basil_pvc:
             config.loggers.workflow.warning(
@@ -722,6 +727,7 @@ BASIL computes CBF using a spatial regularization of the estimated perfusion ima
             BASILCBF(
                 pvc=basil_pvc,
                 pcasl=is_casl,
+                fixbolus=True,
                 # The calibration and physiological parameters of ASLPrep's own models
                 **basil_calibration_inputs(calibration),
                 **basil_kwargs,

@@ -700,6 +700,61 @@ def test_init_cbf_wf_haematocrit(tmp_path, haematocrit):
         assert 'the value for 3 T [' not in wf.__desc__
 
 
+@pytest.mark.parametrize(
+    ('asl_type', 'delays'),
+    [
+        ('PCASL', 1.8),
+        ('PCASL', [1.0, 1.0, 2.0, 2.0]),
+        ('PASL', 1.8),
+        ('PASL', [1.0, 1.0, 2.0, 2.0]),
+    ],
+)
+def test_init_cbf_wf_basil_fixbolus(tmp_path, asl_type, delays):
+    """BASIL fixes the bolus duration, like ASLPrep's own models (gh-759).
+
+    Without ``--fixbolus``, oxford_asl estimates the bolus duration for multi-delay PASL data.
+    """
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    metadata = {
+        'ArterialSpinLabelingType': asl_type,
+        'PostLabelingDelay': delays,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+        'RepetitionTimePreparation': 4.0,
+    }
+    if asl_type == 'PCASL':
+        metadata['LabelingDuration'] = 1.8
+    else:
+        metadata['BolusCutOffFlag'] = True
+        metadata['BolusCutOffTechnique'] = 'Q2TIPS'
+        metadata['BolusCutOffDelayTime'] = [0.7, 1.6]
+    n_pairs = len(delays) if isinstance(delays, list) else 2
+    reset_config()
+    with mock_config():
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * n_pairs}),
+            metadata=metadata,
+            basil=True,
+        )
+
+    basilcbf = wf.get_node('basilcbf')
+    assert basilcbf.inputs.fixbolus is True
+    assert '--fixbolus' in basilcbf.interface._parse_inputs(skip=['deltam', 'mask'])
+    bolus_str = 'labeling duration' if asl_type == 'PCASL' else 'bolus cut-off delay time'
+    assert f'the bolus duration was fixed to the {bolus_str},\nrather than estimated' in (
+        wf.__desc__
+    )
+
+
 @pytest.mark.parametrize('asl_type', ['PCASL', 'PASL'])
 def test_init_cbf_wf_boilerplate(tmp_path, asl_type):
     """The boilerplate reports the acquisition and the constants used to calculate CBF."""

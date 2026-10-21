@@ -1115,6 +1115,15 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=True,
         sep=',',
     )
+    fixbolus = traits.Bool(
+        desc=(
+            'The bolus duration is fixed, e.g., by QUIPSS II, Q2TIPS or (P)CASL labeling. '
+            'Without this flag, oxford_asl estimates the bolus duration for multi-delay PASL data, '
+            'with ``--bolus`` only setting its prior.'
+        ),
+        argstr='--fixbolus',
+        mandatory=False,
+    )
     slice_spacing = traits.Float(
         desc='Increase in inflow time per slice, in seconds.',
         argstr='--slicedt %s',
