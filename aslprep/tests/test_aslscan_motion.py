@@ -1,8 +1,11 @@
 """F7: head motion, multiband, and coregistration under a known pose (spec Section 5).
 
-The ASL series moves along a known rigid trajectory, the T1w header carries a known rigid
-offset, and ASLPrep preprocesses the anatomy itself. Scored: head-motion correction against
-the trajectory, coregistration against the offset, and the alignment of T1w-space CBF.
+The head moves along a known timed trajectory, sampled at each slice group's time, so it moves
+between volumes and within them (slice groups of one volume at different poses), with two
+slice-group jump events and spin history. The T1w header carries a known rigid offset, and
+ASLPrep preprocesses the anatomy itself. Scored: head-motion correction against the per-volume
+rigid fit to the slice groups' poses, coregistration against the offset, and the alignment of
+T1w-space CBF.
 Native-space Tier A/B and the T1w-space alignment correlation (``r_native``) are not
 asserted: the motion-corrected series sits in the aslref frame, whose pose is unknown here, so
 sampling it at the phantom's coordinates compares misaligned points. Alignment is asserted
@@ -45,6 +48,7 @@ globals().update(
             ('space-T1w', 'r_truth'),
             ('space-T1w', 'r_native'),
             ('frames', 'motion', 'rms_error_max_mm'),
+            ('frames', 'motion', 'within_volume_rms_max_mm'),
             ('desc-score', 'GM', 'median'),
             ('desc-scrub', 'GM', 'median'),
         ],

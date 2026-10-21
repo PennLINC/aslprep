@@ -32,9 +32,9 @@ from pathlib import Path
 CACHE_EPOCH = 1
 
 ASLSCAN_REPO = 'https://github.com/PennLINC/aslscan.git'
-ASLSCAN_REF = '82919454d11ee63a1bc8032e4a362f9b745e5d97'
+ASLSCAN_REF = 'bf58c8cd8533ec0b0fc2f152f68492cadb0ea365'
 MRSIM_ACQ_REPO = 'https://github.com/PennLINC/mrsim-acq.git'
-MRSIM_ACQ_REF = 'e64caff8b18358704ef876b5a16a344192b3a014'
+MRSIM_ACQ_REF = '63fb68aaa302407d7489682366976b8699a3e9a2'
 RUST_TOOLCHAIN = '1.98.0'
 CARGO_FEATURES = 'cli,kspace,par'
 
@@ -122,7 +122,7 @@ PHANTOM_MAPS = {
     'T2starmap': 's',
     'M0map': 'arbitrary',
 }
-OPTIONAL_PHANTOM_MAPS = {'abv': 'fraction', 'aatt': 's'}
+OPTIONAL_PHANTOM_MAPS = {'abv': 'fraction', 'att_arterial': 's'}
 
 #: Phantom name -> builder parameters (Section 4.2 of the spec).
 #: ``modulation`` multiplies a map by ``1 + amplitude * prod_i cos(2 pi x_i / period_i + phase_i)``
@@ -557,7 +557,7 @@ def sanitize_maps(maps, dseg):
     """Make measured maps satisfy aslscan's phantom contract; return (maps, changes).
 
     For future real-subject phantoms (Section 4.2 of the spec). ``maps`` holds arrays named as
-    in :data:`PHANTOM_MAPS` (plus optional ``abv``/``aatt``); ``dseg`` > 0 is foreground.
+    in :data:`PHANTOM_MAPS` (plus optional ``abv``/``att_arterial``); ``dseg`` > 0 is foreground.
     """
     import numpy as np
 

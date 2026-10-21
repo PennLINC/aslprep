@@ -407,6 +407,21 @@ def _build_parser():
         ),
     )
     g_conf.add_argument(
+        '--skull-strip-asl',
+        action='store',
+        choices=['synthstrip', 'legacy'],
+        default='synthstrip',
+        help=(
+            'Brain extraction method for the ASL reference image. '
+            "'synthstrip' (default): FreeSurfer's SynthStrip. "
+            "'legacy': the method ASLPrep used before SynthStrip, the intersection of masks "
+            "from FSL's BET and AFNI's 3dAutomask. "
+            'Neither method works best on all ASL data, so inspect the brain masks and try '
+            'the other method if they are poor. '
+            'This option does not affect the brain extraction of the anatomical images.'
+        ),
+    )
+    g_conf.add_argument(
         '--output-spaces',
         nargs='*',
         action=OutputReferencesAction,
@@ -477,7 +492,9 @@ any spatial references.""",
             'M0 scans are multiplied by m0_scale before calculating CBF. '
             'It is important to note, however, that BIDS expects ASL and M0 data to scaled in '
             'the raw dataset, so this parameter should only be used if your dataset does not '
-            'have pre-scaled data.'
+            'have pre-scaled data. '
+            "The value is recorded, with every other calibration parameter, in each run's "
+            '*_desc-calibration_parameters.json file.'
         ),
     )
     g_conf.add_argument(
@@ -487,6 +504,21 @@ any spatial references.""",
         default=5,
         type=float,
         help='Smoothing kernel for the M0 image(s)',
+    )
+    g_conf.add_argument(
+        '--hmc-method',
+        '--hmc_method',
+        action='store',
+        default='typewise',
+        choices=['typewise', 'typewise_offset'],
+        help=(
+            'Head-motion correction method. "typewise" (default) registers each volume type '
+            'separately to the reference with MCFLIRT. "typewise_offset" (experimental) does the '
+            'same, then removes the systematic offset between the corrected label and control '
+            'volumes: for each post-labeling delay, the mean corrected label image is registered '
+            'rigidly to the mean corrected control image, and the correction is composed into '
+            "the label volumes' transforms."
+        ),
     )
     g_conf.add_argument(
         '--scorescrub',

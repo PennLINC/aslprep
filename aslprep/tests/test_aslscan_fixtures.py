@@ -530,6 +530,7 @@ def test_frames_algebra(tmp_path):
         brain=brain,
         affine=affine,
         motion=[{}] * len(poses),  # a moving recipe: the aslref pose comes from the HMC transforms
+        motion_shots=None,
         poses=lambda: poses,
         voxel_centers=lambda m: (np.argwhere(m), tg.apply_points(affine, np.argwhere(m))),
     )
@@ -668,6 +669,7 @@ def test_frames_without_motion_separate_hmc_from_coregistration(tmp_path):
         brain=brain,
         affine=affine,
         motion=None,
+        motion_shots=None,
         poses=lambda: np.repeat(np.eye(4)[None], 3, axis=0),
         voxel_centers=lambda m: (np.argwhere(m), tg.apply_points(affine, np.argwhere(m))),
     )
@@ -685,6 +687,66 @@ def test_frames_without_motion_separate_hmc_from_coregistration(tmp_path):
     assert frames['motion']['rms_error_median_mm'] < 1e-3
     assert frames['motion']['rms_error_max_mm'] > 1.0  # the third volume moved spuriously
     assert frames['motion']['reference_offset_mm'] < 1e-3  # most volumes stayed in place
+
+
+def test_shot_fits_summarize_within_volume_motion():
+    """A volume's truth pose is the rigid fit to its shots' poses; the misfit is what remains.
+
+    Volume 0: every slice group at one pose (the fit is that pose, no misfit). Volume 1: the odd
+    slices 2 mm further along x than the even ones (2D). Volume 2: two 3D segments, the second
+    2 mm further along x (slices n/a). Both split volumes fit about halfway, about 1 mm from
+    either half.
+    """
+    from types import SimpleNamespace
+
+    from aslprep.tests import truth_scoring as ts
+
+    affine = np.diag([3.0, 3.0, 3.0, 1.0])
+    affine[:3, 3] = -30
+    box = np.zeros((20, 20, 20))
+    box[4:16, 4:16, 4:16] = 1.0
+    fx = ts.Fixture.__new__(ts.Fixture)
+    fx.affine = affine
+    fx.asl_img = SimpleNamespace(shape=(20, 20, 20, 3))
+    fx.pv = {'GM': box, 'WM': 0 * box, 'CSF': 0 * box}
+    fx.truth = {'motion_center': [1.0, -2.0, 3.0]}
+    fx.motion = [{}] * 3
+    fx._shot_fits = None
+    even, odd = ','.join(map(str, range(0, 20, 2))), ','.join(map(str, range(1, 20, 2)))
+
+    def row(volume, slices, tx, rz=0.0):
+        return {
+            'volume': float(volume),
+            'slices': slices,
+            'trans_x': tx,
+            'trans_y': 0.5,
+            'trans_z': 0.0,
+            'rot_x': 0.0,
+            'rot_y': 0.0,
+            'rot_z': rz,
+        }
+
+    fx.motion_shots = [
+        row(0, even, 1.0, 0.02),
+        row(0, odd, 1.0, 0.02),
+        row(1, even, 0.0),
+        row(1, odd, 2.0),
+        row(2, float('nan'), 0.0),
+        row(2, float('nan'), 2.0),
+    ]
+    poses, misfit = fx.shot_fits()
+    center = fx.truth['motion_center']
+    expected = tg.pose_matrix([1.0, 0.5, 0], [0, 0, 0.02], center)
+    np.testing.assert_allclose(poses[0], expected, atol=1e-9)
+    midpoint = tg.pose_matrix([1.0, 0.5, 0], [0, 0, 0], center)
+    np.testing.assert_allclose(poses[2], midpoint, atol=1e-9)
+    np.testing.assert_allclose(misfit[[0, 2]], [0.0, 1.0], atol=1e-9)
+    # 2D: the odd slices sit higher than the even ones, so a slight tilt fits a little better
+    # than the midpoint, never worse
+    _, points = fx.voxel_centers(fx.brain)
+    assert tg.rms_displacement(poses[1] @ np.linalg.inv(midpoint), points) < 0.25
+    assert 0.9 < misfit[1] <= 1.0
+    assert fx.poses() is poses
 
 
 def test_recipe_names_avoid_bids_datatypes(tmp_path, monkeypatch):

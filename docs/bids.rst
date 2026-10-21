@@ -225,6 +225,8 @@ Ask your physicist for the correct values for the following fields:
 - ``PostLabelingDelay`` (should be in protocol summary file and private DICOM fields, but may be difficult to discover)
 - ``LabelingDuration`` (should be in protocol summary file and private DICOM fields, but may be difficult to discover)
 - ``BackgroundSuppressionNumberPulses``
+  (if it is missing, ASLPrep counts the ``BackgroundSuppressionPulseTime`` values,
+  or assumes one pulse if those are missing too)
 - ``VascularCrushing``
 - ``LookLocker``
 - The order of volumes in the ASL file.

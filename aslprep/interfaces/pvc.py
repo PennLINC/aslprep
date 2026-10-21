@@ -8,6 +8,7 @@ from nipype.interfaces.base import (
     File,
     SimpleInterface,
     TraitedSpec,
+    isdefined,
     traits,
 )
 from nipype.utils.filemanip import fname_presuffix
@@ -332,6 +333,12 @@ class _MultiDelayLocalRegressionPVCInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc='ASL metadata of the delta-M series (after volume selection), with its delays.',
     )
+    calibration = traits.Dict(
+        desc=(
+            'Calibration specification, from aslprep.utils.calibration.resolve_calibration. '
+            'If not defined, it is resolved from metadata.'
+        ),
+    )
     m0_calib = File(exists=True, mandatory=True, desc='The M0 image the fit is calibrated with.')
     quant_valid = File(exists=True, mandatory=True, desc='Where the data can be fit.')
     mask = File(exists=True, mandatory=True, desc='Brain mask.')
@@ -420,9 +427,13 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
     def _run_interface(self, runtime):
         from nilearn import maskers
 
-        from aslprep.utils.asl import estimate_labeling_efficiency, pcasl_or_pasl
+        from aslprep.utils.asl import pcasl_or_pasl
+        from aslprep.utils.calibration import (
+            calibration_value,
+            m0_partition_coefficient,
+            resolve_calibration,
+        )
         from aslprep.utils.cbf import (
-            estimate_t1,
             get_array_module,
             multipld_bolus,
             voxel_delays,
@@ -445,12 +456,16 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         pv_csf = nb.load(self.inputs.csf_pv).get_fdata()
 
         is_casl = pcasl_or_pasl(metadata=metadata)
-        labeleff = estimate_labeling_efficiency(metadata=metadata)
-        t1blood, _ = estimate_t1(metadata=metadata)
+        if isdefined(self.inputs.calibration):
+            calibration = self.inputs.calibration
+        else:
+            calibration = resolve_calibration(metadata)
         tau, ti1 = multipld_bolus(metadata, is_casl)
+        # The same parameters as the uncorrected fit (ComputeCBF), which made m0_calib
         kinetics = {
-            'labeleff': labeleff,
-            't1blood': t1blood,
+            'labeleff': calibration_value(calibration, 'EffectiveLabelingEfficiency'),
+            't1blood': calibration_value(calibration, 'BloodT1'),
+            'partition_coefficient': m0_partition_coefficient(calibration),
             'is_casl': is_casl,
             'tau': tau,
             'ti1': ti1,

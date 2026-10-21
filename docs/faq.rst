@@ -88,6 +88,23 @@ we will probably ask you to share example data,
 since we need data of that kind to develop and test the new feature.
 
 
+.. _poor_brain_mask:
+
+***************************************
+What can I do if my brain mask is poor?
+***************************************
+
+*ASLPrep* computes the ASL brain mask from the ASL reference image with SynthStrip by default,
+which does not work well on all ASL data.
+To use the method *ASLPrep* used before SynthStrip (FSL's BET combined with AFNI's
+``3dAutomask``), run *ASLPrep* again with ``--skull-strip-asl legacy``.
+This method has worked better on some datasets, such as HCP-Aging.
+See :ref:`asl_skullstrip` for how each method works.
+
+If your data use prescan normalization, ``--disable-n4`` may also help,
+since N4 bias field correction tends to be unstable on such data.
+
+
 .. _upgrading:
 
 *********

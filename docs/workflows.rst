@@ -162,8 +162,7 @@ ASL reference image estimation
 
 This workflow estimates a reference image for an :abbr:`ASL (Arterial Spin Labeling)` series.
 The reference image is then used to calculate a brain mask for the
-:abbr:`ASL (Arterial Spin Labeling)` signal using SynthStrip
-(:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
+:abbr:`ASL (Arterial Spin Labeling)` signal (see :ref:`asl_skullstrip`).
 Subsequently, the reference image is fed to the :ref:`head-motion estimation
 workflow <asl_hmc>` and the :ref:`registration workflow <asl_reg>` to map the
 ASL series onto the T1w image of the same subject.
@@ -171,6 +170,67 @@ ASL series onto the T1w image of the same subject.
 .. figure:: _static/brainextraction.svg
 
    Calculation of a brain mask from the ASL series.
+
+
+.. _asl_skullstrip:
+
+Brain extraction
+----------------
+
+*ASLPrep* offers two methods for computing the brain mask of the ASL reference image,
+selected with ``--skull-strip-asl``.
+ASL images have low resolution and contrast that vary a lot between sequences,
+and neither method works best on all ASL data.
+Always inspect the brain masks,
+and if they are poor, try running *ASLPrep* again with the other method.
+This option does not affect the brain extraction of the anatomical images.
+
+``synthstrip`` (default)
+   The brain mask is computed with SynthStrip :footcite:p:`synthstrip`,
+   a deep learning model trained to skull-strip images of any contrast and resolution
+   (:py:func:`~aslprep.workflows.asl.reference.init_synthstrip_aslref_wf`).
+   If ``--disable-n4`` is not used, the reference image is also corrected for intensity
+   non-uniformity with N4 :footcite:p:`n4`, but SynthStrip is run on the uncorrected image.
+
+   .. workflow::
+      :graph2use: orig
+      :simple_form: yes
+
+      from aslprep.tests.tests import mock_config
+      from aslprep.workflows.asl.reference import init_synthstrip_aslref_wf
+
+      with mock_config():
+          wf = init_synthstrip_aslref_wf()
+
+``legacy``
+   The method *ASLPrep* used before it switched to SynthStrip,
+   adapted from *fMRIPrep*'s BOLD reference workflow
+   (:py:func:`~aslprep.workflows.asl.reference.init_enhance_and_skullstrip_asl_wf`).
+   Unless ``--disable-n4`` is used, the reference image is first registered to
+   *fMRIPrep*'s MNI152NLin2009cAsym BOLD reference template,
+   and the template's brain mask is mapped back to weight N4 bias field correction.
+   A liberal brain mask is computed with FSL's BET :footcite:p:`bet` on the corrected image,
+   the BET-masked image is intensity-normalized with AFNI's ``3dUnifize``,
+   and a second mask is computed from it with AFNI's ``3dAutomask`` :footcite:p:`afni`.
+   The brain mask is the intersection of the two masks.
+   This method has worked better than SynthStrip on some datasets, such as HCP-Aging.
+
+   .. workflow::
+      :graph2use: orig
+      :simple_form: yes
+
+      from aslprep.tests.tests import mock_config
+      from aslprep.workflows.asl.reference import init_enhance_and_skullstrip_asl_wf
+
+      with mock_config():
+          wf = init_enhance_and_skullstrip_asl_wf()
+
+When the reference image is corrected for susceptibility distortion or gradient nonlinearity,
+or a precomputed reference image is reused,
+the brain mask is computed from the final reference image with the same method:
+SynthStrip for ``synthstrip``,
+and niworkflows' :py:func:`~niworkflows.func.util.init_skullstrip_bold_wf`
+(BET and ``3dAutomask``, without the template registration) for ``legacy``.
 
 
 .. _asl_hmc:
@@ -201,6 +261,42 @@ Additionally, a list of 6-parameters (three rotations and
 three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`,
 for a more accurate estimation of head-motion.
+
+Each volume type (control, label, M0, ...) is registered to the reference separately.
+This leaves a small rigid offset between the corrected label and control volumes,
+which appears at the edges of the brain after subtraction.
+With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),
+*ASLPrep* removes it: for each post-labeling delay, the mean of the corrected label volumes is
+registered rigidly to the mean of the corrected control volumes with AFNI ``3dvolreg``,
+and the correction is composed into the transforms of that delay's label volumes.
+Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
+use the estimate of the nearest other delay.
+The motion confounds are computed from the corrected transforms.
+The method is recorded in the transforms' sidecar (``HMCMethod``).
+
+Every product found in the datasets passed with ``--derivatives`` is reused,
+so a dataset can be seeded with single files, such as a hand-edited brain mask
+(``sub-<label>[_ses-<label>]_<entities>_desc-brain_mask.nii.gz`` in ``perf/``,
+in the space of the ASL reference).
+Each product must be matched by at most one file in a dataset; *ASLPrep* stops with an error
+naming the files otherwise.
+When several datasets provide the same product, the one listed last is used.
+Two exceptions and caveats:
+
+- *ASLPrep* records the method it used in the sidecars of the motion-correction transforms
+  (``HMCMethod``), the coregistration reference and the brain mask (``SkullStripASL``).
+  A product whose sidecar records another method than the one requested
+  (``--hmc-method``, ``--skull-strip-asl``) is recomputed.
+  A product without the record, such as a hand-made mask, is reused, and the log notes it.
+- The ASL products are all defined in the frame of the motion-correction reference:
+  the motion and M0 transforms map into it, the fieldmap and ASL-to-anatomical transforms map out
+  of it, the coregistration reference is that reference after distortion correction,
+  and the brain mask lies on the coregistration reference's grid.
+  They depend on that frame, not on each other, so any of them can be reused without the others.
+  The motion-correction reference is built deterministically, so a recomputed one is in the same
+  frame unless the settings that build it changed.
+  The log notes products reused with a recomputed motion-correction reference,
+  or taken from another derivatives dataset than it.
 
 
 .. _asl_confounds:
@@ -395,6 +491,13 @@ shorter than 5 seconds, tissue magnetization has not fully recovered,
 so *ASLPrep* divides the M0 image by :math:`1 - e^{-TR / T_{1,tissue}}`
 :footcite:p:`alsop_recommended_2015`.
 BASIL makes the same correction from the repetition time it is given.
+
+BIDS defines ``M0Estimate`` as the M0 of arterial blood,
+so *ASLPrep* does not divide it by the blood-brain partition coefficient
+(:math:`\lambda` in the equations below), as it does for an M0 image of tissue.
+Its CBF equals that from a uniform M0 image of :math:`\lambda` times the estimate.
+If a dataset's ``M0Estimate`` is the M0 of tissue instead,
+divide it by 0.9 before running *ASLPrep*.
 
 CBF is proportional to the ASL difference signal (ΔM) divided by M0,
 so voxels with almost no M0 signal (mostly air) would get arbitrarily large CBF values,

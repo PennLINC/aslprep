@@ -176,17 +176,21 @@ commands:
           # linked TSVs) must survive — they're how outputs get visually
           # QC'd. Only strip large binary derivatives that the reports
           # don't render, plus test/pycache debris.
+          # The container runs as root, so its outputs are root-owned and
+          # must be deleted with sudo. Errors are not suppressed: a failed
+          # delete would otherwise upload every derivative as an artifact.
           command: |
-            # Drop unused NIfTIs (existing behavior).
-            find /tmp/out/ -name "*.nii.gz" -type f -delete 2>/dev/null || true
-            # Drop other large binaries that aren't referenced from reports.
-            find /tmp/out/ \( \
+            set -euo pipefail
+            if [[ ! -d /tmp/out ]]; then exit 0; fi
+            # Drop NIfTIs and other large binaries that the reports don't render.
+            sudo find /tmp/out/ \( \
+              -name "*.nii" -o -name "*.nii.gz" -o \
               -name "*.h5" -o -name "*.gii" -o -name "*.gii.gz" -o \
               -name "*.mat" -o -name "*.npz" -o -name "*.mgz" -o -name "*.mif" \
-            \) -type f -delete 2>/dev/null || true
+            \) -type f -delete
             # Drop test/debug caches.
-            find /tmp/out/ \( -name ".pytest_cache" -o -name "__pycache__" \) -type d \
-              -exec rm -rf {} + 2>/dev/null || true
+            sudo find /tmp/out/ \( -name ".pytest_cache" -o -name "__pycache__" \) -type d \
+              -prune -exec rm -rf {} +
       - store_artifacts:
           path: /tmp/out
       - persist_to_workspace:
@@ -688,6 +692,7 @@ workflows:
                 - aslscan_pcasl_multipld
                 - aslscan_pasl_multipld
                 - aslscan_motion
+                - aslscan_grase_motion
               fixtures: [true]
               skip_marker: [aslscan]
           requires: [image_prep, get_data, gen_aslscan_fixtures]
@@ -742,6 +747,7 @@ workflows:
             - aslscan_pcasl_multipld
             - aslscan_pasl_multipld
             - aslscan_motion
+            - aslscan_grase_motion
             - unit_tests
           filters: *default_filters
 

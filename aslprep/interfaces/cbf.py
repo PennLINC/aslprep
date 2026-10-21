@@ -23,17 +23,21 @@ from aslprep import config
 from aslprep.utils.asl import (
     check_m0tr,
     determine_multi_pld,
-    estimate_labeling_efficiency,
     pcasl_or_pasl,
 )
+from aslprep.utils.calibration import (
+    CBF_UNIT_CONVERSION,
+    calibration_value,
+    m0_partition_coefficient,
+    resolve_calibration,
+)
 from aslprep.utils.cbf import (
-    PARTITION_COEFFICIENT,
     _getcbfscore,
     _scrubcbf,
-    estimate_t1,
     fit_deltam_multipld,
     get_array_module,
     multipld_bolus,
+    slice_shifted_delays,
     voxel_delays,
     zero_low_m0,
 )
@@ -317,13 +321,22 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc="Metadata for the raw CBF file, taken from the raw ASL data's sidecar JSON file.",
     )
+    calibration = traits.Dict(
+        desc=(
+            'Calibration specification, from aslprep.utils.calibration.resolve_calibration. '
+            'If not defined, it is resolved from metadata, m0_scale and m0tr.'
+        ),
+        xor=['m0_scale', 'm0tr'],
+    )
     m0_scale = traits.Float(
-        exists=True,
-        mandatory=True,
-        desc='Relative scale between ASL and M0.',
+        desc='Relative scale between ASL and M0. Only used without calibration (default 1).',
+        xor=['calibration'],
     )
     m0_file = File(exists=True, mandatory=True, desc='M0 nifti file')
-    m0tr = traits.Float(mandatory=False, desc='M0 TR, in seconds.')
+    m0tr = traits.Float(
+        desc='M0 TR, in seconds. Only used without calibration.',
+        xor=['calibration'],
+    )
     cbf_only = traits.Bool(
         mandatory=True,
         desc='Whether data are deltam (False) or CBF (True).',
@@ -476,8 +489,7 @@ class ComputeCBF(SimpleInterface):
     --------
     :func:`~aslprep.utils.asl.pcasl_or_pasl`
     :func:`~aslprep.utils.asl.determine_multi_pld`
-    :func:`~aslprep.utils.cbf.estimate_t1`
-    :func:`~aslprep.utils.asl.estimate_labeling_efficiency`
+    :func:`~aslprep.utils.calibration.resolve_calibration`
     :func:`~aslprep.utils.cbf.calculate_deltam_pasl`
     :func:`~aslprep.utils.cbf.calculate_deltam_pcasl`
     :func:`~aslprep.utils.cbf.fit_deltam_multipld`
@@ -493,7 +505,6 @@ class ComputeCBF(SimpleInterface):
     def _run_interface(self, runtime):
         metadata = self.inputs.metadata
         m0_file = self.inputs.m0_file
-        m0_scale = self.inputs.m0_scale
         deltam_file = self.inputs.deltam  # control - label signal intensities
 
         deltam_img = nb.load(deltam_file)
@@ -526,17 +537,30 @@ class ComputeCBF(SimpleInterface):
 
         is_casl = pcasl_or_pasl(metadata=metadata)
         is_multi_pld = determine_multi_pld(metadata=metadata)
-        t1blood, t1tissue = estimate_t1(metadata=metadata)
+        if isdefined(self.inputs.calibration):
+            calibration = self.inputs.calibration
+        else:
+            calibration = resolve_calibration(
+                metadata,
+                m0tr=self.inputs.m0tr if isdefined(self.inputs.m0tr) else None,
+                m0_scale=self.inputs.m0_scale if isdefined(self.inputs.m0_scale) else 1.0,
+            )
+            for warning in calibration['Warnings']:
+                config.loggers.interface.warning(warning)
+
+        t1blood = calibration_value(calibration, 'BloodT1')
+        # 1 for an M0Estimate, which is already the M0 of blood
+        partition_coefficient = m0_partition_coefficient(calibration)
+        # Labeling efficiency, including the loss from background suppression (alpha in Alsop 2015)
+        labeleff = calibration_value(calibration, 'EffectiveLabelingEfficiency')
+        # mL/g/s to mL/100 g/min. A fixed constant, which the multi-delay model and BASIL share,
+        # so it is recorded in the specification but not read from it.
+        UNIT_CONV = CBF_UNIT_CONVERSION
 
         # PostLabelingDelay is either a single number or an array of numbers.
         # If it is an array of numbers, then there should be one value for every volume in the
         # time series, with any M0 volumes having a value of 0.
         plds = np.atleast_1d(metadata['PostLabelingDelay'])
-
-        # Get labeling efficiency (alpha in Alsop 2015).
-        labeleff = estimate_labeling_efficiency(metadata=metadata)
-
-        UNIT_CONV = 6000  # convert units from mL/g/s to mL/(100 g)/min
 
         # NOTE: Nilearn will still add a singleton time dimension for 3D imgs with
         # NiftiMasker.transform, until 0.12.0, so the arrays will currently be 2D no matter what.
@@ -551,17 +575,22 @@ class ComputeCBF(SimpleInterface):
         if m0data.ndim != 1:
             m0data = np.mean(m0data, axis=0)
 
-        if isinstance(self.inputs.m0tr, Number) and self.inputs.m0tr < 5:
+        recovery_factor = calibration_value(calibration, 'M0RecoveryFactor')
+        if recovery_factor is not None:
             config.loggers.interface.warning(
-                f'M0 TR is less than 5 seconds ({self.inputs.m0tr}), '
+                'M0 TR is less than 5 seconds '
+                f'({calibration_value(calibration, "M0RepetitionTime")}), '
                 'so ASLPrep will scale the M0 data according to Alsop 2015.'
             )
             # Alsop 2015, page 113
-            m0data = m0data * (1 / (1 - np.exp(-self.inputs.m0tr / t1tissue)))
+            m0data = m0data * recovery_factor
 
         # Voxels with almost no M0 signal get no CBF estimate (zero for single-delay data,
         # a failed fit for multi-delay data), rather than an arbitrarily large one.
-        scaled_m0data = zero_low_m0(m0_scale * m0data)
+        scaled_m0data = calibration_value(calibration, 'M0Scale') * m0data
+        m0_threshold = calibration_value(calibration, 'M0Threshold')
+        if m0_threshold is not None:
+            scaled_m0data = zero_low_m0(scaled_m0data, threshold=m0_threshold)
 
         self._results['plds'] = None
         plds, pld_img = voxel_delays(
@@ -590,7 +619,7 @@ class ComputeCBF(SimpleInterface):
                 plds=plds,
                 labeleff=labeleff,
                 t1blood=t1blood,
-                partition_coefficient=PARTITION_COEFFICIENT,
+                partition_coefficient=partition_coefficient,
                 is_casl=is_casl,
                 tau=tau,  # defined for (P)CASL
                 ti1=ti1,  # defined for PASL
@@ -703,7 +732,7 @@ class ComputeCBF(SimpleInterface):
             with np.errstate(divide='ignore', invalid='ignore'):
                 deltam_scaled = deltam_arr / scaled_m0data[:, None]
 
-            perfusion_factor = (UNIT_CONV * PARTITION_COEFFICIENT * np.exp(plds / t1blood)) / (
+            perfusion_factor = (UNIT_CONV * partition_coefficient * np.exp(plds / t1blood)) / (
                 denom_factor * 2 * labeleff
             )
 
@@ -761,6 +790,33 @@ class ComputeCBF(SimpleInterface):
         )
         mean_cbf_img.to_filename(self._results['mean_cbf'])
 
+        return runtime
+
+
+class _WriteCalibrationInputSpec(BaseInterfaceInputSpec):
+    calibration = traits.Dict(
+        mandatory=True,
+        desc='Calibration specification, from aslprep.utils.calibration.resolve_calibration.',
+    )
+
+
+class _WriteCalibrationOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The calibration specification, as a JSON file.')
+
+
+class WriteCalibration(SimpleInterface):
+    """Write a calibration specification to a JSON file."""
+
+    input_spec = _WriteCalibrationInputSpec
+    output_spec = _WriteCalibrationOutputSpec
+
+    def _run_interface(self, runtime):
+        import json
+
+        out_file = os.path.join(runtime.cwd, 'calibration_parameters.json')
+        with open(out_file, 'w') as fobj:
+            json.dump(self.inputs.calibration, fobj, indent=2, sort_keys=False)
+        self._results['out_file'] = out_file
         return runtime
 
 
@@ -896,6 +952,56 @@ class ScoreAndScrubCBF(SimpleInterface):
         return runtime
 
 
+class _BASILInflowTimeImageInputSpec(BaseInterfaceInputSpec):
+    deltam = File(
+        exists=True,
+        mandatory=True,
+        desc='The deltaM file passed to BASIL, on the acquired slice grid.',
+    )
+    tis = traits.Either(
+        traits.Float(),
+        traits.List(traits.Float()),
+        mandatory=True,
+        desc='The inflow times BASIL would otherwise get with ``--tis``.',
+    )
+    metadata = traits.Dict(
+        mandatory=True,
+        desc='ASL metadata, with SliceTiming.',
+    )
+
+
+class _BASILInflowTimeImageOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='4D image of the inflow time of each voxel.')
+
+
+class BASILInflowTimeImage(SimpleInterface):
+    """Write the voxelwise inflow time image for BASIL's ``--tiimg``.
+
+    Each volume holds one of the inflow times, plus the acquisition time of each voxel's slice.
+    BASIL reads these values as inflow times (TIs), and does not add the labeling duration,
+    so for (P)CASL data they must already include it.
+    """
+
+    input_spec = _BASILInflowTimeImageInputSpec
+    output_spec = _BASILInflowTimeImageOutputSpec
+
+    def _run_interface(self, runtime):
+        tiimg = slice_shifted_delays(
+            self.inputs.tis,
+            self.inputs.metadata,
+            nb.load(self.inputs.deltam),
+        )
+        tiimg = nb.Nifti1Image(tiimg.get_fdata(dtype=np.float32), tiimg.affine, tiimg.header)
+        tiimg.set_data_dtype(np.float32)
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.deltam,
+            suffix='_tiimg',
+            newpath=runtime.cwd,
+        )
+        tiimg.to_filename(self._results['out_file'])
+        return runtime
+
+
 class _BASILCBFInputSpec(FSLCommandInputSpec):
     # We use position args here as list indices - so a negative number
     # will put something on the end
@@ -916,12 +1022,47 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         desc='mask in the same space as deltam',
         mandatory=True,
     )
-    mzero = File(exists=True, argstr='-c %s', desc='m0 scan', mandatory=False)
-    m0_scale = traits.Float(desc='calibration of asl', argstr='--cgain %.2f', mandatory=True)
+    mzero = File(
+        exists=True,
+        argstr='-c %s',
+        desc='Calibration (M0) image, which oxford_asl divides by the partition coefficient.',
+        xor=['m0_value'],
+    )
+    m0_value = traits.Float(
+        desc=(
+            'A single M0 value of arterial blood (an M0Estimate, multiplied by M0Scale), '
+            'used in place of a calibration image. oxford_asl does not divide it by the '
+            'partition coefficient, or apply --cgain or --tr to it.'
+        ),
+        argstr='--M0 %s',
+        xor=['mzero', 'm0_scale'],
+    )
+    # oxford_asl only passes --cgain to fslmaths, which reads exponents, so small scales keep
+    # their precision. The other values also go through bc, which does not read exponents.
+    m0_scale = traits.Float(
+        desc='Relative scale between ASL and M0 (the M0Scale calibration parameter).',
+        argstr='--cgain %.10g',
+        xor=['m0_value'],
+    )
     m0tr = traits.Float(
-        desc='The repetition time for the calibration image (the M0 scan).',
-        argstr='--tr %.2f',
+        desc=(
+            'The repetition time for the calibration image (the M0 scan). '
+            'oxford_asl corrects the calibration image for T1 recovery if it is below 5 s, '
+            'and assumes 3.2 s if it is not given.'
+        ),
+        argstr='--tr %.6f',
         mandatory=False,
+    )
+    t1tissue_calib = traits.Float(
+        desc=(
+            'T1 of tissue, in seconds, used to correct the calibration image for T1 recovery '
+            '(the TissueT1 calibration parameter) [default: 1.3].'
+        ),
+        argstr='--t1t %.6f',
+    )
+    t1tissue = traits.Float(
+        desc="T1 of tissue, in seconds, in BASIL's kinetic model [default: 1.3].",
+        argstr='--t1 %.6f',
     )
     tis = traits.Either(
         traits.Float(),
@@ -943,7 +1084,19 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         ),
         argstr='--tis %s',
         mandatory=True,
+        xor=['tis', 'tiimg'],
         sep=',',
+    )
+    tiimg = File(
+        exists=True,
+        desc=(
+            'A 4D image of the inflow time (TI) of each voxel, with one volume per entry of '
+            '``tis``. Used in place of ``tis`` when slice timing cannot be described by '
+            '``--slicedt``, such as for interleaved slice orders.'
+        ),
+        argstr='--tiimg %s',
+        mandatory=True,
+        xor=['tis', 'tiimg', 'slice_spacing', 'sliceband'],
     )
     pcasl = traits.Bool(
         desc=(
@@ -972,14 +1125,16 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
         mandatory=False,
     )
     slice_spacing = traits.Float(
-        desc='Slice times',
+        desc='Increase in inflow time per slice, in seconds.',
         argstr='--slicedt %s',
         mandatory=False,
+        xor=['tiimg'],
     )
     sliceband = traits.Int(
         desc='Number of slices per band in a multi-band acquisition.',
         argstr='--sliceband %d',
         mandatory=False,
+        xor=['tiimg'],
     )
     pvc = traits.Bool(
         desc='Do partial volume correction.',
@@ -1002,16 +1157,17 @@ class _BASILCBFInputSpec(FSLCommandInputSpec):
     alpha = traits.Float(
         desc=(
             'Inversion efficiency - [default: 0.98 (pASL); 0.85 (cASL)]. '
-            "This is equivalent to the BIDS metadata field 'LabelingEfficiency'."
+            'ASLPrep passes the EffectiveLabelingEfficiency calibration parameter: '
+            "the BIDS metadata field 'LabelingEfficiency', reduced by background suppression."
         ),
-        argstr='--alpha %.2f',
+        argstr='--alpha %.6f',
     )
     t1blood = traits.Float(
         desc=(
             'T1 of blood, in seconds [default: 1.65]. '
-            'ASLPrep passes the value it uses itself (see aslprep.utils.cbf.estimate_t1).'
+            'ASLPrep passes the BloodT1 calibration parameter, which its own models use.'
         ),
-        argstr='--t1b %.4f',
+        argstr='--t1b %.6f',
     )
 
 
@@ -1077,6 +1233,13 @@ class BASILCBF(FSLCommand):
     _cmd = 'oxford_asl'
     input_spec = _BASILCBFInputSpec
     output_spec = _BASILCBFOutputSpec
+
+    def _format_arg(self, name, spec, value):
+        if name == 'm0_value':
+            # oxford_asl multiplies the value with bc, which does not read exponents
+            value = np.format_float_positional(value, precision=10, fractional=False, trim='-')
+            return spec.argstr % value
+        return super()._format_arg(name, spec, value)
 
     def _run_interface(self, runtime):
         # oxford_asl keeps its intermediate files in a temporary directory named by FSL's

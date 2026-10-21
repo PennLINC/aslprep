@@ -973,7 +973,21 @@ def _bolus_array(tau, ti1, is_casl, n_volumes):
     return float(ti1)
 
 
-def gkm_predict(cbf, att, abat, abv, m0, plds, *, labeleff, t1blood, is_casl, tau=None, ti1=None):
+def gkm_predict(
+    cbf,
+    att,
+    abat,
+    abv,
+    m0,
+    plds,
+    *,
+    labeleff,
+    t1blood,
+    is_casl,
+    tau=None,
+    ti1=None,
+    partition_coefficient=None,
+):
     """Predict delta-M from general kinetic model parameters, as the multi-delay fit models it.
 
     Parameters
@@ -984,6 +998,9 @@ def gkm_predict(cbf, att, abat, abv, m0, plds, *, labeleff, t1blood, is_casl, ta
         Delays.
     labeleff, t1blood, is_casl, tau, ti1
         As for :func:`~aslprep.utils.cbf.fit_deltam_multipld`.
+    partition_coefficient : :obj:`float`, optional
+        Blood-brain partition coefficient.
+        Defaults to :data:`~aslprep.utils.cbf.PARTITION_COEFFICIENT`.
 
     Returns
     -------
@@ -1000,7 +1017,9 @@ def gkm_predict(cbf, att, abat, abv, m0, plds, *, labeleff, t1blood, is_casl, ta
     kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': np}
     tissue = _gkm_tissue_basis(np.asarray(att)[:, None], plds, bolus, **kwargs)
     arterial = _gkm_arterial_basis(np.asarray(abat)[:, None], plds, bolus, **kwargs)
-    m0_a = np.asarray(m0, dtype=float) / PARTITION_COEFFICIENT
+    if partition_coefficient is None:
+        partition_coefficient = PARTITION_COEFFICIENT
+    m0_a = np.asarray(m0, dtype=float) / partition_coefficient
     return m0_a[:, None] * (
         np.asarray(cbf)[:, None] * tissue + np.asarray(abv)[:, None] * arterial
     )
@@ -1016,6 +1035,7 @@ def fit_tissue_curves(
     is_casl,
     tau=None,
     ti1=None,
+    partition_coefficient=None,
     cbf_max=LR_CBF_MAX,
     abv_max=LR_ABV_MAX,
     xp=None,
@@ -1039,6 +1059,9 @@ def fit_tissue_curves(
         The delays of each curve's centre voxel.
     labeleff, t1blood, is_casl, tau, ti1, xp, n_jobs
         As for :func:`~aslprep.utils.cbf.fit_deltam_multipld`.
+    partition_coefficient : :obj:`float`, optional
+        Blood-brain partition coefficient.
+        Defaults to :data:`~aslprep.utils.cbf.PARTITION_COEFFICIENT`.
     cbf_max : :obj:`float`
         Upper bound on CBF.
     abv_max : :obj:`float`
@@ -1052,6 +1075,8 @@ def fit_tissue_curves(
     """
     from aslprep.utils.cbf import PARTITION_COEFFICIENT, fit_deltam_multipld
 
+    if partition_coefficient is None:
+        partition_coefficient = PARTITION_COEFFICIENT
     curves = np.asarray(curves, dtype=float)
     m0 = np.asarray(m0, dtype=float)
     n_voxels = curves.shape[0]
@@ -1066,7 +1091,7 @@ def fit_tissue_curves(
         plds=plds,
         labeleff=labeleff,
         t1blood=t1blood,
-        partition_coefficient=PARTITION_COEFFICIENT,
+        partition_coefficient=partition_coefficient,
         is_casl=is_casl,
         tau=tau,
         ti1=ti1,
@@ -1103,6 +1128,7 @@ def fit_tissue_curves(
             is_casl=is_casl,
             tau=tau,
             ti1=ti1,
+            partition_coefficient=partition_coefficient,
         )
     norm = np.linalg.norm(curves, axis=1)
     kinres = np.zeros(n_voxels)
