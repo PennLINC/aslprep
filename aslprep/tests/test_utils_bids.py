@@ -69,6 +69,186 @@ def test_collect_derivatives_sanitizes_fieldmap_id(tmp_path):
     assert derivs['transforms']['aslref2fmap'] == str(xfm)
 
 
+def test_collect_derivatives_mask_key(tmp_path):
+    """The native brain mask is collected as ``aslref_mask``, the key the fit workflow reads."""
+    deriv_dir = tmp_path / 'derivatives'
+    perf_dir = deriv_dir / 'sub-01' / 'perf'
+    perf_dir.mkdir(parents=True)
+    (deriv_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.9.0', 'DatasetType': 'derivative'})
+    )
+    mask = perf_dir / 'sub-01_desc-brain_mask.nii.gz'
+    mask.write_text('')
+    derivs = collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})
+    assert derivs['aslref_mask'] == str(mask)
+
+
+def _deriv_dir(tmp_path, *names):
+    deriv_dir = tmp_path / 'derivatives'
+    perf_dir = deriv_dir / 'sub-01' / 'perf'
+    perf_dir.mkdir(parents=True)
+    (deriv_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.9.0', 'DatasetType': 'derivative'})
+    )
+    for name in names:
+        (perf_dir / name).write_text('')
+    return deriv_dir, perf_dir
+
+
+def test_collect_derivatives_prefers_current_names(tmp_path):
+    """With both namings present, the current (desc) name is used, not a list of both."""
+    deriv_dir, perf_dir = _deriv_dir(
+        tmp_path, *XFM_NAMES['desc'].values(), *XFM_NAMES['legacy'].values()
+    )
+    transforms = collect_derivatives(
+        derivatives_dir=deriv_dir, entities={'subject': '01'}, fieldmap_id='auto_00000'
+    )['transforms']
+    for key, fname in XFM_NAMES['desc'].items():
+        assert transforms[key] == str(perf_dir / fname)
+
+
+def test_collect_derivatives_rejects_duplicates(tmp_path):
+    """A product matched by two files is reported, not passed on as a list or dropped."""
+    deriv_dir, _ = _deriv_dir(
+        tmp_path, 'sub-01_acq-a_desc-brain_mask.nii.gz', 'sub-01_acq-b_desc-brain_mask.nii.gz'
+    )
+    with pytest.raises(ValueError, match=r'^masks/aslref in .*found 2'):
+        collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})
+
+
+def test_collect_derivatives_no_fmap_transform_without_fieldmap(tmp_path):
+    """Without a fieldmap, the coregistration transform is not taken for a fieldmap one."""
+    deriv_dir, perf_dir = _deriv_dir(tmp_path, XFM_NAMES['legacy']['aslref2anat'])
+    transforms = collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})[
+        'transforms'
+    ]
+    assert transforms == {'aslref2anat': str(perf_dir / XFM_NAMES['legacy']['aslref2anat'])}
+
+
+def _cache(**kwargs):
+    transforms = kwargs.pop('transforms', {})
+    return {**kwargs, 'transforms': transforms}
+
+
+def test_merge_functional_derivatives_keeps_transforms_across_datasets():
+    """A later dataset without transforms does not wipe earlier ones (PennLINC/aslprep#738)."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    user = _cache(
+        hmc_aslref='ref.nii.gz',
+        coreg_aslref='coreg.nii.gz',
+        transforms={'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'},
+    )
+    atlases = _cache()
+    precomputed, _ = merge_functional_derivatives([user, atlases])
+    assert precomputed['transforms'] == {'hmc': 'hmc.txt', 'aslref2anat': 'anat.txt'}
+    assert precomputed['hmc_aslref'] == 'ref.nii.gz'
+    assert precomputed['coreg_aslref'] == 'coreg.nii.gz'
+
+
+def test_merge_functional_derivatives_reuses_a_seeded_mask(tmp_path):
+    """A dataset seeded with a hand-edited brain mask alone has it reused, with notes."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    mask = tmp_path / 'sub-01_desc-brain_mask.nii.gz'
+    mask.write_text('')
+    for skull_strip_asl in ('synthstrip', 'legacy'):
+        precomputed, notes = merge_functional_derivatives(
+            [_cache(aslref_mask=str(mask))], skull_strip_asl=skull_strip_asl
+        )
+        assert precomputed == {'aslref_mask': str(mask), 'transforms': {}}
+        assert any('method is not recorded' in n for n in notes)
+        assert any('aslref_mask with a recomputed HMC reference' in n for n in notes)
+
+
+def test_merge_functional_derivatives_notes_mixed_datasets():
+    """Products from different datasets are reused, and the mix is noted."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    a = _cache(hmc_aslref='a/ref.nii.gz', coreg_aslref='a/coreg.nii.gz')
+    b = _cache(transforms={'aslref2anat': 'b/anat.txt'})
+    precomputed, notes = merge_functional_derivatives([a, b])
+    assert precomputed['transforms'] == {'aslref2anat': 'b/anat.txt'}
+    assert precomputed['coreg_aslref'] == 'a/coreg.nii.gz'
+    assert [n for n in notes if 'frame' in n] == [
+        'reusing transforms/aslref2anat from another derivatives dataset than the HMC '
+        'reference; they must be in its frame'
+    ]
+
+
+def test_merge_functional_derivatives_does_not_tie_siblings():
+    """The coregistration reference and the motion transforms are independent of each other.
+
+    Either can be reused without the other: both only need the HMC reference's frame.
+    """
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    only_coreg = _cache(hmc_aslref='ref.nii.gz', coreg_aslref='coreg.nii.gz')
+    precomputed, notes = merge_functional_derivatives([only_coreg])
+    assert precomputed == {
+        'hmc_aslref': 'ref.nii.gz',
+        'coreg_aslref': 'coreg.nii.gz',
+        'transforms': {},
+    }
+    assert all('frame' not in n for n in notes)
+    with_mask = _cache(hmc_aslref='ref.nii.gz', aslref_mask='mask.nii.gz')
+    precomputed, notes = merge_functional_derivatives([with_mask])
+    assert precomputed['aslref_mask'] == 'mask.nii.gz'
+    assert all('frame' not in n for n in notes)
+
+
+def test_merge_functional_derivatives_checks_hmc_method(tmp_path):
+    """Transforms whose sidecar records another --hmc-method are estimated anew."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    xfm = tmp_path / 'hmc.txt'
+    xfm.write_text('')
+    cache = _cache(hmc_aslref='ref.nii.gz', transforms={'hmc': str(xfm)})
+
+    # No record: reused under any method, with a note.
+    precomputed, notes = merge_functional_derivatives([cache], hmc_method='typewise_offset')
+    assert precomputed['transforms'] == {'hmc': str(xfm)}
+    assert any('--hmc-method method is not recorded' in n for n in notes)
+
+    xfm.with_suffix('.json').write_text(json.dumps({'HMCMethod': 'typewise'}))
+    precomputed, notes = merge_functional_derivatives([cache], hmc_method='typewise_offset')
+    assert precomputed['transforms'] == {}
+    assert any('made with --hmc-method typewise, not typewise_offset' in n for n in notes)
+    assert precomputed['hmc_aslref'] == 'ref.nii.gz'
+
+    precomputed, _ = merge_functional_derivatives([cache], hmc_method='typewise')
+    assert precomputed['transforms'] == {'hmc': str(xfm)}
+
+
+def test_merge_functional_derivatives_checks_skull_strip_asl(tmp_path):
+    """A product whose sidecar records another --skull-strip-asl is recreated; others stay."""
+    from aslprep.utils.bids import merge_functional_derivatives
+
+    coreg = tmp_path / 'sub-01_desc-coreg_aslref.nii.gz'
+    mask = tmp_path / 'sub-01_desc-brain_mask.nii.gz'
+    for f in (coreg, mask):
+        f.write_text('')
+    # The record sits next to the image, not as a ".nii.json". The mask has none (hand-made).
+    coreg.with_name('sub-01_desc-coreg_aslref.json').write_text(
+        json.dumps({'SkullStripASL': 'synthstrip'})
+    )
+    cache = _cache(
+        hmc_aslref='ref.nii.gz',
+        coreg_aslref=str(coreg),
+        aslref_mask=str(mask),
+        transforms={'aslref2anat': 'anat.txt'},
+    )
+
+    precomputed, _ = merge_functional_derivatives([cache], skull_strip_asl='synthstrip')
+    assert precomputed['coreg_aslref'] == str(coreg)
+
+    precomputed, notes = merge_functional_derivatives([cache], skull_strip_asl='legacy')
+    assert 'coreg_aslref' not in precomputed
+    assert precomputed['aslref_mask'] == str(mask)
+    assert precomputed['transforms'] == {'aslref2anat': 'anat.txt'}
+    assert any('made with --skull-strip-asl synthstrip, not legacy' in n for n in notes)
+
+
 def test_write_derivative_description(tmp_path, monkeypatch):
     """DatasetLinks declare the datasets referenced by BIDS URIs in Sources."""
     from aslprep.utils.bids import write_derivative_description

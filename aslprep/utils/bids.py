@@ -314,15 +314,12 @@ def collect_derivatives(
 
     derivs_cache = defaultdict(list, {})
     layout = _get_layout(derivatives_dir)
-    derivatives_dir = Path(derivatives_dir)
 
     # search for both aslrefs
     for k, q in spec['baseline'].items():
-        query = {**entities, **q}
-        item = layout.get(return_type='filename', **query)
-        if not item:
-            continue
-        derivs_cache[f'{k}_aslref'] = item[0] if len(item) == 1 else item
+        item = _lookup(layout, f'baseline/{k}', q, entities)
+        if item:
+            derivs_cache[f'{k}_aslref'] = item
 
     transforms_cache = {}
     for xfm, q in spec['transforms'].items():
@@ -330,25 +327,170 @@ def collect_derivatives(
         #   (e.g., ".nii.gz" vs ".txt").
         # And transform suffixes will be "xfm",
         #   whereas relevant src file will be "bold".
-        query = {**entities, **q}
-        if xfm == 'aslref2fmap' and fieldmap_id:
+        override = {}
+        if xfm == 'aslref2fmap':
+            if not fieldmap_id:
+                # Without a fieldmap, the query would match any transform out of the reference.
+                continue
             # fieldmaps have ids like auto_00000
-            query['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
-        item = layout.get(return_type='filename', **query)
-        if not item:
-            continue
-        transforms_cache[xfm] = item[0] if len(item) == 1 else item
+            override['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
+        item = _lookup(layout, f'transforms/{xfm}', q, entities, override)
+        if item:
+            transforms_cache[xfm] = item
     derivs_cache['transforms'] = transforms_cache
 
     for k, q in spec['masks'].items():
-        query = {**entities, **q}
-        item = layout.get(return_type='filename', **query)
-        if not item or len(item) != 1:
-            continue
-
-        derivs_cache[k] = item[0]
+        # ``aslref_mask``, the key the fit workflow reads (it was stored as ``aslref``, so a
+        # precomputed mask was never reused).
+        item = _lookup(layout, f'masks/{k}', q, entities)
+        if item:
+            derivs_cache[f'{k}_mask'] = item
 
     return derivs_cache
+
+
+def _lookup(layout, location, alternatives, entities, override=None):
+    """Find the one file a query names, as nipost's collector does.
+
+    ``alternatives`` is one entity dict, or a list of them describing the same product under
+    different names (current naming first, then legacy naming). The first alternative that
+    matches anything is used alone. More than one match is an error, so that a duplicated
+    product is reported rather than passed on as a list or dropped.
+    """
+    if isinstance(alternatives, dict):
+        alternatives = [alternatives]
+    for i, alternative in enumerate(alternatives):
+        query = {**entities, **alternative, **(override or {})}
+        found = layout.get(return_type='filename', **query)
+        if len(found) > 1:
+            raise ValueError(
+                f'{location} in {layout.root} (alternative {i}): expected at most one file, '
+                f'found {len(found)}: {sorted(found)}. Remove all but one.'
+            )
+        if found:
+            return found[0]
+    return None
+
+
+#: Products defined in the frame of the HMC reference. None needs another product's file, only
+#: that frame: the motion and M0 transforms map into it, the fieldmap transform maps out of it,
+#: the coregistration reference is that reference unwarped, the brain mask lies on the
+#: coregistration reference's grid, and the ASL-to-anatomical transform maps out of it. The HMC
+#: reference is built deterministically, so a recomputed one lands in the same frame unless the
+#: settings that build it changed.
+FRAME_PRODUCTS = (
+    ('coreg_aslref',),
+    ('aslref_mask',),
+    ('transforms', 'hmc'),
+    ('transforms', 'm0scan2aslref'),
+    ('transforms', 'aslref2fmap'),
+    ('transforms', 'aslref2anat'),
+)
+
+#: Products whose method ASLPrep records in their sidecar: product -> (sidecar field, option).
+DERIVATIVE_METHODS = (
+    (('transforms', 'hmc'), 'HMCMethod', '--hmc-method'),
+    (('coreg_aslref',), 'SkullStripASL', '--skull-strip-asl'),
+    (('aslref_mask',), 'SkullStripASL', '--skull-strip-asl'),
+)
+
+
+def _sidecar(path):
+    """The JSON sidecar of a derivative (``.nii.gz``, ``.nii`` or ``.txt``)."""
+    path = Path(path if isinstance(path, str | Path) else path[0])
+    name = path.name
+    for ext in ('.nii.gz', '.nii', '.txt'):
+        if name.endswith(ext):
+            return path.with_name(name[: -len(ext)] + '.json')
+    return path.with_suffix('.json')
+
+
+def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl='synthstrip'):
+    """Merge the caches of several derivatives datasets into one set of products to reuse.
+
+    Each dataset's ``collect_derivatives`` cache has a ``transforms`` entry, even when empty, so
+    updating one dict with the next replaced every transform found before (in particular with
+    the internal atlas datasets, which are collected last; PennLINC/aslprep#738). Here every
+    product is merged on its own, a later dataset winning.
+
+    Every product found is reused, so that a dataset can be seeded with single files, such as a
+    hand-edited brain mask. Two things are logged or acted on:
+
+    - A product whose sidecar records a method (:data:`DERIVATIVE_METHODS`: ``HMCMethod`` for the
+      head-motion transforms, ``SkullStripASL`` for the coregistration reference and the brain
+      mask) other than the requested one was made by ASLPrep under other settings, and is
+      recomputed. A product without the record (made by hand, or before the record existed) is
+      reused, and the log says its method is unknown.
+    - Products in the frame of the HMC reference (:data:`FRAME_PRODUCTS`) reused while the HMC
+      reference is recomputed, or taken from another derivatives dataset than the HMC reference,
+      are reused, and the log says so: they must be in the frame of the reference the run uses.
+      Their dependence is on that frame, not on each other's files, so they are not tied together
+      (a hand-edited mask goes with a recomputed coregistration reference, and so on).
+
+    Parameters
+    ----------
+    caches : list of dict
+        ``collect_derivatives`` outputs, in the order of the derivatives datasets.
+    hmc_method : str
+        The requested head-motion correction method.
+    skull_strip_asl : str
+        The requested ASL brain extraction method.
+
+    Returns
+    -------
+    precomputed : dict
+        The products to reuse, in ``collect_derivatives``' layout.
+    notes : list of str
+        What was recomputed or reused with a caveat, and why, for the log.
+    """
+    found = {}
+    for i, derivs_cache in enumerate(caches):
+        for key, value in derivs_cache.items():
+            if key == 'transforms':
+                for name, path in (value or {}).items():
+                    found['transforms', name] = (path, i)
+            elif value:
+                found[(key,)] = (value, i)
+
+    notes = []
+    requested = {'HMCMethod': hmc_method, 'SkullStripASL': skull_strip_asl}
+    for key, field, option in DERIVATIVE_METHODS:
+        if key not in found:
+            continue
+        sidecar = _sidecar(found[key][0])
+        method = json.loads(sidecar.read_text()).get(field) if sidecar.exists() else None
+        name = '/'.join(key)
+        if method is None:
+            notes.append(f'reusing {name}, whose {option} method is not recorded')
+        elif method != requested[field]:
+            del found[key]
+            notes.append(
+                f'recomputing {name}: it was made with {option} {method}, not {requested[field]}'
+            )
+
+    in_frame = [key for key in FRAME_PRODUCTS if key in found]
+    if in_frame and ('hmc_aslref',) not in found:
+        notes.append(
+            f'reusing {", ".join("/".join(k) for k in in_frame)} with a recomputed HMC '
+            'reference; they must be in its frame (as they are if they came from a run whose '
+            'reference was built the same way)'
+        )
+    elif in_frame:
+        source = found['hmc_aslref',][1]
+        other = [key for key in in_frame if found[key][1] != source]
+        if other:
+            notes.append(
+                f'reusing {", ".join("/".join(k) for k in other)} from another derivatives '
+                'dataset than the HMC reference; they must be in its frame'
+            )
+
+    precomputed = {'transforms': {}}
+    for key, (value, _) in found.items():
+        if key[0] == 'transforms':
+            precomputed['transforms'][key[1]] = value
+        else:
+            precomputed[key[0]] = value
+    return precomputed, notes
 
 
 def write_bidsignore(deriv_dir):

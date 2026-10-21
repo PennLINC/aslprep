@@ -272,8 +272,31 @@ and the correction is composed into the transforms of that delay's label volumes
 Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
 use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
-Precomputed motion-correction transforms passed with ``--derivatives`` are reused as they are,
-whichever method is requested.
+The method is recorded in the transforms' sidecar (``HMCMethod``).
+
+Every product found in the datasets passed with ``--derivatives`` is reused,
+so a dataset can be seeded with single files, such as a hand-edited brain mask
+(``sub-<label>[_ses-<label>]_<entities>_desc-brain_mask.nii.gz`` in ``perf/``,
+in the space of the ASL reference).
+Each product must be matched by at most one file in a dataset; *ASLPrep* stops with an error
+naming the files otherwise.
+When several datasets provide the same product, the one listed last is used.
+Two exceptions and caveats:
+
+- *ASLPrep* records the method it used in the sidecars of the motion-correction transforms
+  (``HMCMethod``), the coregistration reference and the brain mask (``SkullStripASL``).
+  A product whose sidecar records another method than the one requested
+  (``--hmc-method``, ``--skull-strip-asl``) is recomputed.
+  A product without the record, such as a hand-made mask, is reused, and the log notes it.
+- The ASL products are all defined in the frame of the motion-correction reference:
+  the motion and M0 transforms map into it, the fieldmap and ASL-to-anatomical transforms map out
+  of it, the coregistration reference is that reference after distortion correction,
+  and the brain mask lies on the coregistration reference's grid.
+  They depend on that frame, not on each other, so any of them can be reused without the others.
+  The motion-correction reference is built deterministically, so a recomputed one is in the same
+  frame unless the settings that build it changed.
+  The log notes products reused with a recomputed motion-correction reference,
+  or taken from another derivatives dataset than it.
 
 
 .. _asl_confounds:

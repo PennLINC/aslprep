@@ -23,14 +23,26 @@
       }
     },
     "transforms": {
-      "hmc": {
-        "datatype": "perf",
-        "from": "orig",
-        "to": "aslref",
-        "mode": "image",
-        "suffix": "xfm",
-        "extension": ".txt"
-      },
+      "hmc": [
+        {
+          "datatype": "perf",
+          "from": "orig",
+          "to": "aslref",
+          "mode": "image",
+          "desc": "hmc",
+          "suffix": "xfm",
+          "extension": ".txt"
+        },
+        {
+          "datatype": "perf",
+          "from": "orig",
+          "to": "aslref",
+          "mode": "image",
+          "desc": null,
+          "suffix": "xfm",
+          "extension": ".txt"
+        }
+      ],
       "m0scan2aslref": {
         "datatype": "perf",
         "from": "m0scan",
@@ -39,21 +51,44 @@
         "suffix": "xfm",
         "extension": ".txt"
       },
-      "aslref2anat": {
-        "datatype": "perf",
-        "from": "aslref",
-        "to": ["anat", "T1w", "T2w"],
-        "mode": "image",
-        "suffix": "xfm",
-        "extension": ".txt"
-      },
-      "aslref2fmap": {
-        "datatype": "perf",
-        "from": "aslref",
-        "mode": "image",
-        "suffix": "xfm",
-        "extension": ".txt"
-      }
+      "aslref2anat": [
+        {
+          "datatype": "perf",
+          "from": "aslref",
+          "to": ["anat", "T1w", "T2w"],
+          "mode": "image",
+          "desc": "coreg",
+          "suffix": "xfm",
+          "extension": ".txt"
+        },
+        {
+          "datatype": "perf",
+          "from": "aslref",
+          "to": ["anat", "T1w", "T2w"],
+          "mode": "image",
+          "desc": null,
+          "suffix": "xfm",
+          "extension": ".txt"
+        }
+      ],
+      "aslref2fmap": [
+        {
+          "datatype": "perf",
+          "from": "aslref",
+          "mode": "image",
+          "desc": "fmap",
+          "suffix": "xfm",
+          "extension": ".txt"
+        },
+        {
+          "datatype": "perf",
+          "from": "aslref",
+          "mode": "image",
+          "desc": null,
+          "suffix": "xfm",
+          "extension": ".txt"
+        }
+      ]
     },
     "masks": {
       "aslref": {
