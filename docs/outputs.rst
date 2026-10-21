@@ -861,6 +861,42 @@ the maximum intensity of the ASL file in at least one volume, and
 ``perc_voxels_clipped_m0scan`` is the same measure for a separate M0 scan.
 Both are close to zero for data that are not clipped.
 
+The ``bs_`` measures check how close the control and label images are to zero,
+which matters most for background-suppressed data.
+Scanners usually reconstruct magnitude images, so a voxel with no signal reads the
+magnitude of the noise (the noise floor) rather than zero.
+Close to the floor, the magnitude overestimates the signal and compresses the label-control
+difference (delta-M).
+If background suppression inverts the static magnetization at readout,
+the magnitude flips its sign: labeling then makes the image brighter, and delta-M is negative.
+All of these measures use the ASL file as acquired, before motion correction.
+
+``bs_noise_floor``
+   The root mean squared magnitude of the background of the control and label volumes,
+   more than 20 mm from the brain mask.
+   n/a when the scanner sets the background to zero.
+
+``bs_gm_signal_floor_ratio`` and ``bs_gm_deltam_retained``
+   The median gray matter control signal over the noise floor, and the fraction of delta-M
+   a magnitude image keeps at that ratio (:math:`\sqrt{1 - 1/r^2}`;
+   0.87 at twice the floor, 0.94 at three times the floor).
+
+``bs_perc_voxels_near_noise_floor``
+   The percentage of brain voxels whose control signal is less than twice the floor.
+
+``bs_csf_profile_signal_floor_ratio_min`` and ``bs_csf_profile_deltam_min``
+   Brain voxels are binned by CSF fraction.
+   These are the lowest median control signal-to-floor ratio across bins,
+   and the lowest median delta-M divided by the largest absolute median.
+   Tissue and CSF have different T1s, so background suppression can invert one and not the other.
+   The net magnetization of voxels that mix them then passes through zero,
+   so the signal-to-floor ratio drops to about 1, and delta-M is negative on the inverted side.
+   For data whose static signal keeps its sign, the ratio stays well above 1
+   and delta-M stays positive.
+
+For background-suppressed data with control and label volumes,
+the visual report also plots these maps and profiles.
+
 
 *****************************
 Parcellated Perfusion Results
