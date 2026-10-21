@@ -153,14 +153,18 @@ def _nearest_rigid(m, centre):
     return out
 
 
-def _niimath(series, ref, out_base, rigid_ls=False):
+def _niimath(series, ref, out_base, rigid_ls=False, classic_cost=None):
     """niimath ``-allineate`` (a port of AFNI 3dAllineate) of each volume to a reference.
 
     The default (fast) engine fits a full affine only, so its result is projected onto the
     nearest rigid transform about the reference's centre; ``rigid_ls`` uses the classic engine
-    with a rigid warp (``-warp shr``) and least squares instead. ``-savemat`` writes the
+    with a rigid warp (``-warp shr``) and least squares instead, and ``classic_cost`` the
+    classic engine, rigid, with that cost (``hel``, ``nmi``, ``lpc``: cross-contrast costs;
+    ``lpc``/``lpa`` add ``-source_automask``, as the help asks). ``-savemat`` writes the
     world-space pull matrix (``fixed_to_moving``).
     """
+    if classic_cost is not None:
+        rigid_ls = True
     import os
 
     exe = os.environ.get('NIIMATH', 'niimath')
@@ -172,7 +176,9 @@ def _niimath(series, ref, out_base, rigid_ls=False):
     for k in range(data.shape[-1]):
         vol = _save(data[..., k], img, Path(f'{out_base}_v{k:03d}.nii.gz'))
         mat = Path(f'{out_base}_v{k:03d}.json')
-        classic = ['-cost', 'ls', '-warp', 'shr']
+        classic = ['-cost', classic_cost or 'ls', '-warp', 'shr']
+        if classic_cost in ('lpc', 'lpa'):
+            classic.append('-source_automask')
         opts = classic if rigid_ls else ['-cost', 'fast']
         cmd = [exe, str(vol), '-allineate', str(ref), '-savemat', str(mat)]
         out = f'{out_base}_v{k:03d}_out.nii.gz'
@@ -212,6 +218,8 @@ def _register_series(series, ref, out_base, cost, engine):
         return _niimath(series, ref, out_base), None
     if engine == 'niimath_ls':
         return _niimath(series, ref, out_base, rigid_ls=True), None
+    if engine.startswith('niimath_'):  # niimath_hel, niimath_nmi, niimath_lpc, ...
+        return _niimath(series, ref, out_base, classic_cost=engine.split('_', 1)[1]), None
     raise ValueError(f'Unknown engine: {engine}')
 
 
@@ -1114,6 +1122,35 @@ def run_c6(inputs, work, **options):
     }
 
 
+def run_c0x(inputs, work, **options):
+    """Production with another registration engine (after Task 9).
+
+    Production's reference (``init_raw_aslref_wf``) and its reduced volume set, with every kept
+    volume registered to that reference by ``engine`` instead of MCFLIRT (``niimath_hel``,
+    ``niimath_nmi``, ``niimath_ls``, ``volreg``, ...). Production runs MCFLIRT per volume type,
+    but each volume is registered to the same reference either way, so the grouping does not
+    change the estimate; only the engine and its cost do.
+    """
+    from harness import run_c0
+
+    engine = _opt(options, 'engine', 'niimath_hel')
+    cost = _opt(options, 'cost', 'mutualinfo')
+    sub = work / 'c0'
+    sub.mkdir()
+    res = run_c0(inputs, sub)
+    idx = list(res['indices'])
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    series = _save(data[..., idx], img, work / 'kept.nii.gz')
+    mats, _ = _register_series(series, res['aslref'], work / 'reg', cost, engine)
+    return {
+        **res,
+        'xforms': str(_to_itk(mats, res['aslref'], work)),
+        'reference_type': f'{res["reference_type"]}; every volume registered by {engine}',
+    }
+
+
 def run_c9(inputs, work, **options):
     """Production with its label offset removed (C9; after Task 7).
 
@@ -1139,7 +1176,11 @@ def run_c9(inputs, work, **options):
 
     engine = _opt(options, 'engine', 'volreg')
     grouping = _opt(options, 'grouping', 'delay')
-    res, h = _base(inputs, work, 'c0', {})
+    # ``base``: the first step (default production, ``c0``); ``base_engine`` is passed to it as
+    # its ``engine`` (``c0x`` with ``base_engine=niimath_hel`` is production with niimath).
+    base = _opt(options, 'base', 'c0')
+    base_opts = {'engine': options['base_engine']} if 'base_engine' in options else {}
+    res, h = _base(inputs, work, base, base_opts)
     types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
     idx = list(res['indices'])
     plds = _plds(inputs, nb.load(inputs['asl_file']).shape[-1], idx)
@@ -1386,6 +1427,7 @@ CANDIDATES = {
     'c6': run_c6,
     'oracle': run_oracle,
     'c9': run_c9,
+    'c0x': run_c0x,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
