@@ -278,6 +278,9 @@ Every product found in the datasets passed with ``--derivatives`` is reused,
 so a dataset can be seeded with single files, such as a hand-edited brain mask
 (``sub-<label>[_ses-<label>]_<entities>_desc-brain_mask.nii.gz`` in ``perf/``,
 in the space of the ASL reference).
+Each product must be matched by at most one file in a dataset; *ASLPrep* stops with an error
+naming the files otherwise.
+When several datasets provide the same product, the one listed last is used.
 Two exceptions and caveats:
 
 - *ASLPrep* records the method it used in the sidecars of the motion-correction transforms
