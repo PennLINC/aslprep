@@ -353,26 +353,26 @@ def collect_derivatives(
     return derivs_cache
 
 
-#: Each reusable product and the product it was estimated against, parents first. A product is
-#: reused only together with its parent, from the same derivatives dataset: an HMC transform,
-#: an M0 or fieldmap registration or a coregistration reference only with the HMC reference they
-#: were made from, and the brain mask and ASL-to-anatomical transform only with the
-#: coregistration reference.
-DERIVATIVE_PARENTS = (
-    (('coreg_aslref',), ('hmc_aslref',)),
-    (('transforms', 'hmc'), ('hmc_aslref',)),
-    (('transforms', 'm0scan2aslref'), ('hmc_aslref',)),
-    (('transforms', 'aslref2fmap'), ('hmc_aslref',)),
-    (('aslref_mask',), ('coreg_aslref',)),
-    (('transforms', 'aslref2anat'), ('coreg_aslref',)),
+#: Products defined in the frame of the HMC reference. None needs another product's file, only
+#: that frame: the motion and M0 transforms map into it, the fieldmap transform maps out of it,
+#: the coregistration reference is that reference unwarped, the brain mask lies on the
+#: coregistration reference's grid, and the ASL-to-anatomical transform maps out of it. The HMC
+#: reference is built deterministically, so a recomputed one lands in the same frame unless the
+#: settings that build it changed.
+FRAME_PRODUCTS = (
+    ('coreg_aslref',),
+    ('aslref_mask',),
+    ('transforms', 'hmc'),
+    ('transforms', 'm0scan2aslref'),
+    ('transforms', 'aslref2fmap'),
+    ('transforms', 'aslref2anat'),
 )
 
-#: Products whose method is recorded in their sidecar: product -> (sidecar field, option,
-#: value assumed when the field is missing, i.e. the behaviour before the option existed).
+#: Products whose method ASLPrep records in their sidecar: product -> (sidecar field, option).
 DERIVATIVE_METHODS = (
-    (('transforms', 'hmc'), 'HMCMethod', '--hmc-method', 'typewise'),
-    (('coreg_aslref',), 'SkullStripASL', '--skull-strip-asl', 'synthstrip'),
-    (('aslref_mask',), 'SkullStripASL', '--skull-strip-asl', 'synthstrip'),
+    (('transforms', 'hmc'), 'HMCMethod', '--hmc-method'),
+    (('coreg_aslref',), 'SkullStripASL', '--skull-strip-asl'),
+    (('aslref_mask',), 'SkullStripASL', '--skull-strip-asl'),
 )
 
 
@@ -387,17 +387,26 @@ def _sidecar(path):
 
 
 def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl='synthstrip'):
-    """Merge the caches of several derivatives datasets into one consistent set of products.
+    """Merge the caches of several derivatives datasets into one set of products to reuse.
 
     Each dataset's ``collect_derivatives`` cache has a ``transforms`` entry, even when empty, so
     updating one dict with the next replaced every transform found before (in particular with
     the internal atlas datasets, which are collected last; PennLINC/aslprep#738). Here every
-    product is merged on its own (a later dataset wins), and then reuse is all-or-nothing along
-    :data:`DERIVATIVE_PARENTS`: a product whose parent is not reused, or comes from another
-    dataset, is dropped and recomputed. Products made with another method than the requested one
-    (:data:`DERIVATIVE_METHODS`: the head-motion transforms and ``HMCMethod``; the coregistration
-    reference and brain mask and ``SkullStripASL``) are dropped first, so that their dependents
-    follow them.
+    product is merged on its own, a later dataset winning.
+
+    Every product found is reused, so that a dataset can be seeded with single files, such as a
+    hand-edited brain mask. Two things are logged or acted on:
+
+    - A product whose sidecar records a method (:data:`DERIVATIVE_METHODS`: ``HMCMethod`` for the
+      head-motion transforms, ``SkullStripASL`` for the coregistration reference and the brain
+      mask) other than the requested one was made by ASLPrep under other settings, and is
+      recomputed. A product without the record (made by hand, or before the record existed) is
+      reused, and the log says its method is unknown.
+    - Products in the frame of the HMC reference (:data:`FRAME_PRODUCTS`) reused while the HMC
+      reference is recomputed, or taken from another derivatives dataset than the HMC reference,
+      are reused, and the log says so: they must be in the frame of the reference the run uses.
+      Their dependence is on that frame, not on each other's files, so they are not tied together
+      (a hand-edited mask goes with a recomputed coregistration reference, and so on).
 
     Parameters
     ----------
@@ -412,8 +421,8 @@ def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl=
     -------
     precomputed : dict
         The products to reuse, in ``collect_derivatives``' layout.
-    dropped : list of str
-        What was dropped, and why, for the log.
+    notes : list of str
+        What was recomputed or reused with a caveat, and why, for the log.
     """
     found = {}
     for i, derivs_cache in enumerate(caches):
@@ -424,31 +433,37 @@ def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl=
             elif value:
                 found[(key,)] = (value, i)
 
-    dropped = []
+    notes = []
     requested = {'HMCMethod': hmc_method, 'SkullStripASL': skull_strip_asl}
-    for key, field, option, default in DERIVATIVE_METHODS:
+    for key, field, option in DERIVATIVE_METHODS:
         if key not in found:
             continue
         sidecar = _sidecar(found[key][0])
-        method = default
-        if sidecar.exists():
-            method = json.loads(sidecar.read_text()).get(field, default)
-        if method != requested[field]:
+        method = json.loads(sidecar.read_text()).get(field) if sidecar.exists() else None
+        name = '/'.join(key)
+        if method is None:
+            notes.append(f'reusing {name}, whose {option} method is not recorded')
+        elif method != requested[field]:
             del found[key]
-            dropped.append(
-                f'{"/".join(key)} (made with {option} {method}, not {requested[field]})'
+            notes.append(
+                f'recomputing {name}: it was made with {option} {method}, not {requested[field]}'
             )
 
-    for key, parent in DERIVATIVE_PARENTS:
-        if key not in found:
-            continue
-        if parent not in found:
-            dropped.append(f'{"/".join(key)} (no reused {"/".join(parent)})')
-        elif found[parent][1] != found[key][1]:
-            dropped.append(f'{"/".join(key)} (from another dataset than {"/".join(parent)})')
-        else:
-            continue
-        del found[key]
+    in_frame = [key for key in FRAME_PRODUCTS if key in found]
+    if in_frame and ('hmc_aslref',) not in found:
+        notes.append(
+            f'reusing {", ".join("/".join(k) for k in in_frame)} with a recomputed HMC '
+            'reference; they must be in its frame (as they are if they came from a run whose '
+            'reference was built the same way)'
+        )
+    elif in_frame:
+        source = found['hmc_aslref',][1]
+        other = [key for key in in_frame if found[key][1] != source]
+        if other:
+            notes.append(
+                f'reusing {", ".join("/".join(k) for k in other)} from another derivatives '
+                'dataset than the HMC reference; they must be in its frame'
+            )
 
     precomputed = {'transforms': {}}
     for key, (value, _) in found.items():
@@ -456,7 +471,7 @@ def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl=
             precomputed['transforms'][key[1]] = value
         else:
             precomputed[key[0]] = value
-    return precomputed, dropped
+    return precomputed, notes
 
 
 def write_bidsignore(deriv_dir):

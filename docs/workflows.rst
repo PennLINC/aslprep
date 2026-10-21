@@ -272,18 +272,28 @@ and the correction is composed into the transforms of that delay's label volumes
 Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
 use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
-The method is recorded in the transforms' sidecar (``HMCMethod``),
-and precomputed transforms passed with ``--derivatives`` are reused only if they were made with
-the requested method; otherwise head motion is estimated anew.
+The method is recorded in the transforms' sidecar (``HMCMethod``).
 
-Precomputed products are reused all or nothing:
-a motion-correction transform, M0 or fieldmap registration, or coregistration reference
-only together with the motion-correction reference it was made from,
-and a brain mask or ASL-to-anatomical transform only together with its coregistration
-reference, each pair from the same derivatives dataset.
-The coregistration reference and brain mask likewise record the brain extraction method
-(``SkullStripASL``) and are reused only with the requested ``--skull-strip-asl``.
-Anything else is recomputed, and the log says so.
+Every product found in the datasets passed with ``--derivatives`` is reused,
+so a dataset can be seeded with single files, such as a hand-edited brain mask
+(``sub-<label>[_ses-<label>]_<entities>_desc-brain_mask.nii.gz`` in ``perf/``,
+in the space of the ASL reference).
+Two exceptions and caveats:
+
+- *ASLPrep* records the method it used in the sidecars of the motion-correction transforms
+  (``HMCMethod``), the coregistration reference and the brain mask (``SkullStripASL``).
+  A product whose sidecar records another method than the one requested
+  (``--hmc-method``, ``--skull-strip-asl``) is recomputed.
+  A product without the record, such as a hand-made mask, is reused, and the log notes it.
+- The ASL products are all defined in the frame of the motion-correction reference:
+  the motion and M0 transforms map into it, the fieldmap and ASL-to-anatomical transforms map out
+  of it, the coregistration reference is that reference after distortion correction,
+  and the brain mask lies on the coregistration reference's grid.
+  They depend on that frame, not on each other, so any of them can be reused without the others.
+  The motion-correction reference is built deterministically, so a recomputed one is in the same
+  frame unless the settings that build it changed.
+  The log notes products reused with a recomputed motion-correction reference,
+  or taken from another derivatives dataset than it.
 
 
 .. _asl_confounds:

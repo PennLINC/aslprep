@@ -874,7 +874,7 @@ tasks and sessions), the following preprocessing was performed.
             # Echo and part entities should not constrain the derivatives query
             entities = {k: v for k, v in entities.items() if k not in ('echo', 'part')}
 
-            functional_cache, dropped = merge_functional_derivatives(
+            functional_cache, notes = merge_functional_derivatives(
                 [
                     collect_derivatives(
                         derivatives_dir=deriv_dir,
@@ -886,9 +886,9 @@ tasks and sessions), the following preprocessing was performed.
                 hmc_method=config.workflow.hmc_method,
                 skull_strip_asl=config.workflow.skull_strip_asl,
             )
-            for note in dropped:
+            for note in notes:
                 config.loggers.workflow.warning(
-                    'Not reusing the precomputed %s for %s.', note, os.path.basename(asl_file)
+                    'Precomputed derivatives for %s: %s.', os.path.basename(asl_file), note
                 )
 
         asl_wf = init_asl_wf(
