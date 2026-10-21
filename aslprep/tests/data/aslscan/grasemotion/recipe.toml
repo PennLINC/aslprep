@@ -1,0 +1,5 @@
+phantom = "tfmni"
+acq = "grasemotion"
+anat = "derivatives"
+anat_offset = [-2.0, 3.0, 1.5, -3.0, 2.0, 4.0]
+snr_per_pair = 10.0

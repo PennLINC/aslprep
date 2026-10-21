@@ -8,3 +8,7 @@ repetition_time = 8.0
 [motion]
 mode = "trajectory"
 trajectory = "motion.tsv"
+within_volume_sampling = "shot"
+spin_history = true
+[motion.within_volume]
+events = "events.tsv"
