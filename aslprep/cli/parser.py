@@ -506,6 +506,21 @@ any spatial references.""",
         help='Smoothing kernel for the M0 image(s)',
     )
     g_conf.add_argument(
+        '--hmc-method',
+        '--hmc_method',
+        action='store',
+        default='typewise',
+        choices=['typewise', 'typewise_offset'],
+        help=(
+            'Head-motion correction method. "typewise" (default) registers each volume type '
+            'separately to the reference with MCFLIRT. "typewise_offset" (experimental) does the '
+            'same, then removes the systematic offset between the corrected label and control '
+            'volumes: for each post-labeling delay, the mean corrected label image is registered '
+            'rigidly to the mean corrected control image, and the correction is composed into '
+            "the label volumes' transforms."
+        ),
+    )
+    g_conf.add_argument(
         '--scorescrub',
         action='store_true',
         default=False,

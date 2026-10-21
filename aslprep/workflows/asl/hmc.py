@@ -48,11 +48,18 @@ def init_asl_hmc_wf(
         ASL context TSV file.
     raw_ref_image
         Reference image to which ASL series is motion corrected
+    metadata
+        Metadata of ``asl_file``, reduced to its volumes (post-labeling delays and labeling
+        type); used only when ``config.workflow.hmc_method`` is ``typewise_offset``.
 
     Outputs
     -------
     xforms
-        ITKTransform file aligning each volume to ``ref_image``
+        ITKTransform file aligning each volume to ``ref_image``. With ``--hmc-method
+        typewise_offset``, the label volumes' transforms also remove the offset between the
+        corrected labels and controls (:class:`~aslprep.interfaces.hmc.CorrectLabelOffset`).
+    label_offset_report
+        JSON record of the estimated label offsets (only with ``typewise_offset``).
     movpar_file
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
     rms_file
@@ -75,8 +82,10 @@ def init_asl_hmc_wf(
     from niworkflows.interfaces.itk import MCFLIRT2ITK
     from niworkflows.utils.connections import listify
 
+    from aslprep import config
     from aslprep.config import DEFAULT_MEMORY_MIN_GB
     from aslprep.interfaces.confounds import NormalizeMotionParams
+    from aslprep.interfaces.hmc import CorrectLabelOffset
     from aslprep.interfaces.utility import (
         CombineMotionParameters,
         PairwiseRMSDiff,
@@ -103,6 +112,7 @@ re-calculated relative root mean-squared deviation.
                 'aslcontext',
                 'processing_target',
                 'raw_ref_image',
+                'metadata',
             ],
         ),
         name='inputnode',
@@ -114,6 +124,7 @@ re-calculated relative root mean-squared deviation.
                 'movpar_file',
                 'xforms',
                 'rmsd_file',
+                'label_offset_report',
             ],
         ),
         name='outputnode',
@@ -182,8 +193,37 @@ re-calculated relative root mean-squared deviation.
             ('raw_ref_image', 'in_reference'),
         ]),
         (combine_motpars, fsl2itk, [('mat_file_list', 'in_files')]),
-        (fsl2itk, outputnode, [('out_file', 'xforms')]),
     ])  # fmt:skip
+
+    if config.workflow.hmc_method == 'typewise_offset':
+        workflow.__desc__ += """\
+The systematic offset that type-wise motion correction leaves between the corrected label and
+control volumes was then removed: for each post-labeling delay, the mean of the corrected label
+volumes was registered rigidly to the mean of the corrected control volumes with *AFNI*'s
+`3dvolreg`, and that correction was composed into the transforms of the delay's label volumes
+(delays shorter than 0.5 s, or 0.8 s for PASL, used the estimate of the nearest other delay).
+
+"""
+        correct_label_offset = pe.Node(
+            CorrectLabelOffset(),
+            name='correct_label_offset',
+            mem_gb=mem_gb * 3,
+        )
+        workflow.connect([
+            (inputnode, correct_label_offset, [
+                ('asl_file', 'asl_file'),
+                ('aslcontext', 'aslcontext'),
+                ('metadata', 'metadata'),
+                ('raw_ref_image', 'ref_file'),
+            ]),
+            (fsl2itk, correct_label_offset, [('out_file', 'xforms')]),
+            (correct_label_offset, outputnode, [
+                ('out_file', 'xforms'),
+                ('out_report', 'label_offset_report'),
+            ]),
+        ])  # fmt:skip
+    else:
+        workflow.connect([(fsl2itk, outputnode, [('out_file', 'xforms')])])
 
     normalize_motion = pe.Node(
         NormalizeMotionParams(format='FSL'),
