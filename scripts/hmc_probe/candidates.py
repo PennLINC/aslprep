@@ -170,6 +170,9 @@ def _niimath(series, ref, out_base, rigid_ls=False, classic_cost=None):
     exe = os.environ.get('NIIMATH', 'niimath')
     img = nb.load(series)
     data = np.asanyarray(img.dataobj, np.float32)
+    # A 3D image is one volume (C9's offset step registers single mean images); without this
+    # the loop below ran over the slice axis and registered 2D slices.
+    data = data[..., None] if data.ndim == 3 else data
     ref_img = nb.load(ref)
     centre = ref_img.affine @ np.r_[(np.array(ref_img.shape[:3]) - 1) / 2, 1]
     pulls = []
