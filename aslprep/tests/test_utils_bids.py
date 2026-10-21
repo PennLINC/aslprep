@@ -83,6 +83,48 @@ def test_collect_derivatives_mask_key(tmp_path):
     assert derivs['aslref_mask'] == str(mask)
 
 
+def _deriv_dir(tmp_path, *names):
+    deriv_dir = tmp_path / 'derivatives'
+    perf_dir = deriv_dir / 'sub-01' / 'perf'
+    perf_dir.mkdir(parents=True)
+    (deriv_dir / 'dataset_description.json').write_text(
+        json.dumps({'Name': 'test', 'BIDSVersion': '1.9.0', 'DatasetType': 'derivative'})
+    )
+    for name in names:
+        (perf_dir / name).write_text('')
+    return deriv_dir, perf_dir
+
+
+def test_collect_derivatives_prefers_current_names(tmp_path):
+    """With both namings present, the current (desc) name is used, not a list of both."""
+    deriv_dir, perf_dir = _deriv_dir(
+        tmp_path, *XFM_NAMES['desc'].values(), *XFM_NAMES['legacy'].values()
+    )
+    transforms = collect_derivatives(
+        derivatives_dir=deriv_dir, entities={'subject': '01'}, fieldmap_id='auto_00000'
+    )['transforms']
+    for key, fname in XFM_NAMES['desc'].items():
+        assert transforms[key] == str(perf_dir / fname)
+
+
+def test_collect_derivatives_rejects_duplicates(tmp_path):
+    """A product matched by two files is reported, not passed on as a list or dropped."""
+    deriv_dir, _ = _deriv_dir(
+        tmp_path, 'sub-01_acq-a_desc-brain_mask.nii.gz', 'sub-01_acq-b_desc-brain_mask.nii.gz'
+    )
+    with pytest.raises(ValueError, match=r'^masks/aslref in .*found 2'):
+        collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})
+
+
+def test_collect_derivatives_no_fmap_transform_without_fieldmap(tmp_path):
+    """Without a fieldmap, the coregistration transform is not taken for a fieldmap one."""
+    deriv_dir, perf_dir = _deriv_dir(tmp_path, XFM_NAMES['legacy']['aslref2anat'])
+    transforms = collect_derivatives(derivatives_dir=deriv_dir, entities={'subject': '01'})[
+        'transforms'
+    ]
+    assert transforms == {'aslref2anat': str(perf_dir / XFM_NAMES['legacy']['aslref2anat'])}
+
+
 def _cache(**kwargs):
     transforms = kwargs.pop('transforms', {})
     return {**kwargs, 'transforms': transforms}

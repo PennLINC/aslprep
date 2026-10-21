@@ -314,15 +314,12 @@ def collect_derivatives(
 
     derivs_cache = defaultdict(list, {})
     layout = _get_layout(derivatives_dir)
-    derivatives_dir = Path(derivatives_dir)
 
     # search for both aslrefs
     for k, q in spec['baseline'].items():
-        query = {**entities, **q}
-        item = layout.get(return_type='filename', **query)
-        if not item:
-            continue
-        derivs_cache[f'{k}_aslref'] = item[0] if len(item) == 1 else item
+        item = _lookup(layout, f'baseline/{k}', q, entities)
+        if item:
+            derivs_cache[f'{k}_aslref'] = item
 
     transforms_cache = {}
     for xfm, q in spec['transforms'].items():
@@ -330,27 +327,49 @@ def collect_derivatives(
         #   (e.g., ".nii.gz" vs ".txt").
         # And transform suffixes will be "xfm",
         #   whereas relevant src file will be "bold".
-        query = {**entities, **q}
-        if xfm == 'aslref2fmap' and fieldmap_id:
+        override = {}
+        if xfm == 'aslref2fmap':
+            if not fieldmap_id:
+                # Without a fieldmap, the query would match any transform out of the reference.
+                continue
             # fieldmaps have ids like auto_00000
-            query['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
-        item = layout.get(return_type='filename', **query)
-        if not item:
-            continue
-        transforms_cache[xfm] = item[0] if len(item) == 1 else item
+            override['to'] = re.sub(r'[^a-zA-Z0-9]', '', fieldmap_id)
+        item = _lookup(layout, f'transforms/{xfm}', q, entities, override)
+        if item:
+            transforms_cache[xfm] = item
     derivs_cache['transforms'] = transforms_cache
 
     for k, q in spec['masks'].items():
-        query = {**entities, **q}
-        item = layout.get(return_type='filename', **query)
-        if not item or len(item) != 1:
-            continue
-
         # ``aslref_mask``, the key the fit workflow reads (it was stored as ``aslref``, so a
         # precomputed mask was never reused).
-        derivs_cache[f'{k}_mask'] = item[0]
+        item = _lookup(layout, f'masks/{k}', q, entities)
+        if item:
+            derivs_cache[f'{k}_mask'] = item
 
     return derivs_cache
+
+
+def _lookup(layout, location, alternatives, entities, override=None):
+    """Find the one file a query names, as nipost's collector does.
+
+    ``alternatives`` is one entity dict, or a list of them describing the same product under
+    different names (current naming first, then legacy naming). The first alternative that
+    matches anything is used alone. More than one match is an error, so that a duplicated
+    product is reported rather than passed on as a list or dropped.
+    """
+    if isinstance(alternatives, dict):
+        alternatives = [alternatives]
+    for i, alternative in enumerate(alternatives):
+        query = {**entities, **alternative, **(override or {})}
+        found = layout.get(return_type='filename', **query)
+        if len(found) > 1:
+            raise ValueError(
+                f'{location} in {layout.root} (alternative {i}): expected at most one file, '
+                f'found {len(found)}: {sorted(found)}. Remove all but one.'
+            )
+        if found:
+            return found[0]
+    return None
 
 
 #: Products defined in the frame of the HMC reference. None needs another product's file, only
