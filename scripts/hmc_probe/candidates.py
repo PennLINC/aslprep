@@ -1154,6 +1154,50 @@ def run_c0x(inputs, work, **options):
     }
 
 
+def run_c0t(inputs, work, **options):
+    """PennLINC/aslprep#767's per-type reference, with any registration engine.
+
+    Production's reference and volume set. For each volume type: ``engine`` registers its
+    volumes to their middle volume and they are averaged; FLIRT (6 dof, mutual information,
+    spline) aligns that mean to the reference, on its grid; ``engine`` then registers the type's
+    volumes to the aligned mean. ``engine=mcflirt`` reproduces #767 (a check on this code);
+    ``engine=volreg`` makes both within-type steps least squares.
+    """
+    from harness import run_c0
+
+    engine = _opt(options, 'engine', 'volreg')
+    cost = _opt(options, 'cost', 'mutualinfo')
+    sub = work / 'c0'
+    sub.mkdir()
+    res = run_c0(inputs, sub, reference=options.get('reference'))
+    idx = list(res['indices'])
+    types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    mats = [None] * len(idx)
+    for t in dict.fromkeys(types):
+        pos = [k for k, tt in enumerate(types) if tt == t]
+        series = _save(data[..., [idx[k] for k in pos]], img, work / f'{t}.nii.gz')
+        mid = _save(data[..., idx[pos[len(pos) // 2]]], img, work / f'{t}_mid.nii.gz')
+        _register_series(series, mid, work / f'{t}_tomid', cost, engine)
+        moved = nb.load(work / f'{t}_tomid.nii.gz')
+        mean = _save(np.asanyarray(moved.dataobj).reshape(*img.shape[:3], -1).mean(-1), img,
+                     work / f'{t}_mean.nii.gz')
+        aligned = work / f'{t}_aligned.nii.gz'
+        cmd = ['flirt', '-in', str(mean), '-ref', str(res['aslref']), '-out', str(aligned)]
+        cmd += ['-omat', str(work / f'{t}_aligned.mat'), '-dof', '6', '-cost', 'mutualinfo']
+        subprocess.run([*cmd, '-interp', 'spline'], check=True, capture_output=True)
+        got, _ = _register_series(series, aligned, work / f'{t}_reg', cost, engine)
+        for k, m in zip(pos, got, strict=True):
+            mats[k] = m
+    return {
+        **res,
+        'xforms': str(_to_itk(mats, res['aslref'], work)),
+        'reference_type': f'{res["reference_type"]}; per-type aligned means (#767), {engine}',
+    }
+
+
 def run_c9(inputs, work, **options):
     """Production with its label offset removed (C9; after Task 7).
 
@@ -1433,6 +1477,7 @@ CANDIDATES = {
     'oracle': run_oracle,
     'c9': run_c9,
     'c0x': run_c0x,
+    'c0t': run_c0t,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
