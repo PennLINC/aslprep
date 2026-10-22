@@ -485,9 +485,12 @@ def test_skull_strip_asl_boilerplate(method, disable_n4):
     assert cited <= bib_keys
 
 
-@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy', 'anatomical'])
 def test_init_skullstrip_aslref_wf(method):
-    """Final references are masked with the method from --skull-strip-asl (gh-749)."""
+    """Final references are masked with the method from --skull-strip-asl (gh-749).
+
+    ``anatomical`` masks them with SynthStrip, to check the anatomical mask against.
+    """
     from aslprep.workflows.asl.reference import init_skullstrip_aslref_wf
 
     reset_config()
@@ -502,21 +505,14 @@ def test_init_skullstrip_aslref_wf(method):
     assert 'mask_file' in wf.get_node('outputnode').outputs.copyable_trait_names()
     # Mock SynthStrip stands in for SynthStrip in sloppy mode
     uses_synthstrip = bool(names & {'synthstrip', 'mocksynthstrip'})
-    assert uses_synthstrip is (method == 'synthstrip')
+    assert uses_synthstrip is (method != 'legacy')
     assert ('skullstrip_second_pass' in names) is (method == 'legacy')
     # The reference is already final, so SynthStrip's N4 is skipped
     assert 'n4_correct' not in names
 
 
-@pytest.mark.parametrize('method', ['synthstrip', 'legacy'])
-@pytest.mark.parametrize('case', ['plain', 'fieldmap', 'gradwarp', 'precomputed'])
-def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
-    """--skull-strip-asl picks the brain extraction for every ASL reference (gh-749).
-
-    With distortion or gradient nonlinearity correction, the final mask comes from the
-    corrected reference, and with a precomputed reference, from that reference.
-    Both use the same method as the coregistration reference.
-    """
+def _fit_wf(tmp_path, method, case, precomputed=None):
+    """``init_asl_fit_wf`` with ``--skull-strip-asl method``, and its boilerplate."""
     from aslprep.tests.test_workflows_gradwarp import _grad_file
     from aslprep.utils.gradwarp import GradwarpPlan
     from aslprep.workflows.asl.fit import init_asl_fit_wf
@@ -525,7 +521,7 @@ def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
     with mock_config():
         config.workflow.skull_strip_asl = method
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
-        kwargs = {}
+        kwargs = {'precomputed': dict(precomputed or {})}
         if case == 'fieldmap':
             kwargs['fieldmap_id'] = 'auto_00000'
         elif case == 'gradwarp':
@@ -533,7 +529,7 @@ def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
                 str(_grad_file(tmp_path)), '3D', False, 'metadata'
             )
         elif case == 'precomputed':
-            kwargs['precomputed'] = {'coreg_aslref': str(asl_file)}
+            kwargs['precomputed']['coreg_aslref'] = str(asl_file)
         wf = init_asl_fit_wf(
             asl_file=str(asl_file),
             aslcontext=str(asl_file).replace('.nii.gz', 'context.tsv'),
@@ -542,6 +538,31 @@ def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
             **kwargs,
         )
         desc = wf.visit_desc()
+    return wf, desc
+
+
+def _wf_edges(wf, dst_name=None, src_name=None):
+    return {
+        (src.name, src_field, dst.name, dst_field)
+        for src, dst, data in wf._graph.edges(data=True)
+        for src_field, dst_field in data['connect']
+        if (dst_name is None or dst.name == dst_name)
+        and (src_name is None or src.name == src_name)
+    }
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy', 'anatomical'])
+@pytest.mark.parametrize('case', ['plain', 'fieldmap', 'gradwarp', 'precomputed'])
+def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
+    """--skull-strip-asl picks the brain extraction for every ASL reference (gh-749).
+
+    With distortion or gradient nonlinearity correction, the final mask comes from the
+    corrected reference, and with a precomputed reference, from that reference.
+    Both use the same method as the coregistration reference;
+    ``anatomical`` masks them with SynthStrip, to check the anatomical mask against.
+    """
+    wf, desc = _fit_wf(tmp_path, method, case)
+    synthstrip_based = method in ('synthstrip', 'anatomical')
 
     legacy = wf.get_node('enhance_and_skullstrip_asl_wf')
     synthstrip = wf.get_node('synthstrip_aslref_wf')
@@ -551,20 +572,145 @@ def test_init_asl_fit_wf_skull_strip_asl(tmp_path, method, case):
         final_mask_wf = wf.get_node('skullstrip_precomp_ref_wf')
     else:
         assert (legacy is not None) is (method == 'legacy')
-        assert (synthstrip is not None) is (method == 'synthstrip')
+        assert (synthstrip is not None) is synthstrip_based
         assert ('[@bet]' in desc) is (method == 'legacy')
         final_mask_wf = wf.get_node('skullstrip_asl_wf')
-    assert ('[@synthstrip]' in desc) is (method == 'synthstrip')
+    assert ('[@synthstrip]' in desc) is synthstrip_based
 
     if case == 'plain':
         assert final_mask_wf is None
     else:
         names = {node.name for node in final_mask_wf._create_flat_graph().nodes()}
-        assert bool(names & {'synthstrip', 'mocksynthstrip'}) is (method == 'synthstrip')
+        assert bool(names & {'synthstrip', 'mocksynthstrip'}) is synthstrip_based
         assert ('skullstrip_second_pass' in names) is (method == 'legacy')
     if case in ('fieldmap', 'gradwarp'):
         # The method is described once, by the coregistration reference workflow
         assert desc.count('A brain mask was computed') == 1
+
+    # The mask used: the ASL-derived one, or the anatomical one checked against it
+    anat_wf = wf.get_node('anat_aslmask_wf')
+    assert (anat_wf is not None) is (method == 'anatomical')
+    assert ('taken from the anatomical brain mask' in desc) is (method == 'anatomical')
+    final = (
+        ('anat_aslmask_wf', 'outputnode.mask_file')
+        if method == 'anatomical'
+        else ('aslstrip_buffer', 'aslmask')
+    )
+    if case == 'precomputed':
+        assert _wf_edges(wf, dst_name='aslmask_buffer') == {(*final, 'aslmask_buffer', 'aslmask')}
+        assert wf.get_node('ds_aslmask_wf') is None
+    else:
+        assert _wf_edges(wf, dst_name='ds_aslmask_wf') == {
+            ('ds_coreg_aslref_wf', 'outputnode.aslref', 'ds_aslmask_wf', 'inputnode.source_files'),
+            (*final, 'ds_aslmask_wf', 'inputnode.boldmask'),
+        } | (
+            {
+                (
+                    'anat_aslmask_wf',
+                    'outputnode.mask_metadata',
+                    'ds_aslmask_wf',
+                    'ds_boldmask.meta_dict',
+                )
+            }
+            if method == 'anatomical'
+            else set()
+        )
+        meta = wf.get_node('ds_aslmask_wf').get_node('ds_boldmask').inputs.meta_dict
+        assert meta == {'SkullStripASL': method}
+    if method == 'anatomical':
+        assert _wf_edges(wf, dst_name='anat_aslmask_wf') == {
+            ('inputnode', 't1w_mask', 'anat_aslmask_wf', 'inputnode.t1w_mask'),
+            ('regref_buffer', 'aslref', 'anat_aslmask_wf', 'inputnode.aslref'),
+            ('aslstrip_buffer', 'aslmask', 'anat_aslmask_wf', 'inputnode.asl_mask'),
+            ('ds_aslreg_wf', 'outputnode.xform', 'anat_aslmask_wf', 'inputnode.aslref2anat_xfm'),
+        }
+        assert ('anat_aslmask_wf', 'outputnode.qc', 'outputnode', 'skullstrip_qc') in _wf_edges(
+            wf, dst_name='outputnode'
+        )
+
+
+def test_init_asl_fit_wf_anatomical_precomputed_xfm(tmp_path):
+    """A precomputed ASL-to-anatomical transform carries the anatomical mask."""
+    xfm = str(tmp_path / 'from-aslref_to-T1w_mode-image_xfm.txt')
+    wf, _ = _fit_wf(tmp_path, 'anatomical', 'plain', {'transforms': {'aslref2anat': xfm}})
+    anat_wf = wf.get_node('anat_aslmask_wf')
+    assert anat_wf.inputs.inputnode.aslref2anat_xfm == xfm
+    assert not _wf_edges(wf, src_name='ds_aslreg_wf')
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'legacy', 'anatomical'])
+@pytest.mark.parametrize('case', ['plain', 'fieldmap', 'precomputed'])
+def test_init_asl_fit_wf_precomputed_mask(tmp_path, method, case):
+    """A precomputed brain mask is used as it is: no mask is computed, checked or written.
+
+    Before, the computed mask was connected to the same input and replaced it.
+    """
+    mask = str(tmp_path / 'sub-01_desc-brain_mask.nii.gz')
+    wf, _ = _fit_wf(tmp_path, method, case, {'aslref_mask': mask})
+
+    assert wf.get_node('aslmask_buffer').inputs.aslmask == mask
+    assert not _wf_edges(wf, dst_name='aslmask_buffer')
+    for name in (
+        'ds_aslmask_wf',
+        'anat_aslmask_wf',
+        'skullstrip_asl_wf',
+        'skullstrip_precomp_ref_wf',
+    ):
+        assert wf.get_node(name) is None
+
+
+def test_init_anat_aslmask_wf():
+    """The anatomical mask is pulled onto the ASL reference and checked against SynthStrip's."""
+    import re
+
+    from aslprep.workflows.asl.reference import init_anat_aslmask_wf
+
+    reset_config()
+    with mock_config():
+        wf = init_anat_aslmask_wf()
+        desc = wf.visit_desc()
+
+    resample = wf.get_node('anat_mask_to_aslref')
+    assert resample.inputs.interpolation == 'GenericLabel'
+    # The coregistration maps the ASL reference to the anatomical space: invert it
+    assert resample.inputs.invert_transform_flags == [True]
+    assert _wf_edges(wf, dst_name='guard') == {
+        ('anat_mask_to_aslref', 'output_image', 'guard', 'anat_mask'),
+        ('inputnode', 'asl_mask', 'guard', 'asl_mask'),
+    }
+    assert _wf_edges(wf, dst_name='outputnode') == {
+        ('guard', 'out_mask', 'outputnode', 'mask_file'),
+        ('guard', 'metadata', 'outputnode', 'mask_metadata'),
+        ('guard', 'qc', 'outputnode', 'qc'),
+    }
+    assert not re.findall(r'@([\w-]+)', desc)
+    assert 'Dice coefficient below 0.9' in desc
+
+
+@pytest.mark.parametrize('method', ['synthstrip', 'anatomical'])
+def test_init_asl_wf_anat_mask_qc(method):
+    """With --skull-strip-asl anatomical, the anatomical mask's check reaches the QC file."""
+    from aslprep.workflows.asl.base import init_asl_wf
+
+    reset_config()
+    with mock_config():
+        config.workflow.skull_strip_asl = method
+        config.workflow.level = 'minimal'
+        config.execution.output_spaces = 'asl'
+        config.init_spaces()
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+
+    edge = (
+        'asl_fit_wf',
+        'outputnode.skullstrip_qc',
+        'cbf_confounds_wf',
+        'inputnode.skullstrip_qc',
+    )
+    assert (edge in _wf_edges(wf, dst_name='cbf_confounds_wf')) is (method == 'anatomical')
+    qc_wf = wf.get_node('cbf_confounds_wf')
+    inner = ('inputnode', 'skullstrip_qc', 'compute_qc_metrics', 'skullstrip_qc')
+    assert (inner in _wf_edges(qc_wf, dst_name='compute_qc_metrics')) is (method == 'anatomical')
 
 
 @pytest.mark.parametrize(

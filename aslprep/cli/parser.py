@@ -409,15 +409,19 @@ def _build_parser():
     g_conf.add_argument(
         '--skull-strip-asl',
         action='store',
-        choices=['synthstrip', 'legacy'],
+        choices=['synthstrip', 'legacy', 'anatomical'],
         default='synthstrip',
         help=(
             'Brain extraction method for the ASL reference image. '
             "'synthstrip' (default): FreeSurfer's SynthStrip. "
             "'legacy': the method ASLPrep used before SynthStrip, the intersection of masks "
             "from FSL's BET and AFNI's 3dAutomask. "
-            'Neither method works best on all ASL data, so inspect the brain masks and try '
-            'the other method if they are poor. '
+            "'anatomical': the anatomical brain mask, resampled to the ASL reference through "
+            'the ASL-to-anatomical coregistration. It is only as good as the coregistration, '
+            'so it is checked against the SynthStrip mask, which is used instead when the two '
+            'disagree in a way that indicates a failed coregistration. '
+            'No method works best on all ASL data, so inspect the brain masks and try '
+            'another method if they are poor. '
             'This option does not affect the brain extraction of the anatomical images.'
         ),
     )
