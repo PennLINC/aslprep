@@ -154,6 +154,17 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None):
         use_ge=use_ge,
     )
     ref_wf.inputs.inputnode.aslcontext = inputs['aslcontext']
+    if reference:
+        # SelectHighestContrastVolumes picks its own volume type (in-series M0, deltam and CBF
+        # outrank control), so hide the outranking types from the reference workflow only.
+        import pandas as pd
+
+        ctx = pd.read_table(inputs['aslcontext'])
+        outrank = {'cbf', 'deltam', 'm0scan'} - {reference}
+        ctx.loc[ctx['volume_type'].isin(outrank), 'volume_type'] = 'hidden'
+        work.mkdir(parents=True, exist_ok=True)
+        ctx.to_csv(work / 'ref_aslcontext.tsv', sep='\t', index=False)
+        ref_wf.inputs.inputnode.aslcontext = str(work / 'ref_aslcontext.tsv')
     ref_wf.inputs.inputnode.m0scan = inputs['m0scan']
     reduce = pe.Node(
         ReduceASLFiles(
