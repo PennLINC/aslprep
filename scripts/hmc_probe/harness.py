@@ -119,8 +119,12 @@ def _collect(out_dir, aslref, xforms, aslcontext, asl_file):
     return out_dir
 
 
-def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None):
-    """Production reference building and HMC, built from ASLPrep's own workflows."""
+def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None):
+    """Production reference building and HMC, built from ASLPrep's own workflows.
+
+    ``reference`` overrides production's choice of reference volume type (e.g. ``control`` to
+    use the control mean even when the run has an M0).
+    """
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
 
@@ -136,7 +140,9 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None):
     n_vols = _n_volumes(inputs['asl_file'])
     # aslprep/workflows/asl/base.py: the short-series ("GE") path.
     use_ge = (n_vols <= 5) if force_ge is None else force_ge
-    ref_type = select_reference_volume_type(inputs['aslcontext'], metadata, prioritize_m0=use_ge)
+    ref_type = reference or select_reference_volume_type(
+        inputs['aslcontext'], metadata, prioritize_m0=use_ge
+    )
     target = select_processing_target(inputs['aslcontext'])
 
     wf = pe.Workflow(name='harness_c0', base_dir=str(work))

@@ -1140,7 +1140,7 @@ def run_c0x(inputs, work, **options):
     cost = _opt(options, 'cost', 'mutualinfo')
     sub = work / 'c0'
     sub.mkdir()
-    res = run_c0(inputs, sub)
+    res = run_c0(inputs, sub, reference=options.get('reference'))
     idx = list(res['indices'])
     img = nb.load(inputs['asl_file'])
     data = np.asanyarray(img.dataobj, np.float32)
@@ -1183,6 +1183,8 @@ def run_c9(inputs, work, **options):
     # its ``engine`` (``c0x`` with ``base_engine=niimath_hel`` is production with niimath).
     base = _opt(options, 'base', 'c0')
     base_opts = {'engine': options['base_engine']} if 'base_engine' in options else {}
+    if 'reference' in options:  # e.g. reference=control: the base's reference volume type
+        base_opts['reference'] = options['reference']
     res, h = _base(inputs, work, base, base_opts)
     types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
     idx = list(res['indices'])
