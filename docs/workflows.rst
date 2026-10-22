@@ -281,6 +281,13 @@ use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
 The method is recorded in the transforms' sidecar (``HMCMethod``).
 
+Series of five volumes or fewer, and any series run with ``--force ge``, take the GE-specific path.
+If such a series has no label-control pairs (an M0 with delta-M or CBF images), head-motion
+estimation is skipped, as its volumes share too little contrast for registration to be more
+accurate than none: every volume gets the identity transform, and the sidecar records
+``HMCMethod: none``.
+Short series with label-control pairs are motion corrected as usual.
+
 Every product found in the datasets passed with ``--derivatives`` is reused,
 so a dataset can be seeded with single files, such as a hand-edited brain mask
 (``sub-<label>[_ses-<label>]_<entities>_desc-brain_mask.nii.gz`` in ``perf/``,

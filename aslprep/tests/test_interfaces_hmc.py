@@ -312,3 +312,64 @@ def test_asl_hmc_wf_tracks_motion_against_a_reference_of_another_contrast(tmp_pa
     # Measured: at most 0.11 mm and 0.13 degrees; registering to the M0 itself gave 0.20 mm
     assert max(trans_err) < 0.15, report
     assert max(rot_err) < 0.2, report
+
+
+def test_identity_transforms(tmp_path):
+    """One identity transform per volume, readable as the HMC transforms are."""
+    from nitransforms.linear import load
+
+    from aslprep.interfaces.hmc import IdentityTransforms
+
+    ref = tmp_path / 'ref.nii.gz'
+    nb.Nifti1Image(np.zeros((8, 8, 8), np.float32), np.diag([2.0, 2.0, 3.0, 1.0])).to_filename(ref)
+    ctx = tmp_path / 'aslcontext.tsv'
+    ctx.write_text('volume_type\nm0scan\ndeltam\n')
+    res = IdentityTransforms(aslcontext=str(ctx), ref_file=str(ref)).run(cwd=str(tmp_path))
+    mats = np.asarray(load(res.outputs.out_file, fmt='itk').matrix).reshape(-1, 4, 4)
+    assert mats.shape == (2, 4, 4)
+    np.testing.assert_allclose(mats, np.tile(np.eye(4), (2, 1, 1)), atol=1e-12)
+
+
+@pytest.mark.parametrize(
+    ('volume_types', 'use_ge', 'skipped'),
+    [
+        (['m0scan', 'deltam'], True, True),
+        (['m0scan', 'deltam', 'cbf'], True, True),
+        (['control', 'label', 'control', 'label'], True, False),
+        (['m0scan', 'control', 'label'], True, False),
+        (['m0scan', 'deltam'], False, False),
+    ],
+)
+def test_skips_motion_correction(tmp_path, volume_types, use_ge, skipped):
+    """Only GE-path series without label-control pairs skip motion correction (#769)."""
+    from aslprep.workflows.asl.fit import skips_motion_correction
+
+    ctx = tmp_path / 'aslcontext.tsv'
+    ctx.write_text('volume_type\n' + '\n'.join(volume_types) + '\n')
+    assert skips_motion_correction(str(ctx), use_ge) is skipped
+
+
+def test_ge_path_skips_motion_correction(tmp_path):
+    """The GE-specific path writes identity transforms instead of running MCFLIRT (#769)."""
+    from aslprep import config
+    from aslprep.tests.tests import mock_config, reset_config
+    from aslprep.workflows.asl.fit import init_asl_fit_wf
+
+    deltam_ctx = tmp_path / 'aslcontext.tsv'
+    deltam_ctx.write_text('volume_type\nm0scan\ndeltam\n')
+    reset_config()
+    with mock_config():
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        paired_ctx = str(asl_file).replace('.nii.gz', 'context.tsv')
+        kwargs = {'asl_file': str(asl_file), 'm0scan': None, 'precomputed': {}, 'use_ge': True}
+        ge = init_asl_fit_wf(aslcontext=str(deltam_ctx), **kwargs)
+        assert ge.get_node('asl_hmc_wf') is None
+        assert ge.get_node('identity_xforms') is not None
+        sink = ge.get_node('ds_hmc_wf').get_node('ds_xforms')
+        assert sink.inputs.meta_dict == {'HMCMethod': 'none'}
+        # A short series with label-control pairs is still motion corrected.
+        paired = init_asl_fit_wf(aslcontext=paired_ctx, **kwargs)
+        assert paired.get_node('asl_hmc_wf') is not None
+        assert paired.get_node('identity_xforms') is None
+        sink = paired.get_node('ds_hmc_wf').get_node('ds_xforms')
+        assert sink.inputs.meta_dict == {'HMCMethod': config.workflow.hmc_method}
