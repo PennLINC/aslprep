@@ -136,7 +136,8 @@ def init_asl_fit_wf(
         Path to M0 NIfTI file, if available.
     use_ge
         If True, the M0 scan (when available) will be prioritized as the volume type for the
-        reference image, as GE deltam volumes exhibit extreme background noise.
+        reference image, as GE deltam volumes exhibit extreme background noise, and head-motion
+        correction is skipped if the series has no label-control pairs.
     precomputed
         Dictionary containing precomputed derivatives to reuse, if possible.
     fieldmap_id
@@ -352,6 +353,7 @@ def init_asl_fit_wf(
         metadata=metadata,
         prioritize_m0=use_ge,
     )
+    skip_hmc = skips_motion_correction(aslcontext, use_ge)
 
     hmcref_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslref', 'asl_file']),
@@ -590,17 +592,17 @@ def init_asl_fit_wf(
         ds_hmc_wf.get_node('ds_xforms').inputs.to = 'aslref'
         # Provenance: reuse of these transforms is limited to runs with the same method.
         ds_hmc_wf.get_node('ds_xforms').inputs.meta_dict = {
-            'HMCMethod': 'none' if use_ge else config.workflow.hmc_method
+            'HMCMethod': 'none' if skip_hmc else config.workflow.hmc_method
         }
 
-    if not hmc_xforms and use_ge:
-        # Short (GE-specific) series: no motion correction, as base.py announces. Their few
-        # volumes (often an M0 and a delta-M or CBF image) share too little contrast for
-        # registration to beat none (PennLINC/aslprep#769).
-        config.loggers.workflow.info('Stage 2: Skipping motion correction (GE-specific path)')
+    if not hmc_xforms and skip_hmc:
+        config.loggers.workflow.info(
+            'Stage 2: Skipping motion correction (GE-specific path, no label-control pairs)'
+        )
         identity_xforms = pe.Node(IdentityTransforms(), name='identity_xforms')
         workflow.__desc__ = (workflow.__desc__ or '') + (
-            '\nHead-motion correction was not performed, as the series has too few volumes.\n'
+            '\nHead-motion correction was not performed, as the series has too few volumes '
+            'and no label-control pairs.\n'
         )
         workflow.connect([
             (hmcref_buffer, identity_xforms, [('aslref', 'ref_file')]),
@@ -1326,3 +1328,16 @@ def select_reference_volume_type(aslcontext: str, metadata: dict, prioritize_m0:
         target_type = 'control'
 
     return target_type
+
+
+def skips_motion_correction(aslcontext: str, use_ge: bool) -> bool:
+    """Whether head-motion correction is skipped for the ASL series.
+
+    The GE-specific path skips it for series without label-control pairs (an M0 with delta-M or
+    CBF images), whose few volumes share too little contrast for registration to beat none
+    (PennLINC/aslprep#769). Short label-control series are still motion corrected.
+    """
+    import pandas as pd
+
+    volume_types = set(pd.read_table(aslcontext)['volume_type'])
+    return use_ge and not volume_types & {'control', 'label'}

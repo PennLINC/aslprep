@@ -187,8 +187,9 @@ class _IdentityTransformsOutputSpec(TraitedSpec):
 class IdentityTransforms(SimpleInterface):
     """Write an identity transform for every volume, in place of head-motion correction.
 
-    Used for short series (the GE-specific path), whose few volumes, often an M0 and a delta-M
-    or CBF image, share too little contrast for registration to be more accurate than none.
+    Used for short series without label-control pairs (the GE-specific path), whose few volumes,
+    an M0 with delta-M or CBF images, share too little contrast for registration to be more
+    accurate than none.
     """
 
     input_spec = _IdentityTransformsInputSpec
