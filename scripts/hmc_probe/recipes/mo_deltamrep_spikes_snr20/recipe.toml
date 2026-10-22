@@ -1,0 +1,4 @@
+acq = "modeltamrepspikessnr20"
+phantom = "tfmni-flat"
+anat = "derivatives"
+snr_per_pair = 20.0
