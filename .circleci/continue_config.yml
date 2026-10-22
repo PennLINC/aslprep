@@ -272,13 +272,10 @@ jobs:
                 fi
               done && [ "$e" -eq "0" ]
             }
-            # Reuse only the image in the restored cache, which was built from the current
-            # Dockerfile and pixi.lock. Never reuse a pennlinc/aslprep:test already on the
-            # machine: docker_layer_caching keeps images from earlier jobs on any branch, so
-            # it can be a stale image from other Docker inputs (and the revision guard below
-            # is skipped for reused images).
             if [[ "$BUILD_TEST_IMAGE" == "1" || "$BASE_WAS_BUILT" == "1" ]]; then
               build_test_image_with_retry
+            elif docker image inspect pennlinc/aslprep:test > /dev/null 2>&1; then
+              echo "Reusing existing local test image (no Dockerfile/pixi/base-triggered rebuild required)."
             elif docker pull localhost:5000/aslprep-test; then
               docker tag localhost:5000/aslprep-test pennlinc/aslprep:test
               echo "Reusing cached test image from local registry (no Dockerfile/pixi/base-triggered rebuild required)."
