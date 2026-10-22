@@ -1810,6 +1810,7 @@ runs use the probe's reimplementation of it.</li>
 </ul>
 <h3>Where the fallback was used</h3>
 {fb_table}
+{real_volreg(root)}
 <h3>Delta-M reference or M0 reference?</h3>
 <p>On the two delta-M fixtures (eight delta-M volumes and an included M0) ASLPrep's reference is
 the delta-M mean. Forcing the M0 instead makes every delta-M volume a cross-contrast registration.
@@ -1824,6 +1825,53 @@ the GE images' background noise is structured, which the simulation does not rep
 {ge}
 {deltam_reference(root, df)}
 </section>"""
+
+
+def real_volreg(root):
+    """The two best 3dvolreg arms on the real panel, judged as C9-auto was."""
+    import re
+
+    f = root / 'harness-runs' / 'real_vr.tsv'
+    if not f.exists():
+        return ''
+    d = pd.read_csv(f, sep='\t')
+    c0 = d[d.label == 'c0'].set_index(['dataset', 'run'])
+    names = {'c9-auto': 'typewise_offset', 'c9-fb-ctl': '3dvolreg to control mean + fallback + offset',
+             'c9-t-vr': '#767 design, 3dvolreg + offset'}  # fmt:skip
+    rows = []
+    for lab, name in names.items():
+        j = d[d.label == lab].set_index(['dataset', 'run']).join(
+            c0[['split_half_r']], rsuffix='_c0', how='inner'
+        )
+        s = j[np.isfinite(j.mean_dm_ssd_vs_c0)]
+        fam = j.groupby('family').agg(
+            n=('split_half_r', 'size'), sh=('split_half_r', 'median'), sh0=('split_half_r_c0', 'median')
+        )
+        drops = fam[(fam.n > 1) & (fam.sh0 - fam.sh > 0.02)].index
+        rows.append([esc(name), str(len(s)), f'{100 * (s.mean_dm_ssd_vs_c0 < 0.95).mean():.0f}%',
+                     f'{100 * (s.mean_dm_ssd_vs_c0 > 1.05).mean():.1f}%',
+                     esc(', '.join(drops)) or 'none'])  # fmt:skip
+    dev = []
+    for h in (root / 'harness-runs' / 'c9-fb-ctl').glob('*/*/harness.json'):
+        m = re.search(r'(?:diverged \(|within )([\d.]+) mm', json.loads(h.read_text())['reference_type'])
+        if m:
+            dev.append(float(m.group(1)))
+    dev = np.array(dev)
+    return f"""
+<h3>On the real panel</h3>
+<p>The two best arms were run on the real panel and judged by the criteria C9-auto was
+(delta-M energy in a shared mask against production; per-family negative fraction and
+split-half reliability).</p>
+{plain_table(['Arm', 'Scorable runs', 'Energy better', 'Energy worse', 'Families whose split-half drops > 0.02'], rows, (1, 2, 3))}
+<p>Neither arm is worse in energy on more than 1% of runs. The split-half drops in
+<i>2D EPI, no BS</i> are noise: 21 of its 22 runs are one dataset (ds008719) whose split-half
+correlation swings between &minus;0.5 and 0.9 from one arm to the next, production and
+<code>typewise_offset</code> included. The fallback is the larger problem. 3dvolreg and MCFLIRT
+disagree by more than 1 mm on {int((dev > 1).sum())} of {len(dev)} runs (median
+{fmt(np.median(dev), 1)} mm; {int((dev > 5).sum())} runs over 5 mm, mostly spirals at about
+20 mm and 3D GRASE). Some of those are 3dvolreg diverging, as on the simulated spiral; others are
+production failing (ds007116, where production's own framewise displacement reaches 15 mm), and
+falling back then restores the failure. A rule that trusts MCFLIRT cannot tell the two apart.</p>"""
 
 
 def deltam_reference(root, df):
