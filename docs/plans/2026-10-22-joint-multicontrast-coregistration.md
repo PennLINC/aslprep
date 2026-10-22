@@ -1,6 +1,17 @@
 # Plan: joint multicontrast coregistration probe
 
-Branch: `coreg-multicontrast-eval`. Status: revision 4, modelled on the HMC probe
+Branch: `coreg-multicontrast-eval`. **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
+correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
+so better motion correction gives more useful inputs. Done before the pause: the panel extension
+(91 subjects curated in `/home/tsalo/coreg-mc/panel-ext`, validated), the split
+(`scripts/coreg_mc/split.json`), the run manifest (`manifest.tsv`), the runner and job files
+(`run_aslprep.py`, `make_jobs.py`), and a first, untested ANTs arm runner (`run_ants.py`).
+Stopped and deleted: the first Task 0 runs (four extension subjects and the panel sample on
+`d35c3f3`) and the ANTs pilot on `rc_pcasl`, none finished. To resume: pin the ASLPrep revision
+that carries the new motion correction (and an image whose dependencies match it), check whether
+the split and the extension still hold, then rerun Task 0 from the panel sample.
+
+Status: revision 4, modelled on the HMC probe
 (`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`), after one Codex
 adversarial review (log at the end).
 Issues: #672 (scope), #186 (motivating failure), #343 (closed as a duplicate of the same idea).
