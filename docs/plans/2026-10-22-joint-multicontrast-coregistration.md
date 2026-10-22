@@ -1,6 +1,6 @@
 # Plan: joint multicontrast coregistration probe
 
-Branch: `coreg-multicontrast-eval`. Status: revision 3, modelled on the HMC probe
+Branch: `coreg-multicontrast-eval`. Status: revision 4, modelled on the HMC probe
 (`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`), after one Codex
 adversarial review (log at the end).
 Issues: #672 (scope), #186 (motivating failure), #343 (closed as a duplicate of the same idea).
@@ -309,37 +309,68 @@ is unchanged):
 
 ## Real data
 
-No truth exists, so three designs are combined:
+No truth exists. Real data are judged two ways:
 
-1. **Native:** blind review of alignment, and transform agreement, on data as acquired.
-2. **Cross-run consistency:** in sessions with several runs, the anatomical transforms of runs a
+- **Blinded review by one reviewer (the maintainer)**, from figures the probe generates (see
+  "Blinded review figures"). It is the only real-data evidence about accuracy, and it is relative:
+  which of two alignments is better.
+- **Computed outcomes**: consistency (the same anatomy gets the same answer across runs and
+  sessions), robustness (the answer survives known perturbations), and gross failure. They cannot
+  show accuracy on their own: an arm that is consistently wrong by the same offset passes every
+  consistency test.
+
+Three computed designs:
+
+1. **Cross-run consistency:** in sessions with several runs, the anatomical transforms of runs a
    and b must agree with a direct registration of run a's reference (moving) to run b's (fixed),
    same contrast, same session. ASLPrep's stored `from-aslref_to-T1w` matrix `C` is a pull map
    (T1w point -> aslref point; `truth_scoring.py`), so the map from run b's aslref points to run
    a's implied by the two coregistrations is `C_a C_b^-1`, and the direct registration `D_ab` is
-   the pull map in the same direction (fixed b point -> moving a point). The score is the RMS displacement of `D_ab^-1 C_a C_b^-1`
-   over run b's brain. No arm optimizes it, and it needs no anatomical target. Tested in Task 2
-   with the identity and a known relative transform on oblique headers.
+   the pull map in the same direction (fixed b point -> moving a point). The score is the RMS
+   displacement of `D_ab^-1 C_a C_b^-1` over run b's brain. No arm optimizes it, and it needs no
+   anatomical target. Tested in Task 2 with the identity and a known relative transform on
+   oblique headers.
+2. **Cross-session consistency:** the same score across sessions of a subject, where every
+   session is coregistered to one anatomical reference (ASLPrep's default with several T1w
+   images; checked per subject in Task 0). The head is repositioned between sessions, so the
+   direct registration works over larger offsets; its own error is bounded by the noise floor
+   below.
 3. **Semi-synthetic:** each run's T1w (and its masks and tissue maps) given a new header,
    `A' = M A`, for a known rigid world transform `M` (no resampling). A T1w point `x'` in the new
    world is `x = M^-1 x'` in the old, so an arm whose solution on the original is `C` should
    return `C M^-1` (pull convention). With `C'` its actual solution on the moved T1w, the score is
-   the RMS displacement of `C'^-1 C M^-1` over the brain in the new world. This tests robustness and capture range on real contrast, not accuracy.
+   the RMS displacement of `C'^-1 C M^-1` over the brain in the new world, at the capture-range
+   perturbation levels. This tests robustness and capture range on real contrast.
+
+**Noise floor of the direct registration.** The consistency scores include the direct
+registration's own error. It is estimated per run pair as the RMS displacement of `D_ab D_ba`
+(forward against reverse registration) and with a second engine (FLIRT and ANTs); pairs whose
+floor exceeds a limit set in Task 3 are excluded and counted. The same floor sets the tie
+distance: two arms whose transforms differ by less than it on a run are tied, and that pair is
+not shown for review.
 
 Decision metrics, each with a direction fixed in advance:
 
-- **Adjudicated alignment** on the reviewed subset: reviewers, blind to the arm, compare pairs of
-  arms on the same run (forced choice, ties allowed) using the T1w white-matter boundary over the
-  coregistration reference and over the perfusion image, in a common physical frame. Two
-  reviewers; their disagreement is the uncertainty. A pair is shown only when the two transforms
-  differ by more than a tie distance (RMS over the T1w brain, in mm), set in Task 3 from repeat
-  ratings of development pairs; pairs closer than that are counted as ties without review. The
-  result is reported with its denominators: the runs in the set, the pairs that differ, the
-  informative choices, and the win fraction among them.
-- **Cross-run inconsistency** (lower is better), on sessions with at least two comparable runs.
-- **Semi-synthetic recovery:** error of the moved solution against the applied offset.
-- **Gross failure:** an adjudicated failure, or a transform more than 5 mm (RMS over the brain)
-  from every other arm's.
+- **Reviewed alignment** (primary): on the review set, the reviewer's forced choice between two
+  arms on the same run (ties allowed), from blinded figures. Reported with its denominators (runs
+  in the set, pairs that differ by more than the tie distance, informative choices) and the win
+  fraction among informative choices. The uncertainty is the reviewer's own repeatability (below)
+  and a bootstrap over subjects.
+- **Cross-run and cross-session inconsistency** (lower is better), per run pair, summarized per
+  subject (subjects, not pairs, are the sampling unit).
+- **Semi-synthetic recovery** (lower is better): error of the moved solution against the applied
+  offset, and the fraction of draws recovered within 0.5 voxel.
+- **Gross failure** (fewer is better), flagged automatically by either rule, fixed in Task 3:
+  - for reviewed runs, the reviewer marking that side failed;
+  - inconsistency above 5 mm in any of the run's pairs, for runs with a pair;
+  - for every run: the Dice of the ASL brain mask carried into T1w space with the T1w brain mask
+    falls below that of the best arm on the same run by more than the drop that a 5 mm
+    perturbation of the best arm's own solution produces on that run (a per-run calibration, so
+    it does not depend on how good the ASL mask is). The ASL mask comes from the conventional
+    reference, so this rule partly shares information with S1's term; it detects gross failures
+    only and never ranks arms otherwise.
+
+  The two rules are checked in simulation first, against the truth error, before they are used.
 
 Diagnostics, with no assumed good direction:
 
@@ -352,6 +383,44 @@ Diagnostics, with no assumed good direction:
 
 Smoother maps, higher grey/white ratios and agreement with production alone do not count as
 better accuracy. Results are stratified by acquisition family.
+
+### Blinded review figures
+
+One figure per pair of arms on one run, built by `scripts/coreg_mc/review.py` from the
+transforms alone:
+
+- **What is drawn.** The run's ASL images at their native resolution, never resampled: the
+  coregistration reference (top row) and the perfusion image (P-robust, bottom row). Over them,
+  contours carried from T1w space through the arm's transform: the white-matter boundary (the 0.5
+  isocontour of the WM probability map) and the brain-mask outline. The background is identical
+  for the two arms; only the contours differ.
+- **Layout.** Side A and side B next to each other, at the same seven slices (three axial, two
+  coronal, two sagittal, placed from the T1w brain's extent and fixed per run), the same intensity
+  window (percentiles inside the union of the two carried brain masks), the same contour colour
+  and line width. A third panel overlays both contour sets in two colours, assigned at random per
+  pair, so small differences are visible.
+- **Blinding.** Nothing in a figure names the arm, engine, family or dataset; files have random
+  ids; sides are assigned at random per pair; pairs from all families and comparisons are
+  interleaved in a random order fixed by a recorded seed. The key (pair id -> run, arms, side) is
+  written to a separate file that the review page never loads, and it is not joined to the
+  choices until every choice in a batch is recorded. The anatomy can identify a run; it cannot
+  identify an arm.
+- **Choices.** A better, B better, or tie; and, separately, whether either side is a failure
+  (grossly misaligned); with an optional note.
+- **Repeatability.** About 10 % of pairs reappear later in the same batch with sides swapped. The
+  reviewer's self-agreement is reported, and a pair whose two ratings disagree counts as a tie.
+- **Sensitivity check.** Known-answer pairs are mixed in blind: one side is an arm's solution, the
+  other the same solution perturbed by 1, 2 or 4 mm (RMS over the brain). Their detection rate
+  shows what size of difference the figures and the reviewer can resolve; pairs that differ by
+  less than that are reported as unresolvable rather than as ties of equal quality.
+- **Delivery.** A review page published as an artifact, one batch at a time (about 50 pairs),
+  that saves each choice as it is made; the choices are read back only when a batch is complete.
+
+Which pairs are shown: on each run in the review set, the J-arm against the frozen comparator and
+against Q1, wherever the two differ by more than the tie distance. With at most two J-arms on
+about 40 held-out runs, that is at most 160 pairs, plus repeats and known-answer pairs; fewer in
+practice, since tied pairs are not shown. A development batch (about 30 pairs) comes first, in
+Task 3, to calibrate the repeat rate and the sensitivity before any held-out pair is shown.
 
 ### The real-data panel
 
@@ -369,10 +438,20 @@ defines them). What matters for coregistration:
 
 - **T2w subset (J2, J3):** `ds005752`, `ds007522`, `ds004146`, `ds007116`, `ds008579`,
   `tarricone`. The baseline runs did not preprocess the T2w, so the probe registers each T2w to
-  its preprocessed T1w (ANTs rigid, same session); every such registration is checked by eye once,
-  before any arm is scored.
+  its preprocessed T1w (ANTs rigid, same session). Each such registration is accepted only if its
+  forward and reverse estimates agree within 0.5 mm and an FSL `flirt` (mutual information)
+  estimate agrees within 1 mm; otherwise the T2w is not used for that subject.
 - **Cross-run sets:** `ds008020`, `kashyap`, `ds007522`, `ds003823`, `ds000234`, `ds000235`
   (within a session only; the list is confirmed in Task 0).
+- **Cross-session sets:** `ds007116` (three sessions), `ds004146`, `ds005752`,
+  `jsr-aslprep-debug`, and any other subject whose sessions share one anatomical reference.
+- **Sample size.** The panel has about ten subjects with repeated runs or sessions, and fewer once
+  split into development and held-out. That is too few for gate 4 (it needs at least ten held-out
+  subjects with a comparable pair in each judged family). The panel is therefore extended with
+  repeat-scan subjects before Task 6, from the datasets with many at their source (`ds007116`,
+  132 subjects with three sessions; `ds004146`, 417; `ds005752`, 251; `ds008020`), curated with
+  the zoo's own code, as the HMC probe planned in "Extending the panel". The downloads need
+  agreement (open decision 1). Without them, gate 4 can only return "insufficient evidence".
 - **No M0:** `ds007908`, `ds004856` and others: the static term uses the conventional reference
   whatever its source, and results are stratified by M0 type.
 - Families with one dataset (`ds008020`, `2d_mb_pcasl`, `ds000254`, `ds005752`) are reported but
@@ -392,21 +471,18 @@ labelled with what it is independent of, and a claim is made only along that axi
 The HMC probe never recorded its split, so this one is new; if the HMC probe later fixes one, the
 two are reconciled before Task 6 and any overlap is reported.
 
-#### The reviewed subset
+#### The review set and applicability
 
-Fixed in Task 0, before any arm is run: at least one run per family; every spiral and GRASE run;
-named cases for each condition (no M0, separate M0, inverted contrast, single delta-M, T2w
-available, fieldmap available). Its held-out part is the **primary review set**, and gate 4 is
-decided on it.
+The review set is every held-out run, fixed in Task 0 with the split. If the pairs it produces
+exceed the agreed review load (open decision 1), a random sample stratified by family is drawn
+by a recorded seed before any figure is made, always keeping every spiral and GRASE run. No run is
+added or dropped after its figures exist.
 
-An **enrichment set** may be added in Task 6 if the primary set has fewer than 20 informative
-disagreements: further held-out runs, drawn by a rule fixed in Task 3 that uses no review result
-(the J-arm and the frozen comparator differ by more than the tie distance, in random order, until
-20 informative disagreements or the panel is exhausted). It is reported separately, with its
-selection rule and denominators, and it can confirm but not replace a primary-set result.
-An applicability table lists, for every run and every metric and gate, whether it
-applies, is not available on that path, or is not tested; a metric that is not available is never
-counted as a pass.
+Every computed metric runs on every run where it applies. An applicability table, fixed in Task 0, lists for every run and every metric and gate whether it
+applies (a cross-run score needs a comparable pair, semi-synthetic recovery applies everywhere),
+is not available on that path, or is not tested; a metric that is not available is never counted
+as a pass. Named cases are tracked through the table so each condition is visibly covered: no M0,
+separate M0, inverted contrast, single delta-M, T2w available, fieldmap available.
 
 ## Decision gates
 
@@ -426,17 +502,24 @@ alignment) is judged separately; trade-offs are reported per metric, not folded 
 3. **Against the comparator (simulation):** failure rate not above the frozen comparator's, capture
    range at least as wide, and median accuracy within a margin of it, on development and then
    held-out fixtures.
-4. **Real data (held-out, primary review set):** adjudication prefers the J-arm over the frozen
-   comparator of each family by more than the bootstrap uncertainty, resampling subjects (sessions
-   of a subject together), with at least 20 informative disagreements (fewer is "insufficient
-   evidence"; an enrichment set is reported but cannot decide); the J-arm is not worse than Q1 by
-   the same test; cross-run inconsistency and semi-synthetic recovery not worse than the
-   comparator's in any judged family by more than a margin; no more gross failures.
+4. **Real data (held-out):**
+   - review: the reviewer prefers the J-arm over the frozen comparator by more than the
+     uncertainty (a bootstrap over subjects, with sessions of a subject together, and pairs whose
+     repeat ratings disagree counted as ties), with at least 20 informative choices (fewer is
+     "insufficient evidence"), and no family in which the comparator is preferred by more than that
+     uncertainty; the J-arm is not worse than Q1 by the same test;
+   - computed: cross-run and cross-session inconsistency and semi-synthetic recovery not worse than
+     the comparator's in any judged family by more than a margin, on at least ten held-out subjects
+     with a comparable pair (fewer is "insufficient evidence" for that part); no more gross
+     failures.
+
+   If the reviewer's known-answer detection rate at 2 mm is below 80 % in the development batch,
+   the figures are redesigned before any held-out pair is shown.
 5. **Operation:** deterministic (fixed ANTs seed and thread count), under the run-time budget, and
    no new dependency (ANTs is already in the image).
 
-Margins, the tie distance, the comparator per family, the enrichment rule and the run-time budget
-are written down in Task 3 from development data only, before any J-arm is scored and before any
+Margins, the tie distance, the comparator per family, the review set and its sampling seed, and
+the run-time budget are written down in Task 3 from development data only, before any J-arm is scored and before any
 held-out fixture or run is scored by any arm. Among arms that pass, the simplest is chosen (Q1, if
 the J-arm does not beat it, is a result in its own right). A default change additionally needs
 gate 4 in every judged family.
@@ -450,8 +533,11 @@ gate 4 in every judged family.
   the coregistration reference and R0's transform with the HMC probe's baseline. Reuse the baseline
   if they agree within the tie distance's starting guess (0.2 mm), otherwise rerun the panel.
 - A manifest of every run: family, M0 type, background suppression, delays, reference type, T2w,
-  fieldmap, runs per session, which arms and metrics apply.
-- Fix the development and held-out lists, the cross-run sets and the reviewed subset.
+  fieldmap, runs and sessions per subject, whether sessions share one anatomical reference, which
+  arms and metrics apply.
+- Fix the development and held-out lists, the cross-run and cross-session sets, and the review set.
+- Propose the panel extension with repeat-scan subjects (datasets, counts, disk space), and
+  download only after agreement.
 
 ### Task 1: Harness
 
@@ -465,12 +551,17 @@ ported rather than imported if the two branches must diverge:
 - `run_ants.py`: one `antsRegistration` call per arm from a table of cost terms, writing an ITK
   transform in ASLPrep's convention;
 - RA from the HMC probe's DA rule, if frozen;
+- `review.py`: the blinded figures, the batch and key files, repeats and known-answer pairs, and the
+  review page ("Blinded review figures"); a dry run on one development run with the key checked
+  for leaks (no arm name, path or ordering cue in any file the page loads);
 - read the ExploreASL and HCP-ASL registration code and record what each does.
 
 ### Task 2: Scorer and engine pilot
 
-- Metrics 1-5 in simulation, reusing `truth_scoring` and `truth_geometry`; cross-run inconsistency,
-  semi-synthetic recovery and the diagnostics on real data.
+- Metrics 1-5 in simulation, reusing `truth_scoring` and `truth_geometry`; cross-run and
+  cross-session inconsistency with the direct-registration noise floor, semi-synthetic recovery,
+  the gross-failure rules and the diagnostics on real data.
+- The gross-failure rules checked against the truth error on the development fixtures.
 - Validation: the identity, the truth, deliberately wrong transforms and a transform expressed in
   the inverse direction must score as expected (gate 1).
 - The engine pilot of "Bounding the combinations", frozen in this plan.
@@ -483,9 +574,10 @@ Checkpoint: Codex adversarial review of the harness and scorer.
   series, the second-offset fixtures and the held-out still fixtures. Held-out fixtures are
   generated now and not scored until Task 5.
 - On development fixtures and development real runs only: measure R0, R1 (both signs) and the four
-  D3 levels; freeze R1's sign rule, R2's level and eligibility rule, and the comparator per family;
-  repeat ratings of development pairs for the tie distance; set the margins, the enrichment rule
-  and the run-time budget.
+  D3 levels; freeze R1's sign rule, R2's level and eligibility rule, and the comparator per family
+  (the reviewer's development batch, comparing R1 and R2, is part of this); the noise floor and tie
+  distance; the reviewer's repeat rate and known-answer sensitivity from that batch; the margins,
+  the review set's sample (if needed) and the run-time budget.
 
 ### Task 4: Primary screen
 
@@ -503,8 +595,9 @@ comparator run alongside.
 - Write the real-data criteria (directions and margins) before any real-data J-arm score is seen.
 - Run the kept arms, their S1, S2 and Q1, R0 and the comparator on the panel; J2 and J3 on the T2w
   subset, reported as exploratory.
-- The blind review of the primary review set; the enrichment set only if the rule triggers;
-  cross-run and semi-synthetic metrics on the whole panel.
+- The held-out review batches (figures made only after every arm has run on every review-set run,
+  so no figure depends on what was already chosen); cross-run, cross-session and semi-synthetic
+  metrics on the whole panel, including the extension.
 - Gate 4 on the held-out runs.
 
 Checkpoint: Codex adversarial review of the results before the decision is written.
@@ -548,13 +641,15 @@ Checkpoint: Codex adversarial review of the results before the decision is writt
 
 ## Open decisions
 
-1. Who the two reviewers are, and the review load per reviewer.
+1. The review load (the plan expects a development batch of about 30 pairs and at most about 160
+   held-out pairs, plus repeats and known-answer pairs, in batches of about 50), and agreement to
+   download repeat-scan subjects for the panel extension.
 2. Whether RA must be frozen in the HMC probe first, or the better of R1 and R2 per family is a
    sufficient bar.
 3. Whether to add `bbregister` comparators (FreeSurfer surfaces for the phantom, and reruns of the
    panel with FreeSurfer), so that the conclusions cover production's FreeSurfer path.
-4. Whether to extend the panel (more spiral and GRASE subjects) if the disagreement count stays
-   below 20.
+4. Whether to extend the panel further (more spiral and GRASE subjects) if the informative choices
+   stay below 20.
 
 ## References
 
@@ -599,3 +694,13 @@ the source; all are addressed in revision 3, two in part (9, 13).
 
 Codex could not read the WSL-side probe data (manifest, baseline runs, `coreg_5b_real.tsv`), the
 GitHub issues, or the attached proposal, and did not check the literature.
+
+**Revision 4 (2026-10-22).** One reviewer, the maintainer, instead of two. The review works from
+blinded figures the probe generates ("Blinded review figures": native-resolution ASL images with
+T1w contours carried through each arm, random sides and ids, a key the page never loads, repeated
+pairs for self-agreement, and known-answer pairs for sensitivity). The review set is the whole
+held-out panel (sampled by a fixed seed only if it exceeds the agreed load), which removes the
+enrichment set. Computed outcomes added alongside: cross-session consistency, a
+direct-registration noise floor (which also sets the tie distance), automatic gross-failure
+rules, and an automated check of the T2w-to-T1w registrations in place of a visual one. The panel
+needs repeat-scan subjects for the consistency part of gate 4 to have ten held-out subjects.
