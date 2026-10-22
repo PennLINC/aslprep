@@ -486,6 +486,7 @@ def init_cbf_confounds_wf(
     scorescrub=False,
     basil=False,
     lr_pvc=False,
+    anatomical_mask=False,
     name='cbf_confounds_wf',
 ):
     """Create a workflow for :abbr:`dolui2024automated (compute cbf)`.
@@ -512,6 +513,10 @@ def init_cbf_confounds_wf(
     lr_pvc : bool
         Whether local-regression PVC ran. If so, its scalar QC measures (``pvc_qc``) are added
         to the QC file.
+    anatomical_mask : bool
+        Whether the brain mask is the anatomical one (``--skull-strip-asl anatomical``).
+        If so, the measures of its check against SynthStrip (``skullstrip_qc``) are added to
+        the QC file.
     name : :obj:`str`
         Name of workflow (default: "cbf_qc_wf")
 
@@ -526,6 +531,9 @@ def init_cbf_confounds_wf(
     pvc_qc
         Dictionary of scalar quality-control measures from local-regression partial volume
         correction (with ``lr_pvc``), added as columns of the QC file.
+    skullstrip_qc
+        Dictionary of the anatomical brain mask's check against SynthStrip
+        (with ``anatomical_mask``), added as columns of the QC file.
     asl_file
         ASL file, as acquired. Used to check for clipped values.
     m0scan
@@ -577,6 +585,8 @@ negative CBF values.
                 'mean_cbf_wm_basil',
                 # Local-regression PVC quality-control measures (a dict)
                 'pvc_qc',
+                # Anatomical brain mask quality-control measures (a dict)
+                'skullstrip_qc',
                 # non-GE inputs
                 'confounds_file',
             ],
@@ -731,6 +741,8 @@ negative CBF values.
 
     if lr_pvc:
         workflow.connect([(inputnode, compute_qc_metrics, [('pvc_qc', 'pvc_qc')])])
+    if anatomical_mask:
+        workflow.connect([(inputnode, compute_qc_metrics, [('skullstrip_qc', 'skullstrip_qc')])])
 
     ds_qc = pe.Node(
         DerivativesDataSink(

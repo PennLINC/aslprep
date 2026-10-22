@@ -52,6 +52,7 @@ from aslprep.utils.gradwarp import GradwarpPlan
 from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 from aslprep.workflows.asl.outputs import init_asl_fit_reports_wf, init_ds_aslref_wf
 from aslprep.workflows.asl.reference import (
+    init_anat_aslmask_wf,
     init_enhance_and_skullstrip_asl_wf,
     init_raw_aslref_wf,
     init_skullstrip_aslref_wf,
@@ -214,6 +215,9 @@ def init_asl_fit_wf(
     m0scan_gradwarp_field
         Gradient nonlinearity displacement field for the separate M0 scan,
         on the ``hmc_aslref`` grid, if applicable.
+    skullstrip_qc
+        With ``--skull-strip-asl anatomical`` (and no precomputed mask), the quality-control
+        measures of the anatomical brain mask's check against SynthStrip.
     """
     from niworkflows.engine.workflows import LiterateWorkflow as Workflow
 
@@ -338,6 +342,7 @@ def init_asl_fit_wf(
                 'm0scan2aslref_xfm',
                 'gradwarp_field',
                 'm0scan_gradwarp_field',
+                'skullstrip_qc',
             ],
         ),
         name='outputnode',
@@ -723,6 +728,21 @@ def init_asl_fit_wf(
     else:
         config.loggers.workflow.info('No fieldmap correction - skipping Stage 3')
 
+    # The brain mask estimated from the coregistration reference (Stage 4).
+    # With --skull-strip-asl anatomical, the mask used is the anatomical one instead, checked
+    # against this one once the coregistration (Stage 5) exists.
+    aslstrip_buffer = pe.Node(niu.IdentityInterface(fields=['aslmask']), name='aslstrip_buffer')
+    final_mask = (aslstrip_buffer, 'aslmask')
+    if config.workflow.skull_strip_asl == 'anatomical' and not aslref_mask:
+        anat_aslmask_wf = init_anat_aslmask_wf()
+        final_mask = (anat_aslmask_wf, 'outputnode.mask_file')
+        workflow.connect([
+            (inputnode, anat_aslmask_wf, [('t1w_mask', 'inputnode.t1w_mask')]),
+            (regref_buffer, anat_aslmask_wf, [('aslref', 'inputnode.aslref')]),
+            (aslstrip_buffer, anat_aslmask_wf, [('aslmask', 'inputnode.asl_mask')]),
+            (anat_aslmask_wf, outputnode, [('outputnode.qc', 'skullstrip_qc')]),
+        ])  # fmt:skip
+
     # Stage 4: Create coregistration reference
     # Fieldmap correction only happens during fit if this stage is needed
     if not coreg_aslref:
@@ -759,26 +779,43 @@ def init_asl_fit_wf(
             desc='coreg',
             name='ds_coreg_aslref_wf',
         )
-        ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
-            source_file=asl_file,
-            output_dir=config.execution.aslprep_dir,
-            desc='brain',
-            name='ds_aslmask_wf',
-        )
-        # Provenance: both depend on the brain extraction method, and are reused only with it.
-        for ds_wf, ds_node in ((ds_coreg_aslref_wf, 'ds_aslref'), (ds_aslmask_wf, 'ds_boldmask')):
-            ds_wf.get_node(ds_node).inputs.meta_dict = {
-                'SkullStripASL': config.workflow.skull_strip_asl
-            }
+        # Provenance: it depends on the brain extraction method, and is reused only with it.
+        ds_coreg_aslref_wf.get_node('ds_aslref').inputs.meta_dict = {
+            'SkullStripASL': config.workflow.skull_strip_asl
+        }
 
         workflow.connect([
             (fmapref_buffer, enhance_aslref_wf, [('out', 'inputnode.in_file')]),
             (fmapref_buffer, coreg_ref_source_files, [('out', 'in1')]),
             (coreg_ref_source_files, ds_coreg_aslref_wf, [('out', 'inputnode.source_files')]),
             (ds_coreg_aslref_wf, regref_buffer, [('outputnode.aslref', 'aslref')]),
-            (ds_coreg_aslref_wf, ds_aslmask_wf, [('outputnode.aslref', 'inputnode.source_files')]),
-            (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
         ])  # fmt:skip
+
+        # A precomputed mask is used as it is (a connection would override it)
+        if not aslref_mask:
+            ds_aslmask_wf = output_workflows.init_ds_boldmask_wf(
+                source_file=asl_file,
+                output_dir=config.execution.aslprep_dir,
+                desc='brain',
+                name='ds_aslmask_wf',
+            )
+            ds_aslmask_wf.get_node('ds_boldmask').inputs.meta_dict = {
+                'SkullStripASL': config.workflow.skull_strip_asl
+            }
+            workflow.connect([
+                (ds_coreg_aslref_wf, ds_aslmask_wf, [
+                    ('outputnode.aslref', 'inputnode.source_files'),
+                ]),
+                (final_mask[0], ds_aslmask_wf, [(final_mask[1], 'inputnode.boldmask')]),
+                (ds_aslmask_wf, aslmask_buffer, [('outputnode.boldmask', 'aslmask')]),
+            ])  # fmt:skip
+            if final_mask[0] is not aslstrip_buffer:
+                # Records which mask was used, as well as the method
+                workflow.connect([
+                    (anat_aslmask_wf, ds_aslmask_wf, [
+                        ('outputnode.mask_metadata', 'ds_boldmask.meta_dict'),
+                    ]),
+                ])  # fmt:skip
 
         if fieldmap_id or gradwarp:
             unwarp_aslref = pe.Node(
@@ -788,23 +825,24 @@ def init_asl_fit_wf(
                 mem_gb=mem_gb['resampled'],
             )
 
-            skullstrip_asl_wf = init_skullstrip_aslref_wf(name='skullstrip_asl_wf')
-            # enhance_aslref_wf already describes the brain extraction method
-            skullstrip_asl_wf.__desc__ = None
-
             workflow.connect([
                 (fmapref_buffer, unwarp_aslref, [('out', 'ref_file')]),
                 (enhance_aslref_wf, unwarp_aslref, [
                     ('outputnode.bias_corrected_file', 'in_file'),
                 ]),
                 (unwarp_aslref, ds_coreg_aslref_wf, [('out_file', 'inputnode.aslref')]),
-                (ds_coreg_aslref_wf, skullstrip_asl_wf, [
-                    ('outputnode.aslref', 'inputnode.in_file'),
-                ]),
-                (skullstrip_asl_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
             ])  # fmt:skip
+
+            if not aslref_mask:
+                skullstrip_asl_wf = init_skullstrip_aslref_wf(name='skullstrip_asl_wf')
+                # enhance_aslref_wf already describes the brain extraction method
+                skullstrip_asl_wf.__desc__ = None
+                workflow.connect([
+                    (ds_coreg_aslref_wf, skullstrip_asl_wf, [
+                        ('outputnode.aslref', 'inputnode.in_file'),
+                    ]),
+                    (skullstrip_asl_wf, aslstrip_buffer, [('outputnode.mask_file', 'aslmask')]),
+                ])  # fmt:skip
 
             if gradwarp:
                 workflow.connect([
@@ -875,20 +913,18 @@ def init_asl_fit_wf(
                 (enhance_aslref_wf, ds_coreg_aslref_wf, [
                     ('outputnode.bias_corrected_file', 'inputnode.aslref'),
                 ]),
-                (enhance_aslref_wf, ds_aslmask_wf, [
-                    ('outputnode.mask_file', 'inputnode.boldmask'),
-                ]),
+                (enhance_aslref_wf, aslstrip_buffer, [('outputnode.mask_file', 'aslmask')]),
             ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found coregistration reference - skipping Stage 4')
 
-        # TODO: Allow precomputed bold masks to be passed
-        # Also needs consideration for how it interacts above
-        skullstrip_precomp_ref_wf = init_skullstrip_aslref_wf(name='skullstrip_precomp_ref_wf')
-        skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
-        workflow.connect([
-            (skullstrip_precomp_ref_wf, aslmask_buffer, [('outputnode.mask_file', 'aslmask')])
-        ])  # fmt:skip
+        if not aslref_mask:
+            skullstrip_precomp_ref_wf = init_skullstrip_aslref_wf(name='skullstrip_precomp_ref_wf')
+            skullstrip_precomp_ref_wf.inputs.inputnode.in_file = coreg_aslref
+            workflow.connect([
+                (skullstrip_precomp_ref_wf, aslstrip_buffer, [('outputnode.mask_file', 'aslmask')]),
+                (final_mask[0], aslmask_buffer, [(final_mask[1], 'aslmask')]),
+            ])  # fmt:skip
 
     # Stage 5: Register ASL to anatomical space
     if not aslref2anat_xform:
@@ -946,9 +982,15 @@ def init_asl_fit_wf(
             (ds_aslreg_wf, outputnode, [('outputnode.xform', 'aslref2anat_xfm')]),
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         ])  # fmt:skip
+        if final_mask[0] is not aslstrip_buffer:
+            workflow.connect([
+                (ds_aslreg_wf, anat_aslmask_wf, [('outputnode.xform', 'inputnode.aslref2anat_xfm')]),
+            ])  # fmt:skip
     else:
         config.loggers.workflow.info('Found coregistration transform - skipping Stage 5')
         outputnode.inputs.aslref2anat_xfm = aslref2anat_xform
+        if final_mask[0] is not aslstrip_buffer:
+            anat_aslmask_wf.inputs.inputnode.aslref2anat_xfm = aslref2anat_xform
 
     return workflow
 

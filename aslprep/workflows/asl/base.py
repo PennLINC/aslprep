@@ -696,11 +696,17 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         scorescrub=scorescrub,
         basil=basil,
         lr_pvc=bool(lr_sources),
+        anatomical_mask=config.workflow.skull_strip_asl == 'anatomical',
         name='cbf_confounds_wf',
     )
     if lr_sources:
         workflow.connect([
             (cbf_wf, cbf_confounds_wf, [('outputnode.pvc_qc', 'inputnode.pvc_qc')]),
+        ])  # fmt:skip
+    if config.workflow.skull_strip_asl == 'anatomical':
+        # Undefined when the brain mask was precomputed: then no columns are added
+        workflow.connect([
+            (asl_fit_wf, cbf_confounds_wf, [('outputnode.skullstrip_qc', 'inputnode.skullstrip_qc')]),
         ])  # fmt:skip
     if run_data['m0scan']:
         cbf_confounds_wf.inputs.inputnode.m0scan = run_data['m0scan']
