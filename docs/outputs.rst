@@ -833,6 +833,8 @@ session and run in :abbr:`TSV (tab-separated value)` files,
 with one column for each confound variable.
 
 
+.. _cbf_qc:
+
 *******************
 CBF Quality Control
 *******************
@@ -896,6 +898,17 @@ All of these measures use the ASL file as acquired, before motion correction.
 
 For background-suppressed data with control and label volumes,
 the visual report also plots these maps and profiles.
+
+With ``--skull-strip-asl anatomical`` (see :ref:`asl_skullstrip`), the QC file also reports
+the check of the anatomical brain mask against the SynthStrip mask of the ASL reference:
+``anat_mask_synthstrip_dice`` is the Dice coefficient between the two masks,
+``anat_mask_synthstrip_volume_ratio`` is the SynthStrip mask's volume divided by the anatomical
+mask's, and ``anat_mask_used`` is 1 if the anatomical mask was used and 0 if the SynthStrip
+mask was used instead.
+A low Dice coefficient means that one of the masks is wrong, most often because the
+coregistration failed.
+In that case ``coreg_dice``, which compares the brain mask used with the anatomical mask,
+is close to 1 whenever the anatomical mask was used, so it does not show the failure.
 
 
 *****************************

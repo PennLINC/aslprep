@@ -178,7 +178,7 @@ def init_asl_wf(
         -   In the GE workflow, the reference image comes from the M0 scan.
     3.  Motion correction.
         -   Outputs the HMC transform and the motion parameters.
-        -   Not in GE workflow.
+        -   Not in GE workflow, unless the series has label-control pairs.
     4.  Susceptibility distortion correction.
         -   Outputs the SDC transform.
         -   Not in GE workflow.
@@ -214,13 +214,17 @@ def init_asl_wf(
     surf_std = [ref for ref in spaces.get_standard(dim=(2,)) if ref.space != 'fsaverage']
     layout = config.execution.layout
 
-    # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
+    # Short series (5 volumes or fewer) take the GE-specific path: no SCORE/SCRUB, and no motion
+    # correction unless they have label-control pairs (see init_asl_fit_wf).
     n_vols = get_n_volumes(asl_file)
     use_ge = ('ge' in config.workflow.force or n_vols <= 5) and (
         'no-ge' not in config.workflow.force
     )
     if use_ge:
-        config.loggers.workflow.warning('Using GE-specific processing. HMC will be disabled.')
+        config.loggers.workflow.warning(
+            'Using GE-specific processing. HMC will be disabled unless the series has '
+            'label-control pairs.'
+        )
         if scorescrub:
             config.loggers.workflow.warning(
                 'SCORE/SCRUB processing is disabled for GE-specific processing'
@@ -696,6 +700,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         scorescrub=scorescrub,
         basil=basil,
         lr_pvc=bool(lr_sources),
+        anatomical_mask=config.workflow.skull_strip_asl == 'anatomical',
         plot_background_suppression=(
             processing_target == 'control' and bool(metadata.get('BackgroundSuppression'))
         ),
@@ -705,6 +710,11 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     if lr_sources:
         workflow.connect([
             (cbf_wf, cbf_confounds_wf, [('outputnode.pvc_qc', 'inputnode.pvc_qc')]),
+        ])  # fmt:skip
+    if config.workflow.skull_strip_asl == 'anatomical':
+        # Undefined when the brain mask was precomputed: then no columns are added
+        workflow.connect([
+            (asl_fit_wf, cbf_confounds_wf, [('outputnode.skullstrip_qc', 'inputnode.skullstrip_qc')]),
         ])  # fmt:skip
     if run_data['m0scan']:
         cbf_confounds_wf.inputs.inputnode.m0scan = run_data['m0scan']

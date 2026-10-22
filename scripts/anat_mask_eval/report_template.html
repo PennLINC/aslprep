@@ -1,0 +1,219 @@
+<title>Anatomical ASL Brain Masks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column of findings; charts and tables in full-width bands, montages in collapsible galleries. */
+:root {
+  --bg: #fbfbf9; --panel: #f2f2ee; --fg: #1b1c1a; --muted: #5d5e58; --rule: #dcdcd5;
+  --accent: #0f6e5a; --ok: #1d7a3a; --bad: #b3261e;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --display: "Newsreader", Georgia, "Times New Roman", serif;
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1a1a19; --panel: #232321; --fg: #ecebe6; --muted: #aeada5; --rule: #3a3a36;
+    --accent: #5cc7a8; --ok: #6fcf8a; --bad: #ff8a80;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #2f9e2f; --s7: #9085e9; --s8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1a1a19; --panel: #232321; --fg: #ecebe6; --muted: #aeada5; --rule: #3a3a36;
+  --accent: #5cc7a8; --ok: #6fcf8a; --bad: #ff8a80;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #2f9e2f; --s7: #9085e9; --s8: #e66767;
+  color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 16px/1.6 var(--body); }
+main {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+  display: grid; gap: 28px;
+}
+section { display: grid; gap: 14px; min-width: 0; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); }
+h2 { font-size: 1.6rem; padding-top: 18px; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.15rem; }
+p, li { max-width: 68ch; margin: 0; }
+ul, ol { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; }
+.eyebrow { font: 500 0.75rem/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 1.12rem; }
+code { font: 0.88em var(--mono); background: var(--panel); padding: 0.05em 0.3em; border-radius: 3px; }
+a { color: var(--accent); }
+.verdict { border-left: 3px solid var(--accent); padding: 4px 0 4px 18px; display: grid; gap: 10px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.stat { background: var(--panel); padding: 14px 16px; border-radius: 6px; display: grid; gap: 4px; }
+.stat b { font: 500 1.6rem/1.1 var(--mono); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 0.85rem; color: var(--muted); }
+.chartbox { overflow-x: auto; }
+svg.chart { width: 100%; min-width: 560px; height: auto; display: block; }
+svg.chart text { fill: var(--muted); font: 12px var(--body); }
+svg.chart .rowlab { fill: var(--fg); }
+svg.chart .axis { fill: var(--muted); font-size: 12px; }
+svg.chart .grid { stroke: var(--rule); stroke-width: 1; }
+svg.chart .refline { stroke: var(--muted); stroke-dasharray: 4 4; stroke-width: 1; }
+svg.chart .median { stroke: var(--fg); stroke-width: 2.5; }
+svg.chart .dot { stroke: var(--bg); stroke-width: 1.5; opacity: 0.85; }
+svg.chart .dot:hover { opacity: 1; stroke: var(--fg); }
+.caption { font-size: 0.88rem; color: var(--muted); max-width: 72ch; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; min-width: 100%; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+thead th { font-weight: 600; color: var(--muted); font-size: 0.8rem; border-bottom: 1.5px solid var(--fg); }
+tbody th { font-weight: 600; }
+td { font-family: var(--mono); font-size: 0.82rem; }
+td.ok { color: var(--ok); font-weight: 500; }
+td.bad { color: var(--bad); font-weight: 500; }
+figure { margin: 0; display: grid; gap: 6px; }
+figure img { width: 100%; border-radius: 4px; }
+figcaption { font-size: 0.85rem; color: var(--muted); }
+.gallery { display: grid; gap: 22px; }
+details { border-top: 1px solid var(--rule); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 600; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+details[open] > .gallery { margin-top: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; color: var(--muted); }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.two > * { min-width: 0; }
+</style>
+
+<main>
+<header style="display:grid;gap:12px">
+  <div class="eyebrow">ASLPrep · brain extraction study · 2026-10-22</div>
+  <h1>Anatomical ASL Brain Masks</h1>
+  <p class="lede">Can ASLPrep take its ASL brain mask from the T1w brain mask, carried into ASL space through the coregistration, instead of estimating it from the ASL reference with SynthStrip? PennLINC/aslprep#601 tried this in 2025 and was closed because the masks "did not look good". This study tests the idea systematically on @@n_refs@@ real ASL references from @@n_sets@@ datasets and @@n_sims@@ simulated runs with a known brain.</p>
+</header>
+
+<section class="verdict">
+  <h2 style="border:0;padding:0">Verdict</h2>
+  <p><strong>It is feasible, and when the coregistration is right it gives the most accurate mask of the three methods.</strong> On simulated data with working coregistration, the anatomical mask matched the true brain with a median Dice of @@sim_anat_pv50@@, against @@sim_synthstrip@@ for SynthStrip and @@sim_legacy@@ for the legacy BET + 3dAutomask method. On real data it agreed with SynthStrip on @@n_ok@@ of @@n_refs@@ references (median Dice @@anat_ss_ok@@).</p>
+  <p><strong>Its weakness is that it is exactly as good as the coregistration.</strong> In @@n_coreg@@ real references and one simulation the coregistration was wrong and the anatomical mask landed off the brain. That is the most likely reason #601 looked bad. In @@n_ssfail@@ other references SynthStrip failed instead, and the anatomical mask was the right one.</p>
+  <p><strong>Recommendation:</strong> add it as an opt-in <code>--skull-strip-asl</code> choice, always report how well it agrees with an ASL-derived mask, and fall back to SynthStrip when the two disagree and SynthStrip's mask is not the smaller one. That rule chose the right mask in all @@n_disagree@@ disagreements here, but it was set after looking at them, so it needs checking on new data before the anatomical mask becomes the default.</p>
+</section>
+
+<div class="stats">
+  <div class="stat"><b>@@sim_anat_pv50@@</b><span>Anatomical mask vs true brain (median Dice, @@n_good_sim@@ simulations)</span></div>
+  <div class="stat"><b>@@sim_synthstrip@@</b><span>SynthStrip vs true brain (same simulations)</span></div>
+  <div class="stat"><b>@@n_ok@@ / @@n_refs@@</b><span>Real references where anatomical and SynthStrip agree (Dice ≥ 0.90)</span></div>
+  <div class="stat"><b>@@n_coreg@@ + @@n_ssfail@@</b><span>Disagreements caused by coregistration / by SynthStrip</span></div>
+</div>
+
+<section>
+  <h2>What was compared</h2>
+  <p>Each mask was computed on the same image: ASLPrep's final coregistration reference (<code>desc-coreg_aslref</code>), which is bias-corrected and, for runs with a fieldmap, distortion-corrected.</p>
+  <ul>
+    <li><strong>SynthStrip</strong>: ASLPrep's current default (<code>init_synthstrip_aslref_wf</code>), run in the <code>pennlinc/aslprep</code> image built after PennLINC/aslprep#753.</li>
+    <li><strong>Legacy</strong>: <code>--skull-strip-asl legacy</code>, the intersection of BET and <code>3dAutomask</code>, routed as ASLPrep routes it (niworkflows' <code>init_skullstrip_bold_wf</code> after distortion correction, otherwise <code>init_enhance_and_skullstrip_asl_wf</code>).</li>
+    <li><strong>Anatomical</strong>: the smriprep T1w brain mask pulled onto the aslref grid through ASLPrep's coregistration. Each ASL voxel is sampled at 27 points and kept when at least half of them fall inside the T1w mask. Two variants were also scored: nearest neighbour at the voxel centre (what #601 did with ANTs <code>GenericLabel</code>) and a generous ≥10% threshold.</li>
+  </ul>
+  <p>Data came from the earlier coregistration probe (<code>hmc-probe/coreg-5b-real</code>): @@n_runs@@ runs from the aslprep-zoo, @@n_refs@@ of them with distinct reference images, across @@n_families@@ acquisition families. Only @@n_sdc@@ of the references were distortion-corrected. The registrations are the probe's re-run of fMRIPrep's FSL path (<code>mri_coreg</code>, then FLIRT BBR with fMRIPrep's fallback check), which matches the production transforms to within 10<sup>-4</sup> mm. The probe also kept four other registration candidates per run, which are used below to measure how stable each coregistration is. The simulations are the @@n_sims@@ aslscan fixtures with their baseline ASLPrep runs. There the true brain is the voxels whose tissue partial volumes sum to at least 0.5, placed in the aslref frame through the true head pose.</p>
+  <div class="legend"><span><i style="background:var(--s1)"></i>SynthStrip</span><span><i style="background:var(--s2)"></i>Legacy</span><span><i style="background:var(--s3)"></i>Anatomical</span></div>
+</section>
+
+<section>
+  <h2>Against a known brain</h2>
+  <p>In the @@n_good_sim@@ simulations where the coregistration was within @@sim_err_good_max@@ mm of the truth, the anatomical mask was as good as the same mask moved through the <em>true</em> transform (median Dice @@sim_anat_truexfm@@). The coregistration was not the limit there. SynthStrip missed a median @@simfn_synthstrip@@ mL of brain and added @@simfp_synthstrip@@ mL of non-brain. The anatomical mask missed @@simfn_anat_pv50@@ mL and added @@simfp_anat_pv50@@ mL. Legacy kept all of the brain but added @@simfp_legacy@@ mL around it. Measured as grey-matter partial volume, SynthStrip dropped @@simgm_loss_ss@@% of the grey matter and the anatomical mask dropped @@simgm_loss_anat@@%. Some of that is unavoidable for any binary mask at the cortical edge: the true-transform mask loses the same amount.</p>
+  <p>The exception is <strong>@@sim_bad_name@@</strong>, whose coregistration was off by @@sim_bad_err@@ mm. There the anatomical mask fell to Dice @@sim_bad_anat@@ while SynthStrip, which never looks at the T1w, held at @@sim_bad_ss@@.</p>
+  <div class="chartbox">@@chart_sim@@</div>
+  <p class="caption">Each dot is one simulated run; the dark tick is the median. Hover a dot for the run name. The lowest anatomical and guard dots are the run with the failed coregistration.</p>
+  @@sim_table@@
+  <p class="caption">Medians over the @@n_good_sim@@ simulations with working coregistration; the last column is the run whose coregistration failed. Caveat: in the simulations the T1w mask is the phantom's own brain, so it has no segmentation error. smriprep masks on real T1w images are good but not perfect.</p>
+</section>
+
+<section>
+  <h2>Agreement on real data</h2>
+  <p>On the @@n_ok@@ references where the anatomical and SynthStrip masks agree (Dice ≥ 0.90), their median Dice is @@anat_ss_ok@@ and the anatomical mask is a median @@anat_vol_ratio@@× SynthStrip's volume. Legacy masks agree less (median Dice @@legacy_ss_ok@@ with SynthStrip) because they are much larger: a median @@legacy_vol_ratio@@× SynthStrip's volume, which takes in scalp, skull and meninges, as the montages show.</p>
+  <p>Nearest-neighbour resampling is not a problem. The voxel-centre version of the anatomical mask matches the partial-volume version with a median Dice of @@nn_vs_pv@@, so #601's <code>GenericLabel</code> resampling was adequate. Distortion correction makes little difference here: the median Dice is @@anat_ss_sdc@@ for the @@n_sdc@@ corrected references and @@anat_ss_nosdc@@ for the rest. Five corrected references is too few to settle that question.</p>
+  <div class="chartbox">@@chart_dice@@</div>
+  <p class="caption">One dot per distinct reference image. The dashed line is the Dice of 0.90 below which a reference counts as a disagreement.</p>
+  <div class="chartbox">@@chart_vol@@</div>
+  @@family_table@@
+</section>
+
+<section>
+  <h2>What a Dice of @@anat_ss_ok@@ means</h2>
+  <p>To put the Dice values on a physical scale, every reference's anatomical mask was recomputed with its coregistration shifted by 1 to 6 mm in random directions (eight draws per size). Each millimetre of shift costs about 0.012 Dice: 1 mm gives @@p1@@, 3 mm gives @@p3@@ and 6 mm gives @@p6@@. The typical disagreement between the anatomical and SynthStrip masks is therefore about what a @@equiv_mm@@ mm shift of the anatomical mask would produce. The simulations say which of the two is nearer the brain.</p>
+  <div class="chartbox">@@chart_perturb@@</div>
+  <p class="caption">Median and interquartile range over all references and draws. The spread is narrow: Dice depends mainly on the shift, not on the dataset.</p>
+</section>
+
+<section>
+  <h2>Where they disagree</h2>
+  <p>@@n_disagree@@ references have a Dice below 0.90. A montage of each was read to decide which mask is wrong.</p>
+  <ul>
+    <li><strong>@@n_coreg@@ coregistration failures.</strong> The anatomical mask is displaced from the brain. In ds004856 (Philips pCASL, 5 mm voxels, no M0, no background suppression) BBR moved too far and fMRIPrep's check fell back to a wrong initialisation. In ds008719 there was no fallback, but the other registration candidates disagree with production by up to 0.17 Dice. ASLPrep's own report shows nothing amiss there.</li>
+    <li><strong>@@n_ssfail@@ SynthStrip failures.</strong> In three, SynthStrip's mask stops at a flat plane through the brain; one is the dataset curated as <code>morys_bad_brainmask</code>. In the fourth the mask has large holes. In all four the anatomical mask is correct.</li>
+  </ul>
+  <p>Disagreement shows that one of the masks is wrong, but not which one. A guard that falls back to SynthStrip whenever the two disagree (Dice &lt; 0.85) picks correctly in @@guard_dice_right@@ of @@n_disagree@@ cases: it fixes the coregistration failures but throws away the good anatomical mask exactly when SynthStrip has failed. Mask volume separates the two causes. A SynthStrip failure removes brain, so SynthStrip's mask is the smaller one (@@ratio_synthstrip@@× the anatomical volume here). A failed coregistration moves the anatomical mask off the brain and partly out of the field of view, which leaves SynthStrip's mask at least as large (@@ratio_coreg@@×). Keeping the anatomical mask unless the Dice is below 0.90 <em>and</em> SynthStrip's mask is at least 95% of its volume chose correctly in @@guard_vol_right@@ of @@n_disagree@@ cases, and in the failed simulation too. The thresholds were set after seeing these cases, so the rule needs testing on new data.</p>
+  @@disagree_table@@
+  <div class="gallery">@@disagree_gallery@@</div>
+  <p class="caption">Top row: the coregistration reference; bottom row: the unmasked mean perfusion image. Outlines: blue SynthStrip, orange legacy, green anatomical.</p>
+</section>
+
+<section>
+  <h2>What the perfusion signal says</h2>
+  <p>Real data has no ground truth, so the mask edges were also checked against the mean perfusion image, which is unmasked and specific to perfused tissue. A mask that is too tight leaves strong perfusion just outside it. A mask that is too loose has weak perfusion in its own edge voxels.</p>
+  <p>On the agreeing references, SynthStrip and the anatomical mask look alike by these measures. The perfusion just outside them is @@perf_outer_ss@@ and @@perf_outer_anat@@ of the mean inside, and in their edge voxels it is @@perf_inner_ss@@ and @@perf_inner_anat@@. Legacy's edge voxels average @@perf_inner_leg@@ of the inside mean, consistent with a mask that reaches past the brain. The outside ratio is well above zero for every mask: the ASL readout's point-spread function blurs perfusion past the anatomical brain edge, especially in 3D GRASE and spiral data. An anatomically correct mask will therefore look tight on a perfusion image. These measures cannot rank SynthStrip against the anatomical mask; they only confirm that legacy is too loose.</p>
+  <div class="two">
+    <div class="chartbox">@@chart_outer@@</div>
+    <div class="chartbox">@@chart_inner@@</div>
+  </div>
+  @@summary_table@@
+</section>
+
+<section>
+  <h2>Why #601 likely looked bad</h2>
+  <ul>
+    <li><strong>Coregistration failures.</strong> #601 replaced every mask with no check, so every failed registration produced a mask visibly off the brain (as in ds004856 and ds008719 here), and nothing flagged it.</li>
+    <li><strong>The comparison it was judged against.</strong> At the time the alternative was the legacy method, whose masks are about @@legacy_vol_ratio@@× larger. Next to those, and over blurred 3D ASL images where perfusion extends past the brain edge, a correct anatomical mask looks cut.</li>
+    <li><strong>Not the resampling, and probably not distortion.</strong> Nearest-neighbour resampling matches the partial-volume version (Dice @@nn_vs_pv@@). Uncorrected references agree with SynthStrip as well as corrected ones do, although only @@n_sdc@@ corrected references were available.</li>
+  </ul>
+  <p>Which datasets were inspected in 2025 is not recorded, so this is the most consistent reading of the evidence rather than a reproduction.</p>
+</section>
+
+<section>
+  <h2>How it would fit into ASLPrep</h2>
+  <ol>
+    <li>Add <code>anatomical</code> to <code>--skull-strip-asl</code>. In <code>init_asl_fit_wf</code>, after Stage 5, resample <code>t1w_mask</code> onto the coregistration reference through the inverse of <code>aslref2anat_xfm</code> (ANTs <code>GenericLabel</code>, as #601 did). There is no cycle: the BBR registration uses the unmasked reference.</li>
+    <li>Still compute the ASL-derived mask. The fieldmap registration (Stage 3) needs a mask before any coregistration exists, and the guard needs SynthStrip's mask to compare against.</li>
+    <li>Apply the guard. If Dice &lt; 0.90 and SynthStrip's mask is at least 95% of the anatomical volume, use SynthStrip's mask, log a warning, and record which mask was used in the mask's JSON sidecar (as <code>SkullStripASL</code> already is).</li>
+    <li>Report the Dice between the two masks in the QC table and draw both outlines in the coregistration figure. This is useful even with SynthStrip as the default: a low value is the clearest sign of a failed coregistration found here, and it flagged ds008719, where fMRIPrep's fallback check did not fire.</li>
+    <li>Precomputed transforms and masks work unchanged: a precomputed <code>aslref2anat_xfm</code> feeds the resampling, and a precomputed mask still overrides everything.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Limits of this study</h2>
+  <ul>
+    <li>Real data has no ground truth. The accuracy claims rest on @@n_good_sim@@ simulations whose T1w mask is perfect and whose images are synthetic. Real references were judged by agreement, perfusion edges and visual reading.</li>
+    <li>Most datasets contribute one subject. HCP-Aging, which motivated <code>--skull-strip-asl</code> (PennLINC/aslprep#749), is not in the set.</li>
+    <li>Only @@n_sdc@@ distortion-corrected references were available, so the effect of residual EPI distortion on the anatomical mask is not well measured.</li>
+    <li>The masks here were computed on the final coregistration reference. For uncorrected runs, production SynthStrip runs on the reference before N4; those production masks matched the recomputed ones with a median Dice of @@prod_ss_nosdc@@. For the @@prod_is_legacy_sdc@@ corrected references, the production masks were legacy masks: before #753, ASLPrep re-masked corrected references with BET whatever method was selected.</li>
+    <li>The guard thresholds were chosen after seeing the @@n_disagree@@ disagreements.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>All montages</h2>
+  <details>
+    <summary>Simulated runs (@@n_sims@@)</summary>
+    <div class="gallery">@@sim_gallery@@</div>
+  </details>
+  <details>
+    <summary>Agreeing real references (@@n_ok@@), grouped by acquisition family</summary>
+    <div class="gallery">@@ok_gallery@@</div>
+  </details>
+</section>
+
+<section>
+  <h2>Reproducing this</h2>
+  <p>Scripts are in <code>scripts/anat_mask_eval/</code> on the <code>anat-mask-eval</code> branch: <code>run_masks.sh</code> (lists the references and runs <code>aslmasks.py</code> in the ASLPrep image), <code>run_eval.sh</code> (<code>evaluate.py</code> and <code>montages.py</code>), then <code>report.py</code>. Every number in this page is computed from the result tables; only the montage verdicts for the disagreements are entered by hand. Runs with errors: @@problems@@.</p>
+</section>
+</main>

@@ -19,6 +19,7 @@ from nipype.interfaces.base import (
 from nipype.utils.filemanip import fname_presuffix
 from nipype.utils.misc import normalize_mc_params
 
+from aslprep.interfaces.reference import ANAT_MASK_QC_METADATA
 from aslprep.utils.confounds import (
     CBF_THRESH_DEFAULTS,
     _gather_confounds,
@@ -200,6 +201,13 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
         desc=(
             'Scalar quality-control measures from local-regression partial volume correction. '
             'Only defined when it ran.'
+        ),
+    )
+    skullstrip_qc = traits.Dict(
+        mandatory=False,
+        desc=(
+            'Quality-control measures of the anatomical brain mask, checked against SynthStrip. '
+            'Only defined with --skull-strip-asl anatomical.'
         ),
     )
 
@@ -986,6 +994,11 @@ class ComputeCBFQC(SimpleInterface):
             for key, value in self.inputs.pvc_qc.items():
                 metrics_dict[key] = [value]
                 qc_metadata[key] = PVC_QC_METADATA.get(key, {})
+
+        if isdefined(self.inputs.skullstrip_qc):
+            for key, value in self.inputs.skullstrip_qc.items():
+                metrics_dict[key] = [value]
+                qc_metadata[key] = ANAT_MASK_QC_METADATA.get(key, {})
 
         # Extract entities from the input file.
         # Useful for identifying ASL files after concatenating the QC files across runs.

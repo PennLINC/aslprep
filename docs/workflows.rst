@@ -177,12 +177,12 @@ ASL series onto the T1w image of the same subject.
 Brain extraction
 ----------------
 
-*ASLPrep* offers two methods for computing the brain mask of the ASL reference image,
+*ASLPrep* offers three methods for computing the brain mask of the ASL reference image,
 selected with ``--skull-strip-asl``.
 ASL images have low resolution and contrast that vary a lot between sequences,
-and neither method works best on all ASL data.
+and no method works best on all ASL data.
 Always inspect the brain masks,
-and if they are poor, try running *ASLPrep* again with the other method.
+and if they are poor, try running *ASLPrep* again with another method.
 This option does not affect the brain extraction of the anatomical images.
 
 ``synthstrip`` (default)
@@ -225,12 +225,45 @@ This option does not affect the brain extraction of the anatomical images.
       with mock_config():
           wf = init_enhance_and_skullstrip_asl_wf()
 
+``anatomical``
+   The brain mask is the anatomical brain mask,
+   resampled to the ASL reference with the inverse of the ASL-to-anatomical transform
+   (:py:func:`~aslprep.workflows.asl.reference.init_anat_aslmask_wf`).
+   When the coregistration is right, this mask follows the brain more closely than one
+   estimated from the low-resolution ASL reference,
+   and it does not suffer from SynthStrip's occasional failures on ASL images.
+   But it is only as good as the coregistration,
+   so the reference is also masked with SynthStrip (as with ``synthstrip``),
+   and the two masks are compared.
+   When they disagree (Dice coefficient below 0.9),
+   one of them is wrong, and their volumes indicate which:
+   a failed SynthStrip mask misses brain, so it is the smaller mask,
+   while a failed coregistration displaces the anatomical mask without shrinking SynthStrip's.
+   So if SynthStrip's mask has at least 95% of the anatomical mask's volume,
+   *ASLPrep* logs a warning and uses the SynthStrip mask instead.
+   The mask's sidecar records which mask was used (``BrainMaskSource``),
+   and the QC file reports the comparison (see :ref:`cbf_qc`).
+   These thresholds come from a comparison of the three methods on 71 ASL references and
+   simulated data with a known brain, and have not yet been checked on other data.
+   Always inspect the coregistration when using this method.
+
+   .. workflow::
+      :graph2use: orig
+      :simple_form: yes
+
+      from aslprep.tests.tests import mock_config
+      from aslprep.workflows.asl.reference import init_anat_aslmask_wf
+
+      with mock_config():
+          wf = init_anat_aslmask_wf()
+
 When the reference image is corrected for susceptibility distortion or gradient nonlinearity,
 or a precomputed reference image is reused,
 the brain mask is computed from the final reference image with the same method:
-SynthStrip for ``synthstrip``,
+SynthStrip for ``synthstrip`` and ``anatomical``,
 and niworkflows' :py:func:`~niworkflows.func.util.init_skullstrip_bold_wf`
 (BET and ``3dAutomask``, without the template registration) for ``legacy``.
+A precomputed brain mask is used as it is.
 
 
 .. _asl_hmc:
@@ -273,6 +306,13 @@ Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial sig
 use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
 The method is recorded in the transforms' sidecar (``HMCMethod``).
+
+Series of five volumes or fewer, and any series run with ``--force ge``, take the GE-specific path.
+If such a series has no label-control pairs (an M0 with delta-M or CBF images), head-motion
+estimation is skipped, as its volumes share too little contrast for registration to be more
+accurate than none: every volume gets the identity transform, and the sidecar records
+``HMCMethod: none``.
+Short series with label-control pairs are motion corrected as usual.
 
 Every product found in the datasets passed with ``--derivatives`` is reused,
 so a dataset can be seeded with single files, such as a hand-edited brain mask
@@ -897,6 +937,11 @@ but uses Bayesian inference principles :footcite:p:`chappell2008variational`.
 BASIL is mostly suitable for multi-delay ASL data.
 It includes arterial transit time (ATT) estimation with spatial regularization :footcite:p:`groves2009combined`
 and the correction of partial volume effects :footcite:p:`chappell2011partial`.
+
+As in *ASLPrep*'s own models, the bolus duration is fixed (``--fixbolus``):
+it is the labeling duration for (P)CASL data,
+and the bolus cut-off delay time (TI1) for PASL data with a bolus cut-off.
+Without this flag, ``oxford_asl`` would estimate the bolus duration for multi-delay PASL data.
 
 A sample of BASIL CBF with spatial regularization is shown below:
 

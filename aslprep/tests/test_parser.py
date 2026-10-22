@@ -374,6 +374,7 @@ def test_pvc_option_errors(tmp_path, capsys, supp_args, message):
         ([], 'synthstrip'),
         (['--skull-strip-asl', 'synthstrip'], 'synthstrip'),
         (['--skull-strip-asl', 'legacy'], 'legacy'),
+        (['--skull-strip-asl', 'anatomical'], 'anatomical'),
     ],
 )
 def test_skull_strip_asl(tmp_path, supp_args, method):

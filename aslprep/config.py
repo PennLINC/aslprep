@@ -604,8 +604,9 @@ class workflow(_Config):
     run_reconall = True
     """Run FreeSurfer's surface reconstruction."""
     skull_strip_asl = 'synthstrip'
-    """Brain extraction method for the ASL reference image: ``synthstrip`` (default) or
-    ``legacy`` (BET and ``3dAutomask``)."""
+    """Brain extraction method for the ASL reference image: ``synthstrip`` (default),
+    ``legacy`` (BET and ``3dAutomask``) or ``anatomical`` (the anatomical brain mask through
+    the coregistration, checked against SynthStrip's)."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = 'OASIS30ANTs'

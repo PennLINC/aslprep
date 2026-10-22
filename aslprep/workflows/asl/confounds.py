@@ -486,6 +486,7 @@ def init_cbf_confounds_wf(
     scorescrub=False,
     basil=False,
     lr_pvc=False,
+    anatomical_mask=False,
     plot_background_suppression=False,
     name='cbf_confounds_wf',
 ):
@@ -514,6 +515,10 @@ def init_cbf_confounds_wf(
     lr_pvc : bool
         Whether local-regression PVC ran. If so, its scalar QC measures (``pvc_qc``) are added
         to the QC file.
+    anatomical_mask : bool
+        Whether the brain mask is the anatomical one (``--skull-strip-asl anatomical``).
+        If so, the measures of its check against SynthStrip (``skullstrip_qc``) are added to
+        the QC file.
     plot_background_suppression : bool
         Whether to plot the control and label signal against the noise floor, for
         background-suppressed data with control and label volumes.
@@ -531,6 +536,9 @@ def init_cbf_confounds_wf(
     pvc_qc
         Dictionary of scalar quality-control measures from local-regression partial volume
         correction (with ``lr_pvc``), added as columns of the QC file.
+    skullstrip_qc
+        Dictionary of the anatomical brain mask's check against SynthStrip
+        (with ``anatomical_mask``), added as columns of the QC file.
     asl_file
         ASL file, as acquired. Used to check for clipped values.
     aslcontext
@@ -586,6 +594,8 @@ negative CBF values.
                 'mean_cbf_wm_basil',
                 # Local-regression PVC quality-control measures (a dict)
                 'pvc_qc',
+                # Anatomical brain mask quality-control measures (a dict)
+                'skullstrip_qc',
                 # non-GE inputs
                 'confounds_file',
             ],
@@ -741,6 +751,8 @@ negative CBF values.
 
     if lr_pvc:
         workflow.connect([(inputnode, compute_qc_metrics, [('pvc_qc', 'pvc_qc')])])
+    if anatomical_mask:
+        workflow.connect([(inputnode, compute_qc_metrics, [('skullstrip_qc', 'skullstrip_qc')])])
 
     if plot_background_suppression:
         plot_bs = pe.Node(BackgroundSuppressionPlot(), name='plot_bs', mem_gb=0.5)

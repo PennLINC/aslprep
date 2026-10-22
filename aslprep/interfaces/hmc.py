@@ -175,6 +175,38 @@ class CorrectLabelOffset(SimpleInterface):
         return runtime
 
 
+class _IdentityTransformsInputSpec(BaseInterfaceInputSpec):
+    aslcontext = File(exists=True, mandatory=True, desc='Volume types of the (reduced) series.')
+    ref_file = File(exists=True, mandatory=True, desc='Reference image of the transforms.')
+
+
+class _IdentityTransformsOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='Identity ITK transforms, one per volume.')
+
+
+class IdentityTransforms(SimpleInterface):
+    """Write an identity transform for every volume, in place of head-motion correction.
+
+    Used for short series without label-control pairs (the GE-specific path), whose few volumes,
+    an M0 with delta-M or CBF images, share too little contrast for registration to be more
+    accurate than none.
+    """
+
+    input_spec = _IdentityTransformsInputSpec
+    output_spec = _IdentityTransformsOutputSpec
+
+    def _run_interface(self, runtime):
+        import nitransforms as nt
+
+        n_vols = len(pd.read_table(self.inputs.aslcontext)['volume_type'])
+        out_file = os.path.join(runtime.cwd, 'hmc_xfms_identity.txt')
+        nt.linear.LinearTransformsMapping(
+            np.tile(np.eye(4), (n_vols, 1, 1)), reference=nb.load(self.inputs.ref_file)
+        ).to_filename(out_file, fmt='itk')
+        self._results['out_file'] = out_file
+        return runtime
+
+
 def _resample(volume, affine, pull, ref_img):
     """One volume resampled onto the reference grid through a RAS pull (cubic B-spline)."""
     from scipy.ndimage import map_coordinates
