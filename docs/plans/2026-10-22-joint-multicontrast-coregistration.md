@@ -531,6 +531,16 @@ images used as its T1w. 91 subjects, 2,416 files, 10.4 GB:
 | `ds007522` | 10 | 1.87 | sub-HML0063, 0088, 0197, 0210, 0212, 0257, 0320, 0325, 0350, 0474 |
 | `ds005752` | 2 | 0.15 | sub-ON39384, ON88753 |
 
+**Downloaded and curated (2026-10-22).** All 2,416 files fetched into the clones (the cache grew
+from 6.1 to 16 GB). `scripts/coreg_mc/curate_extension.py` adapts each zoo curator to the drawn
+subjects and writes `/home/tsalo/coreg-mc/panel-ext/<dataset>` (5.9 GB, smaller than the download
+because uncompressed images are gzipped), each with a README listing every change. Every subject
+has a T1w; ASL runs: `ds003823` 59, `ds004146` 40, `ds005752` 4, `ds007116` 45, `ds007522` 80,
+`ds008020` 163. The BIDS validator (deno, reports in `/home/tsalo/coreg-mc/validation`) finds no
+errors in any of the six, after one fix added during curation: `ds003823`'s `participants.tsv`
+used `N/A` for missing values. Importing the zoo's `zoo_utils` first wrote a `__pycache__` into
+the zoo's `code/`; it was removed, and the script now disables bytecode writing.
+
 #### Development and held-out data
 
 Fixed in Task 0, before any arm is scored, following the HMC probe's axes; each held-out set is

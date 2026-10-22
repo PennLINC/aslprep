@@ -129,7 +129,7 @@ def main():
                 f.write(f'{r["dataset"]}\t{rel}\n')
     rows = [{k: v for k, v in r.items() if k != '_files'} for r in rows]
     with args.out.open('w', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0]), delimiter='\t')
+        writer = csv.DictWriter(f, fieldnames=list(rows[0]), delimiter='\t', lineterminator='\n')
         writer.writeheader()
         writer.writerows(rows)
     print(f'total: {len(rows)} subjects, {sum(r["mb"] for r in rows) / 1e3:.2f} GB')
