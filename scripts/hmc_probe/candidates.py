@@ -1203,6 +1203,57 @@ def run_c0xfb(inputs, work, **options):
     }
 
 
+def run_cdm(inputs, work, **options):
+    """A mean delta-M image as the motion-correction reference (spiral users' practice).
+
+    The reference is the mean control minus the mean label: of the raw volumes
+    (``source=raw``), or of the volumes after production's correction (``source=c0``, the
+    default: a quick motion-corrected delta-M). Every kept volume (controls, labels, M0) is then
+    registered to it by ``engine`` (MCFLIRT, mutual information, by default). Subtraction cancels
+    the static-tissue signal, and with it spiral ringing, at the cost of a low-SNR target whose
+    contrast matches none of the volumes.
+    """
+    from harness import load_itk_series, resample_series, run_c0
+
+    source = _opt(options, 'source', 'c0')
+    engine = _opt(options, 'engine', 'mcflirt')
+    cost = _opt(options, 'cost', 'mutualinfo')
+    sub = work / 'c0'
+    sub.mkdir()
+    res = run_c0(inputs, sub)
+    idx = list(res['indices'])
+    types = pd.read_table(res['aslcontext'])['volume_type'].tolist()
+    controls = [k for k, t in enumerate(types) if t == 'control']
+    labels = [k for k, t in enumerate(types) if t == 'label']
+    if not controls or len(controls) != len(labels):
+        raise ValueError(f'{len(controls)} controls and {len(labels)} labels: no delta-M reference')
+    img = nb.load(inputs['asl_file'])
+    data = np.asanyarray(img.dataobj, np.float32)
+    data = data[..., None] if data.ndim == 3 else data
+    if source == 'raw':
+        series = data[..., idx]
+        ref_img = img
+    else:
+        corrected = resample_series(
+            inputs['asl_file'], idx, load_itk_series(res['xforms']), res['aslref']
+        )
+        series = np.asanyarray(corrected.dataobj, np.float32)
+        ref_img = nb.load(res['aslref'])
+    deltam = series[..., controls].mean(-1) - series[..., labels].mean(-1)
+    aslref = work / 'aslref.nii.gz'
+    nb.Nifti1Image(deltam.astype(np.float32), ref_img.affine).to_filename(aslref)
+    kept = _save(data[..., idx], img, work / 'kept.nii.gz')
+    mats, _ = _register_series(kept, aslref, work / 'reg', cost, engine)
+    return {
+        **res,
+        'aslref': str(aslref),
+        'xforms': str(_to_itk(mats, aslref, work)),
+        'reference_type': f'mean delta-M ({source}); every volume registered by {engine}',
+        'reference_volumes': [idx[k] for k in controls + labels],
+        'reference_frame_kind': 'raw' if source == 'raw' else 'corrected',
+    }
+
+
 def run_c0t(inputs, work, **options):
     """PennLINC/aslprep#767's per-type reference, with any registration engine.
 
@@ -1528,6 +1579,7 @@ CANDIDATES = {
     'c0x': run_c0x,
     'c0t': run_c0t,
     'c0xfb': run_c0xfb,
+    'cdm': run_cdm,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
