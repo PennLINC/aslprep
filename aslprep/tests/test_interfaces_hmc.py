@@ -218,3 +218,44 @@ def test_init_asl_hmc_wf_adds_label_offset_only_when_asked():
         wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
         assert 'correct_label_offset' in wf.list_node_names()
         config.workflow.hmc_method = 'typewise'
+
+
+def test_identity_transforms(tmp_path):
+    """One identity transform per volume, readable as the HMC transforms are."""
+    from nitransforms.linear import load
+
+    from aslprep.interfaces.hmc import IdentityTransforms
+
+    ref = tmp_path / 'ref.nii.gz'
+    nb.Nifti1Image(np.zeros((8, 8, 8), np.float32), np.diag([2.0, 2.0, 3.0, 1.0])).to_filename(ref)
+    ctx = tmp_path / 'aslcontext.tsv'
+    ctx.write_text('volume_type\nm0scan\ndeltam\n')
+    res = IdentityTransforms(aslcontext=str(ctx), ref_file=str(ref)).run(cwd=str(tmp_path))
+    mats = np.asarray(load(res.outputs.out_file, fmt='itk').matrix).reshape(-1, 4, 4)
+    assert mats.shape == (2, 4, 4)
+    np.testing.assert_allclose(mats, np.tile(np.eye(4), (2, 1, 1)), atol=1e-12)
+
+
+def test_ge_path_skips_motion_correction():
+    """The GE-specific path writes identity transforms instead of running MCFLIRT (#769)."""
+    from aslprep import config
+    from aslprep.tests.tests import mock_config, reset_config
+    from aslprep.workflows.asl.fit import init_asl_fit_wf
+
+    reset_config()
+    with mock_config():
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        kwargs = {
+            'asl_file': str(asl_file),
+            'aslcontext': str(asl_file).replace('.nii.gz', 'context.tsv'),
+            'm0scan': None,
+            'precomputed': {},
+        }
+        ge = init_asl_fit_wf(use_ge=True, **kwargs)
+        assert ge.get_node('asl_hmc_wf') is None
+        assert ge.get_node('identity_xforms') is not None
+        sink = ge.get_node('ds_hmc_wf').get_node('ds_xforms')
+        assert sink.inputs.meta_dict == {'HMCMethod': 'none'}
+        standard = init_asl_fit_wf(use_ge=False, **kwargs)
+        assert standard.get_node('asl_hmc_wf') is not None
+        assert standard.get_node('identity_xforms') is None

@@ -44,6 +44,7 @@ from sdcflows.workflows.apply.registration import init_coeff2epi_wf
 # ASL workflows
 from aslprep import config
 from aslprep.interfaces.bids import OverrideDerivativesDataSink
+from aslprep.interfaces.hmc import IdentityTransforms
 from aslprep.interfaces.reports import FunctionalSummary
 from aslprep.interfaces.resampling import ResampleSeries
 from aslprep.interfaces.utility import ReduceASLFiles
@@ -575,13 +576,6 @@ def init_asl_fit_wf(
 
     # Stage 2: Estimate head motion
     if not hmc_xforms:
-        config.loggers.workflow.info('Stage 2: Adding motion correction workflow')
-        asl_hmc_wf = init_asl_hmc_wf(
-            name='asl_hmc_wf',
-            mem_gb=mem_gb['filesize'],
-            omp_nthreads=omp_nthreads,
-        )
-
         with OverrideDerivativesDataSink(output_workflows):
             ds_hmc_wf = output_workflows.init_ds_hmc_wf(
                 source_file=asl_file,
@@ -596,9 +590,31 @@ def init_asl_fit_wf(
         ds_hmc_wf.get_node('ds_xforms').inputs.to = 'aslref'
         # Provenance: reuse of these transforms is limited to runs with the same method.
         ds_hmc_wf.get_node('ds_xforms').inputs.meta_dict = {
-            'HMCMethod': config.workflow.hmc_method
+            'HMCMethod': 'none' if use_ge else config.workflow.hmc_method
         }
 
+    if not hmc_xforms and use_ge:
+        # Short (GE-specific) series: no motion correction, as base.py announces. Their few
+        # volumes (often an M0 and a delta-M or CBF image) share too little contrast for
+        # registration to beat none (PennLINC/aslprep#769).
+        config.loggers.workflow.info('Stage 2: Skipping motion correction (GE-specific path)')
+        identity_xforms = pe.Node(IdentityTransforms(), name='identity_xforms')
+        workflow.__desc__ = (workflow.__desc__ or '') + (
+            '\nHead-motion correction was not performed, as the series has too few volumes.\n'
+        )
+        workflow.connect([
+            (hmcref_buffer, identity_xforms, [('aslref', 'ref_file')]),
+            (reduce_asl_file, identity_xforms, [('aslcontext', 'aslcontext')]),
+            (identity_xforms, ds_hmc_wf, [('out_file', 'inputnode.xforms')]),
+            (identity_xforms, hmc_buffer, [('out_file', 'hmc_xforms')]),
+        ])  # fmt:skip
+    elif not hmc_xforms:
+        config.loggers.workflow.info('Stage 2: Adding motion correction workflow')
+        asl_hmc_wf = init_asl_hmc_wf(
+            name='asl_hmc_wf',
+            mem_gb=mem_gb['filesize'],
+            omp_nthreads=omp_nthreads,
+        )
         workflow.connect([
             (hmcref_buffer, asl_hmc_wf, [('aslref', 'inputnode.raw_ref_image')]),
             (reduce_asl_file, asl_hmc_wf, [
