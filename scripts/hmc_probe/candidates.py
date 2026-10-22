@@ -1154,6 +1154,55 @@ def run_c0x(inputs, work, **options):
     }
 
 
+def run_c0xfb(inputs, work, **options):
+    """3dvolreg (``c0x``, ``engine=volreg``) with production as the fallback on divergence.
+
+    Production (MCFLIRT, its own reference) also runs. Each run's poses are taken relative to
+    their polar mean, and 3dvolreg counts as diverged when any volume's relative pose differs
+    from MCFLIRT's by more than ``threshold`` mm (default 1) at the corners of an 80 mm cube
+    about the reference's centre; the run then returns production's result unchanged.
+    ``reference`` applies to the 3dvolreg run only.
+    """
+    from harness import load_itk_series, run_c0
+
+    threshold = _opt(options, 'threshold', 1.0, float)
+    (work / 'vr').mkdir()
+    (work / 'prod').mkdir()
+    vr = run_c0x(inputs, work / 'vr', engine='volreg', reference=options.get('reference'))
+    prod = run_c0(inputs, work / 'prod')
+    if list(vr['indices']) != list(prod['indices']):
+        raise RuntimeError('3dvolreg and production registered different volumes')
+    ref = nb.load(prod['aslref'])
+    centre = ref.affine @ np.r_[(np.asarray(ref.shape[:3]) - 1) / 2, 1]
+    signs = np.array(list(np.ndindex(2, 2, 2))) * 2 - 1
+    corners = np.c_[centre[:3] + 40 * signs, np.ones(8)]
+
+    def relative(xforms):
+        h = load_itk_series(xforms)
+        inv_mean = np.linalg.inv(polar_mean(h))
+        return [inv_mean @ m for m in h]
+
+    dev = max(
+        np.linalg.norm(((a - b) @ corners.T)[:3], axis=0).max()
+        for a, b in zip(relative(vr['xforms']), relative(prod['xforms']), strict=True)
+    )
+    diverged = bool(dev > threshold)
+    (work / 'fallback.json').write_text(
+        json.dumps({'max_deviation_mm': float(dev), 'threshold_mm': threshold,
+                    'fallback': diverged}) + '\n'
+    )  # fmt:skip
+    if diverged:
+        return {
+            **prod,
+            'reference_type': f'{prod["reference_type"]}; 3dvolreg diverged '
+            f'({dev:.1f} mm from MCFLIRT), production used',
+        }
+    return {
+        **vr,
+        'reference_type': f'{vr["reference_type"]}; within {dev:.2f} mm of MCFLIRT',
+    }
+
+
 def run_c0t(inputs, work, **options):
     """PennLINC/aslprep#767's per-type reference, with any registration engine.
 
@@ -1478,6 +1527,7 @@ CANDIDATES = {
     'c9': run_c9,
     'c0x': run_c0x,
     'c0t': run_c0t,
+    'c0xfb': run_c0xfb,
     'c1': run_c1,
     'c2': run_c2,
     'c3': run_c3,
