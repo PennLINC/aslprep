@@ -1822,7 +1822,63 @@ lower max pose error in every arm and at every SNR:</p>
 <p class="note">Max pose error (mm) relative to the series mean. aslscan's noise is white;
 the GE images' background noise is structured, which the simulation does not reproduce.</p>
 {ge}
+{deltam_reference(root, df)}
 </section>"""
+
+
+def deltam_reference(root, df):
+    """A mean delta-M image as the motion-correction reference for label-control series."""
+    d = df[df.fixture.isin(REF_FIXTURES['BS'] + REF_FIXTURES['noBS'])].copy()
+    d['bs'] = np.where(d.fixture.isin(REF_FIXTURES['BS']), 'BS', 'noBS')
+    arms = {'c0': 'production (M0 reference)', 'c9-auto': 'typewise_offset',
+            'cdm-raw': 'delta-M of the raw pairs', 'cdm': 'delta-M after production',
+            'c9-dm': 'delta-M after production + offset step',
+            'c9-t-vr': '#767 design, 3dvolreg + offset'}  # fmt:skip
+    sub = d[d.label.isin(arms)]
+    if not {'cdm', 'cdm-raw', 'c9-dm'} <= set(sub.label):
+        return ''
+    med = sub.groupby(['label', 'bs'])[['dm_edge', 'pair_max']].median()
+    rows = [
+        [esc(name)] + [fmt(med.at[(a, b), c], 3) for c in ('dm_edge', 'pair_max') for b in ('BS', 'noBS')]
+        for a, name in arms.items()
+        if (a, 'BS') in med.index
+    ]
+    piv = sub.pivot_table(index='fixture', columns='label', values='dm_edge')
+    worse = {a: int((piv[a] > 1.1 * piv['c0']).sum()) for a in ('cdm', 'cdm-raw')}
+    real = root / 'harness-runs' / 'real_cdm.tsv'
+    real_txt = ''
+    if real.exists():
+        r = pd.read_csv(real, sep='\t')
+        r = r[r.dataset.isin(['ds000234', 'ds000235', 'ds000236'])]
+        e = r.pivot_table(index=['dataset', 'run'], columns='label', values='mean_dm_ssd_vs_c0')
+        fd = {}
+        for lab in ('c0', 'cdm', 'cdm-raw'):
+            vals = [json.loads(m.read_text())['fd_max_mm']
+                    for m in (root / 'harness-runs' / lab).glob('ds00023[456]/*/motion.json')]  # fmt:skip
+            fd[lab] = (min(vals), max(vals)) if vals else (np.nan, np.nan)
+        real_txt = f"""
+<p>On the five real stack-of-spirals runs (ds000234&ndash;236: Siemens 3D PCASL, background
+suppression, 16&ndash;48 pairs and an in-series M0), which barely move (production's maximum
+framewise displacement {fmt(fd['c0'][0], 2)}&ndash;{fmt(fd['c0'][1], 2)} mm), the delta-M of the
+raw pairs reports implausible motion ({fmt(fd['cdm-raw'][0], 1)}&ndash;{fmt(fd['cdm-raw'][1], 1)}
+mm) and raises the delta-M energy in the shared mask on every run (ratio to production
+{fmt(e['cdm-raw'].min(), 2)}&ndash;{fmt(e['cdm-raw'].max(), 2)}). The delta-M after production
+ties it ({fmt(e['cdm'].min(), 3)}&ndash;{fmt(e['cdm'].max(), 3)}). The split-half and
+negative-fraction scores are not comparable here: their brain mask comes from each arm's own
+reference, which for these arms is a thresholded perfusion image.</p>"""
+    return f"""
+<h3>A delta-M image as the reference for label-control series</h3>
+<p>Spiral users register to a quick mean delta-M (control minus label) because subtraction
+removes the static-tissue ringing that confuses registration. Here every control, label and M0
+volume was registered (MCFLIRT, mutual information) to the mean delta-M of the raw pairs, or of
+the series after production's correction, and the latter was also followed by the offset step.</p>
+{plain_table(['Arm', 'Edge &Delta;M, BS', 'no BS', 'Pair offset (mm), BS', 'no BS'], rows, (1, 2, 3, 4))}
+<p class="note">Medians over the same fixtures as above.</p>
+<p>The delta-M reference is worse than production's on {worse['cdm']} of {len(piv)} fixtures
+(after production) and {worse['cdm-raw']} (raw pairs), including the spiral fixture: every volume
+becomes a cross-contrast registration to a low-SNR target, and the label-control offset grows
+several-fold. The offset step recovers most of it without suppression but not with it.</p>
+{real_txt}"""
 
 
 def ge_reference(root):
@@ -2226,6 +2282,10 @@ step. Label-control offsets are 3&ndash;4 times smaller than <code>typewise_offs
 delta-M SNR down to GE-like levels (8): forcing the M0 raised the max pose error in every arm. On
 the real GE runs (one M0, one delta-M) the two references disagree by about 1.2 mm, more than any
 simulated case, so the M0-to-delta-M registration itself is unreliable there.</li>
+<li><b>A mean delta-M is a poor motion-correction reference for label-control series</b>, spirals
+included: worse than production on 14 of 15 fixtures, with label-control offsets several times
+larger. On the real spiral runs the corrected version ties production and the raw version adds
+spurious motion. Its value for spirals is as a coregistration reference, not a motion target.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
