@@ -448,14 +448,71 @@ defines them). What matters for coregistration:
 - **Sample size.** The panel has about ten subjects with repeated runs or sessions, and fewer once
   split into development and held-out. That is too few for gate 4 (it needs at least ten held-out
   subjects with a comparable pair in each judged family). The panel is therefore extended with
-  repeat-scan subjects before Task 6, from the datasets with many at their source (`ds007116`,
-  132 subjects with three sessions; `ds004146`, 417; `ds005752`, 251; `ds008020`), curated with
-  the zoo's own code, as the HMC probe planned in "Extending the panel". The downloads need
-  agreement (open decision 1). Without them, gate 4 can only return "insufficient evidence".
+  repeat-scan subjects before Task 6 ("Panel extension"). The downloads need agreement (open
+  decision 1). Without them, gate 4 can only return "insufficient evidence".
 - **No M0:** `ds007908`, `ds004856` and others: the static term uses the conventional reference
   whatever its source, and results are stratified by M0 type.
 - Families with one dataset (`ds008020`, `2d_mb_pcasl`, `ds000254`, `ds005752`) are reported but
   not judged.
+
+#### Panel extension (proposed, 2026-10-22; not downloaded)
+
+Surveyed from the zoo's DataLad clones (`~/.cache/aslprep-zoo`) without downloading: subjects,
+sessions and runs from the file tree, sizes from the git-annex keys. Sizes count only what ASLPrep
+reads: `*_T1w` and `*_T2w` images and sidecars from any session, and `perf/` and `fmap/` from
+sessions with ASL. A subject is eligible if it has ASL in at least two sessions, or at least two
+ASL runs in one session that differ by more than the echo entity.
+
+| Dataset | Family | Eligible | Repeat structure | Proposed | Median MB | Download GB |
+|---|---|---|---|---|---|---|
+| `ds007116` | 3D stack-of-spirals (the #186 family), T2w | 58 | 2-3 sessions; 18 subjects keep one protocol across sessions, 40 have a parameter variant (`acq-VARIANT...`) in some session | 20 (same-protocol subjects first) | 90 | 1.8 |
+| `ds003823` | 3D pCASL, background-suppressed, separate M0 | 147 | Pre and post sessions, each with a rest and a training-mimicking run | 20 | 153 | 3.1 |
+| `ds004146` | 2D EPI, background suppression, T2w | 290 | Two sessions | 20 | 59 | 1.2 |
+| `ds008020` | 3D EPI at 7 T | 21 (2 already in the panel) | One session, four runs (gradient or labeling-duration variants) | all 19 others | 102 | 1.9 |
+| `ds007522` | 3D GRASE, two pairs per run, partial T2w | 79 | Sessions, each with four runs at four delays and alternating phase encoding | 10 | 176 | 1.8 |
+| `ds005752` | GE product output, T2w | 3 | Two sessions | all 3 | 75 | 0.2 |
+| **Total** | | | | **92** | | **10.0** |
+
+Not proposed:
+
+- `ds004856` (235 eligible, waves years apart): the control/label order of waves 2-3 is
+  unresolved (HMC probe panel notes), which corrupts the perfusion image the joint arms use.
+- `ds008719`: its only repeats are the two echoes of one acquisition.
+- `ds006148` (one eligible subject), and the datasets with no repeats (`ds000240`, `ds006131`,
+  `ds007908`, `ds008579`).
+
+Rules:
+
+- Subjects are drawn at random, by a recorded seed, among the eligible subjects not already in
+  the panel, after the preference stated in the table; the list is written to the plan before any
+  download.
+- Cross-run pairs in `ds007522` use only runs with the same phase-encoding direction (opposite
+  directions have opposite distortions); cross-run pairs in `ds008020` and `ds003823` compare runs
+  of one session, whose variants change perfusion contrast but not anatomy.
+- Sessions share one anatomical reference under ASLPrep's default
+  `--subject-anatomical-reference first-lex`, which every run keeps.
+- The content is fetched into the existing clones with the zoo's `02_download_subjects.sh` pattern
+  (the same file filter), and curated with the zoo's `03_curate_openneuro.py` into
+  `/home/tsalo/coreg-mc/panel-ext/`, outside `aslprep-zoo`, which is not modified. `ds004146`
+  gets the HMC probe's adaptation (the separate M0 association removed).
+- With about ten subjects per dataset held out, every judged family reaches the ten held-out
+  subjects gate 4 asks for: spirals, background-suppressed 3D (`ds003823`, `ds007522`) and 2D EPI.
+  `ds008020` and `ds005752` stay single-dataset families, reported but not judged.
+
+Disk space, from the HMC probe's baseline runs (ASLPrep output 243-788 MB per subject, median
+about 330 MB, larger for many-run subjects; its work directory is deleted after each run):
+
+| Item | Peak | After pruning |
+|---|---|---|
+| Downloaded content (annex, in the clones) | 10 GB | 10 GB (or dropped with `datalad drop` after curation) |
+| Curated BIDS copies | 10 GB | 10 GB |
+| ASLPrep outputs, 92 subjects at about 0.45 GB | 41 GB | about 15 GB, keeping only what the arms read (aslref, native series, M0, CBF, masks, transforms, anatomical derivatives) |
+| ASLPrep work directories, four subjects at a time | about 20 GB | 0 |
+| Probe outputs (transforms, capture-range draws, figures) | about 5 GB | about 5 GB |
+| **Total** | **about 86 GB** | **about 30-40 GB** |
+
+WSL's disk had 741 GB free when surveyed. Run time is measured on the first four subjects before
+the rest are started.
 
 #### Development and held-out data
 
