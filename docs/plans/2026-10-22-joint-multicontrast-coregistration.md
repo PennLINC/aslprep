@@ -1,7 +1,8 @@
 # Plan: joint multicontrast coregistration probe
 
-Branch: `coreg-multicontrast-eval`. Status: revision 2, modelled on the HMC probe
-(`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`); no Codex review yet.
+Branch: `coreg-multicontrast-eval`. Status: revision 3, modelled on the HMC probe
+(`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`), after one Codex
+adversarial review (log at the end).
 Issues: #672 (scope), #186 (motivating failure), #343 (closed as a duplicate of the same idea).
 
 ## Goal
@@ -27,13 +28,19 @@ adopt". A negative result is recorded on #672 with its numbers.
 
 - **Stage 4** builds one coregistration reference from the HMC reference: the volume type chosen
   by `select_reference_volume_type` (with `prioritize_m0`: an included M0, then a separate M0;
-  otherwise CBF, delta-M, an included M0, a separate M0, control), bias-corrected and
-  skull-stripped (`init_synthstrip_aslref_wf` or the legacy path, #753), and unwarped when a
-  fieldmap or gradient-nonlinearity correction applies.
+  otherwise CBF, delta-M, an included M0, a separate M0, control), N4 bias-corrected
+  (`init_synthstrip_aslref_wf`, or the legacy path, #753), and unwarped when a fieldmap or
+  gradient-nonlinearity correction applies. With SynthStrip the brain mask is a separate output:
+  the reference written as `desc-coreg_aslref`, and passed to Stage 5, is not masked.
 - **Stage 5** registers it with fMRIPrep's `init_bold_reg_wf`: `mri_coreg` initialization, then
-  FLIRT-BBR without FreeSurfer or `bbregister` with it, 6 dof by default (`--asl2anat-dof`),
-  initialized per `--asl2anat-init` (`t1w`, `t2w`, `header`), with fMRIPrep's fallback to the
-  initialization when BBR moves too far (`--force bbr` / `no-bbr` override it).
+  FLIRT-BBR without FreeSurfer or `bbregister` with it (whenever `run_reconall` is on), 6 dof by
+  default (`--asl2anat-dof`), initialized per `--asl2anat-init` (`t1w`, `t2w`, `header`), with
+  fMRIPrep's fallback to the initialization when BBR moves too far (`--force bbr` / `no-bbr`
+  override it).
+
+This probe covers the FSL path only: the HMC probe's baseline runs used `--fs-no-reconall`
+(`run_panel.py`), and the phantom has no surfaces. Its conclusions do not extend to `bbregister`
+runs; a bbregister comparator is open decision 3.
 
 BBR assumes T2-like contrast (grey brighter than white): `contrast_type='t2'` for `bbregister`,
 FLIRT's default BBR slope. One image, one contrast assumption, one cost.
@@ -122,6 +129,7 @@ Out of scope:
 | M0 to T1w and to T2w | proposal | J3 |
 | Add the control/label mean | proposal | J4 (no or weak background suppression) |
 | Static initialization, then joint refinement | proposal | J5 |
+| Static registration, then perfusion-only refinement (sequential) | ExploreASL, HCP-ASL | Q1, an ablation every J-arm must beat |
 | CBF instead of delta-M | proposal | J6 (multi-delay) |
 | Synthetic tissue-contrast target | proposal | A factor of J1's perfusion target (pseudo-CBF), not a separate arm |
 | T1w x T2w product target | proposal | Not run; the proposal itself argues against it |
@@ -144,25 +152,34 @@ panel is rerun. Success is defined against what production gets at the pinned re
 
 | ID | Engine | Cost terms (moving -> fixed) | Role |
 |---|---|---|---|
-| R0 | FSL | coregistration reference -> T1w, BBR default sign, fallback | Production, as run |
-| R1 | FSL | as R0, BBR sign per family | Production with the known defect fixed |
-| R2 | FSL | perfusion image (best D3 level) -> T1w, BBR | Single perfusion reference (#672) |
+| R0 | FSL | coregistration reference -> T1w, BBR default sign, fallback | Production (FSL path), as run |
+| R1 | FSL | as R0, BBR sign per family by a rule frozen in Task 3 | Production with the known defect fixed |
+| R2 | FSL | perfusion image -> T1w, BBR; one D3 level and eligibility rule frozen in Task 3 | Single perfusion reference (#672) |
 | RA | FSL | R1 or R2, chosen per run by the HMC probe's DA rule | Automatic single reference (#672) |
 | S1 | ANTs | coregistration reference -> T1w, MI | Static-only ablation |
 | S2 | ANTs | perfusion image -> perfusion target, CC | Perfusion-only ablation |
+| Q1 | ANTs | S1, then S2 initialized from S1 (sequential) | Sequential ablation, as ExploreASL and HCP-ASL work |
 | J1 | ANTs | S1 + S2 in one stage | Primary joint candidate |
-| J2 | ANTs | J1 + coregistration reference -> T2w, MI | Joint with T2w |
-| J3 | ANTs | coregistration reference -> T1w (MI) and -> T2w (MI) | Dual anatomical target |
+| J2 | ANTs | J1 + coregistration reference -> T2w, MI | Joint with T2w (exploratory) |
+| J3 | ANTs | coregistration reference -> T1w (MI) and -> T2w (MI) | Dual anatomical target (exploratory) |
 | J4 | ANTs | J1 + control/label mean -> T1w, MI | Residual static tissue |
-| J5 | ANTs | S1, then J1 from S1's result | Two-stage |
+| J5 | ANTs | S1, then J1 from S1's result | Two-stage joint |
 | J6 | ANTs | J1 with native CBF as the perfusion image | Model-based perfusion |
 
-R-arms are comparators. S-arms isolate the engine: a J-arm is judged first against its own
-S-arms (same engine, schedule and initialization), so that ANTs-versus-FLIRT differences are not
-credited to the joint objective, and then against the better of R1, R2 and RA.
+R-arms are comparators. S-arms and Q1 isolate the engine and the sequencing: a J-arm is judged
+first against S1, S2 and Q1 (same engine, schedules, images, masks, initialization and
+resampling), so that neither ANTs-versus-FLIRT differences nor what a sequential strategy already
+gives are credited to the joint objective, and then against the frozen comparator.
 
-RA is a comparator only if the HMC probe's DA rule is implemented and frozen by Task 3; until
-then the bar is the better of R1 and R2, and that is stated in the results.
+**The comparator is frozen in Task 3, on development data only**, before any J-arm is screened:
+R1's sign rule, R2's D3 level and eligibility rule (the HMC probe eliminated none of its four
+levels), and, per family, which of R1, R2 or RA is the bar (the better on development data).
+RA is available only if the HMC probe's DA rule is implemented and frozen by then. R2 and RA
+apply only where the perfusion image is eligible; each comparison is made on the runs where
+both arms apply, and the excluded runs are counted.
+
+J2 and J3 need a T2w, which no simulation has. They cannot pass gates 2 and 3, so they are
+exploratory: reported on real data, never adopted under this protocol.
 
 Factors of the joint arms (each fixed in a list before results are seen):
 
@@ -171,11 +188,20 @@ Factors of the joint arms (each fixed in a list before results are seen):
 | Perfusion image | P-winsor (default); P-robust; native CBF (J6 only) |
 | Perfusion target | GM probability smoothed to the ASL resolution; pseudo-CBF (a weighted sum of GM and WM probabilities, smoothed, with ExploreASL's weights as read from its code in Task 1) |
 | Perfusion weight | 0.2, 0.4, 0.6 of the total |
-| Masking | none; the conventional brain mask on the moving side (applies to every term of a stage) |
+| Masking | none; the conventional brain mask on the ASL side of the stage (see below) |
 | Fixed image | anatomical fixed (ANTs samples in the T1w domain); ASL fixed (the inverse, sampled on the ASL grid) |
 
-Every ANTs arm starts from production's `mri_coreg` initialization, so differences come from the
-objective. Capture range is measured separately (metric 3).
+**Masks and directions.** `antsRegistration --masks [fixedMask,movingMask]` belongs to a stage and
+applies to every metric term in it. Each ANTs arm's specification therefore names, per direction,
+the fixed and moving image of every term and the fixed and moving mask of the stage: with the
+anatomy fixed, the ASL brain mask is the moving mask and the T1w brain mask the fixed mask; with
+ASL fixed, the two swap sides. A term that needs a different support from the others of its stage
+is either given its own stage or uses an image built for it (masked to zero outside its support),
+and that image's support is reported. Clipping (P-winsor caps values at the 99th percentile
+inside the mask) is not masking.
+
+Every ANTs arm starts, in the primary comparison, from production's `mri_coreg` initialization,
+so differences come from the objective. Capture range is measured separately (metric 3).
 
 ### Bounding the combinations
 
@@ -187,11 +213,13 @@ variants). The screening is staged, and the lists are fixed before results are s
    Task 3.
 2. **Primary screen (Task 4):** R0-R2, S1, S2 and J1 over the perfusion-image, target, weight and
    masking levels on the development fixtures. At most two J1 variants go on.
-3. **Extension screen (Task 5):** J2-J6 built on the J1 variants kept, each where it applies. At
+3. **Extension screen (Task 5):** J4-J6 built on the J1 variants kept, each where it applies. At
    most two extensions go on, judged against J1.
-4. **Real data (Task 6):** at most four arms plus R0, R1 and R2 (and RA).
+4. **Held-out simulation and real data (Tasks 5 and 6):** at most four J-arms, each with its own
+   S1, S2 and Q1 ablations carried along, plus R0 and the frozen comparator; J2 and J3 as
+   exploratory arms on the T2w subset.
 
-If J1 does not pass gate 2 against its own S-arms, the extensions are not run, and the probe
+If J1 does not pass gate 2 against S1, S2 and Q1, the extensions are not run, and the probe
 reports a negative result.
 
 ## Simulation
@@ -212,10 +240,12 @@ reports a negative result.
 - **No T2w.** A T2w synthesized from the phantom labels would be perfectly aligned and trivially
   informative. J2 and J3 are real-data only.
 - **Perfusion and anatomy share one set of tissue labels.** The T1w is synthesized from the
-  labels that also define perfusion, and `derivatives` mode hands ASLPrep the truth GM map. S2's
-  target is then nearly the generator of its moving image, so S2 and every J-arm have an
-  advantage in simulation that real data do not give them. Simulation checks mechanics, capture
-  range and failure modes; it cannot decide.
+  labels that also define perfusion (in both `derivatives` and `raw` modes), and `derivatives`
+  mode also hands ASLPrep the truth GM map. S2's target is then nearly the generator of its
+  moving image, so S2 and every J-arm have an advantage in simulation that real data do not give
+  them. No fixture removes this; only real data (or an independently generated anatomy, HMC probe
+  open decision 6) do. Simulation checks mechanics, capture range and failure modes; it cannot
+  decide.
 - **One anatomy.** Held-out simulations share it, so generalization across anatomy rests on real
   data.
 - **No extracerebral tissue** in the ASL phantom, and a brain-only synthesized T1w: MI terms see
@@ -227,27 +257,31 @@ Real data therefore carry the decision.
 ### Design
 
 Reused from the HMC probe (recipes in `scripts/hmc_probe/recipes/`, phantoms in `fixtures.py`;
-all with `anat_offset = [2.0, -3.0, 1.5, 3.0, -2.0, 2.5]`; `check_stress.py` already shows each
-stress fixture's effect):
+`check_stress.py` already shows each stress fixture's effect). Offsets differ by fixture, and the
+`mo_*` recipes set none (the default is zero), so the offset of every fixture is listed in the
+Task 0 manifest and fixtures without one are used only where the table says:
 
-| Fixture | What it tests here |
-|---|---|
-| `rc_pcasl`, `rc_pcasl_flip`, `rc_pcasl_grid` | 2D PCASL; flipped orientation; separate M0 on another grid |
-| `rc_grase` | Background-suppressed 3D GRASE with inverted static contrast (R0's sign failure) |
-| `rc_pasl_multipld` | Multi-delay PASL (J6) |
-| `st_spiral` | Spiral ringing (R0 fails, R2 recovers) |
-| `st_vessels` | Macrovascular perfusion away from grey matter (S2 and J1 should suffer) |
-| `st_noperf` | A territory with no perfusion (perfusion disagrees with GM) |
-| `mo_pcaslshort2_drift`, `mo_pcaslshort4_drift` | Two and four pairs: a noisy perfusion image |
-| `headmotion`, `grasemotion` (`aslprep/tests/data/aslscan/`) | Motion with a T1w offset |
-| `mo_*_ho`, `mo_*_ho2` | Held-out trajectories and seeds |
+| Fixture | T1w offset | What it tests here |
+|---|---|---|
+| `rc_pcasl`, `rc_pcasl_flip`, `rc_pcasl_grid` | `[2, -3, 1.5, 3, -2, 2.5]` | 2D PCASL; flipped orientation; separate M0 on another grid |
+| `rc_grase` | same | Background-suppressed 3D GRASE with inverted static contrast (R0's sign failure) |
+| `rc_pasl_multipld` | same | Multi-delay PASL (J6) |
+| `st_spiral` | same | Spiral ringing (R0 fails, R2 recovers) |
+| `st_vessels` | same | Macrovascular perfusion away from grey matter (S2 and J1 should suffer) |
+| `st_noperf` | same | A territory with no perfusion (perfusion disagrees with GM) |
+| `headmotion` | `[3, -4, 2, 5, -3, 4]` | Motion with a T1w offset (end-to-end score) |
+| `grasemotion` | `[-2, 3, 1.5, -3, 2, 4]` | Motion with a T1w offset, GRASE |
+| `mo_pcaslshort2_drift`, `mo_pcaslshort4_drift` | none | Two and four pairs; regenerated here with the `rc_*` offset (new recipes) before use |
+| `mo_*_ho`, `mo_*_ho2` | none | Held-out trajectories and seeds; only with an offset added, as above |
 
 New, in this probe's directory (not under `aslprep/tests/data/aslscan/`, so the CI fixture digest
 is unchanged):
 
 - **`raw` variants** of `rc_pcasl`, `rc_grase`, `st_spiral`, `st_vessels` and `st_noperf`: the same
   recipe with `anat = 'raw'`, so ASLPrep segments the T1w. The difference between a J-arm's score
-  on the `derivatives` and `raw` forms bounds how much its simulation advantage is circularity.
+  on the two forms measures only how much it gains from being handed the truth tissue maps; the
+  shared-label circularity remains in both. Each `raw` segmentation is scored against the truth
+  (Dice per tissue, with a threshold set in Task 3) before the fixture is used.
 - **A second anatomical offset** (larger rotation, about 8 degrees) on `rc_pcasl` and `rc_grase`,
   for the capture range at realistic misalignments.
 - **Held-out still fixtures:** `rc_*` with new seeds and a different offset, generated before the
@@ -259,8 +293,16 @@ is unchanged):
    motion-free fixtures) and of the end-to-end map through the HMC transforms (motion fixtures),
    in acquisition voxels, and the rotation as arc length at 70 mm, as `score_frames` computes them.
 2. **Failure:** error above one acquisition voxel; and, for R-arms, whether BBR fell back.
-3. **Capture range:** from the truth perturbed by random rigid offsets at 2, 5, 10 and 15 mm and
-   degrees (20 draws per level, fixed seeds), the fraction that converge within 0.5 voxel.
+3. **Capture range:** a separate protocol from the primary comparison. The initial pull transform
+   (T1w point -> aslref point) is the truth `C* = R^-1` composed with a perturbation `P` applied
+   on the T1w side, `C0 = C* P`, with `P` a random rigid transform about the brain centre at 2, 5,
+   10 and 15 mm and degrees (20 draws per level, fixed seeds, the same draws for every arm). Every
+   arm's own initialization is replaced by `C0`: for R-arms, FLIRT-BBR starts from `C0` with
+   `mri_coreg` skipped; for ANTs arms, `--initial-moving-transform` is `C0` in the matching
+   direction. The score is the fraction that converge within 0.5 voxel. The same draws applied to
+   `mri_coreg`'s output, with `mri_coreg` kept, are reported separately as robustness of the
+   production chain. A test checks that `C0 = C*` (no perturbation) scores zero for every arm's
+   input convention.
 4. **Contrast of each source**, measured from the truth (local contrast across the white-matter
    boundary and the grey/white ratio, as the HMC probe defines it): explains failures, not ranked.
 5. **Cost:** run time and failures to run.
@@ -271,12 +313,18 @@ No truth exists, so three designs are combined:
 
 1. **Native:** blind review of alignment, and transform agreement, on data as acquired.
 2. **Cross-run consistency:** in sessions with several runs, the anatomical transforms of runs a
-   and b must agree with a direct registration of run a's reference to run b's (same contrast,
-   same session): the inconsistency between `C_b^-1 C_a` and that direct transform. No arm
-   optimizes it, and it needs no anatomical target.
-3. **Semi-synthetic:** each run's T1w header moved by a known rigid offset (no resampling), so
-   every arm should move its solution by exactly that offset. This tests robustness and capture
-   range on real contrast, not accuracy.
+   and b must agree with a direct registration of run a's reference (moving) to run b's (fixed),
+   same contrast, same session. ASLPrep's stored `from-aslref_to-T1w` matrix `C` is a pull map
+   (T1w point -> aslref point; `truth_scoring.py`), so the map from run b's aslref points to run
+   a's implied by the two coregistrations is `C_a C_b^-1`, and the direct registration `D_ab` is
+   the pull map in the same direction (fixed b point -> moving a point). The score is the RMS displacement of `D_ab^-1 C_a C_b^-1`
+   over run b's brain. No arm optimizes it, and it needs no anatomical target. Tested in Task 2
+   with the identity and a known relative transform on oblique headers.
+3. **Semi-synthetic:** each run's T1w (and its masks and tissue maps) given a new header,
+   `A' = M A`, for a known rigid world transform `M` (no resampling). A T1w point `x'` in the new
+   world is `x = M^-1 x'` in the old, so an arm whose solution on the original is `C` should
+   return `C M^-1` (pull convention). With `C'` its actual solution on the moved T1w, the score is
+   the RMS displacement of `C'^-1 C M^-1` over the brain in the new world. This tests robustness and capture range on real contrast, not accuracy.
 
 Decision metrics, each with a direction fixed in advance:
 
@@ -285,7 +333,9 @@ Decision metrics, each with a direction fixed in advance:
   coregistration reference and over the perfusion image, in a common physical frame. Two
   reviewers; their disagreement is the uncertainty. A pair is shown only when the two transforms
   differ by more than a tie distance (RMS over the T1w brain, in mm), set in Task 3 from repeat
-  ratings of the same pairs.
+  ratings of development pairs; pairs closer than that are counted as ties without review. The
+  result is reported with its denominators: the runs in the set, the pairs that differ, the
+  informative choices, and the win fraction among them.
 - **Cross-run inconsistency** (lower is better), on sessions with at least two comparable runs.
 - **Semi-synthetic recovery:** error of the moved solution against the applied offset.
 - **Gross failure:** an adjudicated failure, or a transform more than 5 mm (RMS over the brain)
@@ -335,8 +385,8 @@ labelled with what it is independent of, and a claim is made only along that axi
 
 | Axis | Held out | Independent of development data in |
 |---|---|---|
-| Dataset | `tarricone` (multi-delay GRASE), `ds008719` (2D EPI), and one spiral dataset chosen in Task 0 | Subject, site and protocol |
-| Scanner | Datasets grouped by scanner serial number, each group on one side | Scanner |
+| Dataset | `tarricone` (multi-delay GRASE), `ds008719` (2D EPI), and one spiral scanner group chosen in Task 0 (a spiral dataset goes with every dataset that shares its scanner) | Subject, site and protocol |
+| Scanner | Datasets grouped by scanner serial number where the HMC probe's manifest records one (`ds006131`, `ds000240` and `ds008579` share 66044; `ds006148` and `ds007908` share 67080; `ds007116` and `shanmugan_hup6` share 167024), each group on one side. Datasets with no recorded serial (`ds008020`, `ds004873`, `ds004856`, `tarricone`, `ds000234`, `ds000235`, `ds000236`, `ds005752`, `ds008719`, `2d_mb_pcasl`, `ds000254`) are each their own group, labelled "dataset", not "scanner" | Scanner, only for the groups with a serial |
 | Run | Within multi-run subjects, half the sessions | Session; not subject |
 
 The HMC probe never recorded its split, so this one is new; if the HMC probe later fixes one, the
@@ -344,40 +394,52 @@ two are reconciled before Task 6 and any overlap is reported.
 
 #### The reviewed subset
 
-Fixed in Task 0: at least one run per family; every spiral and GRASE run; named cases for each
-condition (no M0, separate M0, inverted contrast, single delta-M, T2w available, fieldmap
-available); then enlarged, during Task 6, with runs where the J-arm and the best comparator differ
-by more than the tie distance, until at least 20 informative disagreements exist or the panel is
-exhausted. An applicability table lists, for every run and every metric and gate, whether it
+Fixed in Task 0, before any arm is run: at least one run per family; every spiral and GRASE run;
+named cases for each condition (no M0, separate M0, inverted contrast, single delta-M, T2w
+available, fieldmap available). Its held-out part is the **primary review set**, and gate 4 is
+decided on it.
+
+An **enrichment set** may be added in Task 6 if the primary set has fewer than 20 informative
+disagreements: further held-out runs, drawn by a rule fixed in Task 3 that uses no review result
+(the J-arm and the frozen comparator differ by more than the tie distance, in random order, until
+20 informative disagreements or the panel is exhausted). It is reported separately, with its
+selection rule and denominators, and it can confirm but not replace a primary-set result.
+An applicability table lists, for every run and every metric and gate, whether it
 applies, is not available on that path, or is not tested; a metric that is not available is never
 counted as a pass.
 
 ## Decision gates
 
-Applied in order; an arm must pass each one. Each outcome (accuracy, failure, capture range,
-real-data alignment) is judged separately; trade-offs are reported per metric, not folded into one
-score.
+Applied in order; an adoptable arm (J1, J4, J5, J6) must pass each one. J2 and J3 are
+exploratory and are not gated. Each outcome (accuracy, failure, capture range, real-data
+alignment) is judged separately; trade-offs are reported per metric, not folded into one score.
 
 1. **Implementation:** each engine recovers a known rigid transform applied to an aslref; ANTs and
    FLIRT outputs compose to ASLPrep's `from-aslref_to-T1w` convention and score as ASLPrep's own
-   transform does on one fixture; repeated runs give identical transforms.
-2. **Joint benefit (simulation, development):** a J-arm is better than both of its S-arms on at
-   least one stress family (`st_*`, `rc_grase`, short series) and not worse than the better of them
-   elsewhere by more than a margin, on the `raw` forms as well as the `derivatives` forms.
-3. **Against the comparators (simulation):** failure rate not above the better of R1 and R2, capture
+   transform does on one fixture; the unperturbed capture-range start scores zero; repeated runs
+   give identical transforms.
+2. **Joint benefit (simulation):** the J-arm is better than each of S1, S2 and Q1 on at least one
+   stress family (`st_*`, `rc_grase`, short series) and not worse than the best of them elsewhere
+   by more than a margin, on the `raw` forms as well as the `derivatives` forms. Screened on the
+   development fixtures, then **replicated on the held-out fixtures** with the same S1, S2 and Q1
+   run alongside: the held-out result must show the same direction in the same stress families.
+3. **Against the comparator (simulation):** failure rate not above the frozen comparator's, capture
    range at least as wide, and median accuracy within a margin of it, on development and then
    held-out fixtures.
-4. **Real data (held-out):** adjudication prefers the J-arm over the better of R1, R2 (and RA) by
-   more than the bootstrap uncertainty, resampling subjects (sessions of a subject together), with
-   at least 20 informative disagreements (fewer is "insufficient evidence"); cross-run
-   inconsistency and semi-synthetic recovery not worse than that comparator's in any judged family
-   by more than a margin; no more gross failures.
+4. **Real data (held-out, primary review set):** adjudication prefers the J-arm over the frozen
+   comparator of each family by more than the bootstrap uncertainty, resampling subjects (sessions
+   of a subject together), with at least 20 informative disagreements (fewer is "insufficient
+   evidence"; an enrichment set is reported but cannot decide); the J-arm is not worse than Q1 by
+   the same test; cross-run inconsistency and semi-synthetic recovery not worse than the
+   comparator's in any judged family by more than a margin; no more gross failures.
 5. **Operation:** deterministic (fixed ANTs seed and thread count), under the run-time budget, and
    no new dependency (ANTs is already in the image).
 
-Margins, the tie distance and the run-time budget are written down in Task 3, before any J-arm is
-scored. Among arms that pass, the simplest is chosen. A default change additionally needs gate 4 in
-every judged family.
+Margins, the tie distance, the comparator per family, the enrichment rule and the run-time budget
+are written down in Task 3 from development data only, before any J-arm is scored and before any
+held-out fixture or run is scored by any arm. Among arms that pass, the simplest is chosen (Q1, if
+the J-arm does not beat it, is a result in its own right). A default change additionally needs
+gate 4 in every judged family.
 
 ## Tasks
 
@@ -417,26 +479,32 @@ Checkpoint: Codex adversarial review of the harness and scorer.
 
 ### Task 3: Fixtures and thresholds
 
-- Generate the `raw` variants, the second-offset fixtures and the held-out still fixtures; check
-  the `raw` segmentation against the truth once.
-- Measure R0-R2 on every fixture; set the margins, the tie distance's starting value, and the
-  run-time budget.
+- Generate the `raw` variants (and score their segmentations), the offset versions of the short
+  series, the second-offset fixtures and the held-out still fixtures. Held-out fixtures are
+  generated now and not scored until Task 5.
+- On development fixtures and development real runs only: measure R0, R1 (both signs) and the four
+  D3 levels; freeze R1's sign rule, R2's level and eligibility rule, and the comparator per family;
+  repeat ratings of development pairs for the tie distance; set the margins, the enrichment rule
+  and the run-time budget.
 
 ### Task 4: Primary screen
 
-S1, S2 and the J1 variants on the development fixtures; gate 2; keep at most two J1 variants.
+S1, S2, Q1 and the J1 variants on the development fixtures; gate 2 (development part); keep at most
+two J1 variants.
 
-### Task 5: Extensions
+### Task 5: Extensions and held-out simulation
 
-J4, J5 and J6 in simulation where they apply (J2 and J3 wait for real data); gates 2 and 3 against
-J1; at most two go on. Then gate 3 for the kept arms on the held-out fixtures.
+J4, J5 and J6 on the development fixtures where they apply; gates 2 and 3 against J1; at most two
+go on. Then gates 2 and 3 on the held-out fixtures for the kept arms, with S1, S2, Q1, R0 and the
+comparator run alongside.
 
 ### Task 6: Real data
 
 - Write the real-data criteria (directions and margins) before any real-data J-arm score is seen.
-- Run the kept arms and the comparators on the panel; J2 and J3 on the T2w subset.
-- Repeat ratings for the tie distance; the blind review of the reviewed subset, enlarged with
-  disagreements as described; cross-run and semi-synthetic metrics on the whole panel.
+- Run the kept arms, their S1, S2 and Q1, R0 and the comparator on the panel; J2 and J3 on the T2w
+  subset, reported as exploratory.
+- The blind review of the primary review set; the enrichment set only if the rule triggers;
+  cross-run and semi-synthetic metrics on the whole panel.
 - Gate 4 on the held-out runs.
 
 Checkpoint: Codex adversarial review of the results before the decision is written.
@@ -462,8 +530,10 @@ Checkpoint: Codex adversarial review of the results before the decision is writt
 - Moving images are on the coregistration reference's grid and frame; a separate M0 is composed
   through its own transform, never assumed aligned.
 - Build perfusion images from the native preprocessed series; resample measured ASL data once.
-- Contrast-specific masking is built into the moving image (as P-winsor clips), because ANTs masks
-  apply to every term of a stage.
+- Clipping, image masking and registration masks are three different things, and each arm's
+  specification says which it uses: P-winsor clips values; a term-specific support needs its own
+  stage or an image masked to zero outside it, because ANTs masks apply to every term of a stage;
+  stage masks follow the fixed/moving direction ("Masks and directions").
 - Record, per run and arm, the terms, weights, masks, initialization, the final cost per term, and
   any fallback.
 
@@ -479,8 +549,10 @@ Checkpoint: Codex adversarial review of the results before the decision is writt
 ## Open decisions
 
 1. Who the two reviewers are, and the review load per reviewer.
-2. Whether RA must be frozen in the HMC probe first, or the better of R1 and R2 is a sufficient bar.
-3. Whether to run FreeSurfer on the phantom so that bbregister arms can be tested in simulation.
+2. Whether RA must be frozen in the HMC probe first, or the better of R1 and R2 per family is a
+   sufficient bar.
+3. Whether to add `bbregister` comparators (FreeSurfer surfaces for the phantom, and reruns of the
+   panel with FreeSurfer), so that the conclusions cover production's FreeSurfer path.
 4. Whether to extend the panel (more spiral and GRASE subjects) if the disagreement count stays
    below 20.
 
@@ -503,4 +575,27 @@ Checkpoint: Codex adversarial review of the results before the decision is writt
 criteria, a proposal disposition table, named comparators (R-arms) and same-engine ablations
 (S-arms), staged screening with fixed lists, the HMC probe's stress and reference-consumer fixtures
 reused with `raw` variants as a circularity control, its real-data panel and blind-review design,
-ordered decision gates, and review checkpoints. No Codex review yet.
+ordered decision gates, and review checkpoints.
+
+**Codex adversarial review of revision 2 (2026-10-22).** Fourteen findings, each checked against
+the source; all are addressed in revision 3, two in part (9, 13).
+
+| # | Finding | Change |
+|---|---|---|
+| 1 | The coregistration reference is bias-corrected, not skull-stripped; SynthStrip's mask is a separate output | "Current method" corrected (`reference.py`) |
+| 2 | R0 is FSL only, but production uses `bbregister` whenever FreeSurfer runs | Scope stated as the FSL path (the baselines used `--fs-no-reconall`); bbregister is open decision 3 |
+| 3 | `C_b^-1 C_a` does not compose: the stored matrix is a pull map (T1w -> aslref) | Cross-run score is `D_ab^-1 C_a C_b^-1` with `D_ab` defined; semi-synthetic expectation written algebraically; both tested in Task 2 |
+| 4 | The ASL mask cannot be the moving mask in both directions, and stage masks cannot differ per term | "Masks and directions" added: masks per direction, separate stages or masked images for term-specific support |
+| 5 | P-winsor clips; it does not mask | Clipping, image masking and registration masks distinguished in the implementation rules |
+| 6 | No sequential comparator, so a joint objective could take credit for what sequencing gives | Q1 (S1, then S2 from S1) added and carried through every gate |
+| 7 | Capture range was not operationally defined | Protocol defined: `C0 = C* P`, the same draws for every arm, initialization replaced, production-chain robustness reported separately, zero-perturbation test |
+| 8 | J2 and J3 cannot pass the simulation gates | Made exploratory: reported, never adopted under this protocol |
+| 9 | Enlarging the review set by disagreements conditions the sample, and "best comparator" was undefined | Partly: the enrichment rule uses no review result, so it is kept, but the primary held-out review set is frozen in Task 0 and alone decides gate 4; the enrichment set is reported separately; the comparator is frozen per family on development data |
+| 10 | The joint benefit was never replicated out of sample, and R0-R2 were measured on every fixture before margins were set | S1, S2 and Q1 carried to the held-out fixtures and runs, gate 2 replicated there; Task 3 measures on development data only |
+| 11 | `raw` mode still synthesizes the T1w from the perfusion labels | Claim narrowed to leakage of the truth tissue maps; segmentations scored; circularity stated as not removable in simulation |
+| 12 | R2 ("best D3 level") and the R1 sign rule were not frozen | Both frozen in Task 3 on development data, with eligibility and common-support comparisons |
+| 13 | The scanner-serial split is not supported by the zoo catalog | Partly: the HMC probe's manifest records serials for some datasets (Codex could not read it), and the groups are now listed; datasets without one form their own "dataset" groups |
+| 14 | Not every reused fixture has the stated offset; `mo_*` recipes have none | Offsets listed per fixture; short series regenerated with an offset |
+
+Codex could not read the WSL-side probe data (manifest, baseline runs, `coreg_5b_real.tsv`), the
+GitHub issues, or the attached proposal, and did not check the literature.
