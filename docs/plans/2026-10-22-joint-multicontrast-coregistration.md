@@ -641,9 +641,10 @@ Checkpoint: Codex adversarial review of the results before the decision is writt
 
 ## Open decisions
 
-1. The review load (the plan expects a development batch of about 30 pairs and at most about 160
-   held-out pairs, plus repeats and known-answer pairs, in batches of about 50), and agreement to
-   download repeat-scan subjects for the panel extension.
+1. Agreement to download repeat-scan subjects for the panel extension. (The review load was
+   agreed on 2026-10-22: a development batch of about 30 pairs, then at most about 160 held-out
+   pairs, plus repeats and known-answer pairs, in batches of about 50. It is the "agreed review
+   load" the review set refers to.)
 2. Whether RA must be frozen in the HMC probe first, or the better of R1 and R2 per family is a
    sufficient bar.
 3. Whether to add `bbregister` comparators (FreeSurfer surfaces for the phantom, and reruns of the
