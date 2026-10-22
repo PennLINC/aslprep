@@ -777,24 +777,28 @@ def section_zigzag(root, df, fig):
     )
 
     # The true trajectory's own alternation, as OLS sees it.
-    truth = pd.read_table(
-        ASLSCAN / 'headmotion/sub-01/perf/ground-truth/sub-01_desc-motion_gt.tsv'
-    )
-    tcols = ['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z']
-    tp = truth[tcols].to_numpy(float)
-    tp[:, 3:] = np.degrees(tp[:, 3:])
-    full_ctx = pd.read_table(
-        ASLSCAN / 'headmotion/sub-01/perf/sub-01_acq-headmotion_aslcontext.tsv'
-    )['volume_type'].tolist()
-    keep = [i for i, t in enumerate(full_ctx) if t in ('control', 'label')]
-    if len(tp) == len(full_ctx):
-        tp = tp[keep]
-    tt = [full_ctx[i] for i in keep]
-    _, rem_ols, _ = zigzag_clean(tp, tt, [0.0] * len(tt))
-    _, rem_hub, _ = zigzag_clean(tp, tt, [0.0] * len(tt), robust=True)
-    t_ols = np.abs(rem_ols[:, :3]).max()
-    r_ols = np.abs(rem_ols[:, 3:]).max()
-    t_hub = np.abs(rem_hub[:, :3]).max()
+    gt = ASLSCAN / 'headmotion/sub-01/perf/ground-truth/sub-01_desc-motion_gt.tsv'
+    if gt.exists():
+        truth = pd.read_table(gt)
+        tcols = ['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z']
+        tp = truth[tcols].to_numpy(float)
+        tp[:, 3:] = np.degrees(tp[:, 3:])
+        full_ctx = pd.read_table(
+            ASLSCAN / 'headmotion/sub-01/perf/sub-01_acq-headmotion_aslcontext.tsv'
+        )['volume_type'].tolist()
+        keep = [i for i, t in enumerate(full_ctx) if t in ('control', 'label')]
+        if len(tp) == len(full_ctx):
+            tp = tp[keep]
+        tt = [full_ctx[i] for i in keep]
+        _, rem_ols, _ = zigzag_clean(tp, tt, [0.0] * len(tt))
+        _, rem_hub, _ = zigzag_clean(tp, tt, [0.0] * len(tt), robust=True)
+        t_ols = np.abs(rem_ols[:, :3]).max()
+        r_ols = np.abs(rem_ols[:, 3:]).max()
+        t_hub = np.abs(rem_hub[:, :3]).max()
+    else:
+        # The scored fixture's data were deleted (disk space); these are its values, as computed
+        # for the report of 2026-10-19. A regenerated `headmotion` is a different simulation.
+        t_ols, r_ols, t_hub = 0.15, 0.23, 0.08
 
     pair_series = []
     for lab, dash in (('c0', False), ('c8-noreg', False), ('c8', True), ('c8-huber', True)):
@@ -1677,6 +1681,142 @@ it on every arm.</p>""")
     )
 
 
+REF_FIXTURES = {
+    'BS': ['c5_presat', 'c5_presat_drift', 'c5_presat_bs_drift', 'c5_presat_3d_drift',
+           'c5_presat_pldconfounded', 'rc_grase', 'st_spiral'],
+    'noBS': ['mo_pcasl_drift', 'mo_pcasl_withinpairs', 'mo_pcasl_synchronous', 'mo_pcasl_spikes',
+             'mo_pasl_drift', 'mo_pcaslinc_drift', 'rc_pcasl', 'st_vessels'],
+}  # fmt:skip
+REF_ARMS = {
+    'c0': 'production',
+    'c9-auto': 'typewise_offset',
+    'c0x-vr': '3dvolreg to production ref.',
+    'c0x-vr-ctl': '3dvolreg to control mean',
+    'c0xfb': '3dvolreg + fallback',
+    'c9-fb-ctl': '3dvolreg to control mean + fallback + offset',
+    'c0-767': '#767',
+    'c9-auto-767': '#767 + offset',
+    'c9-t-vr': '#767 design, 3dvolreg + offset',
+}
+REF_HEAT = ['c0', 'c9-auto', 'c0-767', 'c9-auto-767', 'c9-fb-ctl', 'c9-t-vr']
+
+
+def section_reference(root, df, fig):
+    """Reference type, PennLINC/aslprep#767, and 3dvolreg with an MCFLIRT fallback."""
+    fixtures = REF_FIXTURES['BS'] + REF_FIXTURES['noBS']
+    d = df[df.label.isin(REF_ARMS) & df.fixture.isin(fixtures)].copy()
+    if d.empty or not {'c0xfb', 'c9-t-vr'} <= set(d.label):
+        return ''
+    d['bs'] = np.where(d.fixture.isin(REF_FIXTURES['BS']), 'BS', 'noBS')
+    med = d.groupby(['label', 'bs'])[['dm_edge', 'pair_max', 'rel_max']].median()
+    rows = []
+    for a, name in REF_ARMS.items():
+        if (a, 'BS') not in med.index or (a, 'noBS') not in med.index:
+            continue
+        cells = [f'{esc(name)} <code>{esc(a)}</code>']
+        for col, dg in (('dm_edge', 3), ('pair_max', 3), ('rel_max', 2)):
+            cells += [fmt(med.at[(a, b), col], dg) for b in ('BS', 'noBS')]
+        rows.append(cells)
+    medians = plain_table(
+        ['Arm', 'Edge &Delta;M, BS', 'no BS', 'Pair offset (mm), BS', 'no BS',
+         'Pose error (mm), BS', 'no BS'],
+        rows, tuple(range(1, 7)),
+    )  # fmt:skip
+    piv = d.pivot_table(index='fixture', columns='label', values='dm_edge')
+    heat_arms = [a for a in REF_HEAT if a in piv]
+    heat = heat_table(
+        fixtures,
+        heat_arms,
+        [[piv.at[f, a] if f in piv.index else None for a in heat_arms] for f in fixtures],
+        notes=dict.fromkeys(REF_FIXTURES['BS'], 'background suppression'),
+        digits=3,
+        col_labels=[REF_ARMS[a] for a in heat_arms],
+    )
+    fb_rows = []
+    for a in ('c0xfb', 'c0xfb-ctl'):
+        for f in fixtures:
+            h = root / 'fixture-scores' / a / f / 'harness.json'
+            if not h.exists():
+                continue
+            ref = json.loads(h.read_text())['reference_type']
+            fb_rows.append((a, f, 'fell back' if 'diverged' in ref else 'kept', ref.split(';')[-1]))
+    kept = [r for r in fb_rows if r[2] == 'kept']
+    fell = [r for r in fb_rows if r[2] == 'fell back']
+    fb_table = plain_table(
+        ['3dvolreg reference', 'Fixture', 'Outcome', 'Deviation from MCFLIRT'],
+        [
+            ['production&rsquo;s' if a == 'c0xfb' else 'control mean', f'<code>{esc(f)}</code>', o,
+             esc(note.strip())]
+            for a, f, o, note in fell
+        ],
+    )  # fmt:skip
+    dm = []
+    for f in ('mo_deltamrep_drift', 'mo_deltamrep_spikes'):
+        cells = [f'<code>{esc(f)}</code>']
+        for a in ('c0', 'c0-m0', 'c0t-vr', 'c0t-vr-m0'):
+            p = root / 'fixture-scores' / a / f / 'score.json'
+            v = json.loads(p.read_text())['relative_pose']['to_mean']['max_mm'] if p.exists() else None
+            cells.append(fmt(v, 2) if v is not None else '&ndash;')
+        dm.append(cells)
+    dm_table = plain_table(
+        ['Fixture', 'MCFLIRT, deltam ref.', 'MCFLIRT, M0 ref.', '#767 design + 3dvolreg, deltam ref.',
+         '#767 design + 3dvolreg, M0 ref.'],
+        dm, (1, 2, 3, 4),
+    )  # fmt:skip
+    return f"""
+<section id="reference"><h2>Reference type, #767 and 3dvolreg</h2>
+<p>Every fixture in the earlier engine screens has an M0, so production's reference was the M0
+throughout (ASLPrep picks CBF, then delta-M, then an in-series M0, then a separate M0, then the
+control mean) and every label and control volume was registered across contrasts. This screen
+adds fixtures with an included M0, background suppression and a delta-M reference, forces a
+control-mean reference where the harness asks for one (it hides in-series M0, delta-M and CBF
+volumes from <code>SelectHighestContrastVolumes</code>, which otherwise picks its own type), and
+scores PennLINC/aslprep#767 (head <code>96d0530</code>): each volume type registered to its own
+mean, which FLIRT (mutual information) aligns to the reference. Fifteen label-control fixtures,
+{len(REF_FIXTURES['BS'])} with background suppression (BS). Constant-pose fixtures are left out:
+there an arm that happens to return identity transforms avoids interpolation and scores better
+for that alone.</p>
+{medians}
+<p class="note">Medians over fixtures: edge delta-M error (0&ndash;3 mm shell, relative to GM),
+max label-control pair offset, max pose error relative to the series mean.</p>
+{figure(heat, 'Edge delta-M error per fixture (darker is worse, log scale).', fig)}
+<ul>
+<li><b>Least squares fails across contrasts.</b> 3dvolreg registering volumes straight to an M0
+diverges by 8&ndash;135 mm on every background-suppressed <code>c5</code> fixture and on
+<code>mo_pasl_drift</code>, and by 165&ndash;215 mm on a delta-M reference. With a control-mean
+reference it converges on every fixture but <code>st_spiral</code>. Where it converges it is the
+most precise engine: about a third of MCFLIRT's pose error without suppression.</li>
+<li><b>A fallback catches every divergence.</b> <code>c0xfb</code> keeps 3dvolreg unless any
+volume's mean-relative pose differs from production's MCFLIRT by more than 1 mm. Runs that agree
+differ by at most {fmt(max(float(r[3].split('within')[1].split('mm')[0]) for r in kept), 2)} mm,
+diverged ones by at least {fmt(min(float(r[3].split('(')[1].split('mm')[0]) for r in fell), 1)}
+mm. It does not catch a cross-contrast bias without divergence: on <code>rc_grase</code> 3dvolreg
+stays within 0.16 mm of MCFLIRT but its label-control offset gives an edge error of 0.62, which
+the offset step removes.</li>
+<li><b>#767 adds a label-control offset.</b> Its pose error is mixed, but edge delta-M error rises
+on 14 of 15 fixtures: each type's cross-contrast FLIRT is stable only to a few hundredths of a
+millimetre (a reimplementation differing only in interpolation lands 0.02&ndash;0.06 mm away,
+type-wide), and the difference between types is a label-control offset. With the offset step it
+matches <code>typewise_offset</code>. Reported on the PR.</li>
+<li><b>The best arms combine same-contrast least squares with the offset step.</b> 3dvolreg to
+the control mean with the fallback, and #767's design with 3dvolreg within each type, both followed
+by the offset step, tie for best: label-control offsets 3&ndash;4 times smaller than
+<code>typewise_offset</code>'s, pose error a third of it without suppression. #767's design needs
+no fallback (its one cross-contrast step per type is FLIRT with mutual information), but these
+runs use the probe's reimplementation of it.</li>
+</ul>
+<h3>Where the fallback was used</h3>
+{fb_table}
+<h3>Delta-M reference or M0 reference?</h3>
+<p>On the two delta-M fixtures (eight delta-M volumes and an included M0) ASLPrep's reference is
+the delta-M mean. Forcing the M0 instead makes every delta-M volume a cross-contrast registration,
+and the max pose error rises in every arm tested:</p>
+{dm_table}
+<p class="note">Max pose error (mm) relative to the series mean. Two fixtures; aslscan's delta-M
+volumes are probably cleaner than real ones, which would favour the M0.</p>
+</section>"""
+
+
 def section_coreg(root, fig):
     out = []
     f = root / 'coreg-5b' / 'coreg_5b.tsv'
@@ -1962,6 +2102,7 @@ def build(root):
     c5 = section_c5(root, fig)
     c6 = section_c6(root, df, fig + 1)
     task7 = section_task7(root)
+    reference = section_reference(root, df, fig + 2)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -2021,6 +2162,19 @@ the real-data split-half criterion in two small families.</li>
 precomputed transforms (PennLINC/aslprep#738), products are reused only with what they were
 made from, and transforms record the HMC method they were made with. A run given its own outputs
 reproduces them exactly.</li>
+<li><b>Least squares is the right cost only within one contrast.</b> Production registers labels
+and controls to the M0 whenever there is one. 3dvolreg doing that diverges by 8&ndash;215 mm under
+background suppression, on a PASL fixture and on a delta-M reference; to the control mean it
+converges almost everywhere and is the most precise engine. A check against MCFLIRT (fall back when
+they differ by more than 1 mm) catches every divergence.</li>
+<li><b>PennLINC/aslprep#767 (per-type references) adds a label-control offset</b>: edge delta-M
+error rises on 14 of 15 fixtures, because each type's cross-contrast alignment is stable only to a
+few hundredths of a millimetre. The offset step removes it. Reported on the PR.</li>
+<li><b>Same-contrast least squares plus the offset step is the best combination so far</b>: 3dvolreg
+to the control mean with the fallback, or #767's design with 3dvolreg, each followed by the offset
+step. Label-control offsets are 3&ndash;4 times smaller than <code>typewise_offset</code>'s.</li>
+<li><b>A delta-M reference beats an M0 reference for delta-M series</b> on the two fixtures tested:
+forcing the M0 raised the max pose error in every arm.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
@@ -2059,10 +2213,10 @@ alternative does better, tested on simulated data with known truth and on the as
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
 <a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
 <a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
-<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#task7">Full pipeline</a><a href="#next">Next steps</a></nav>
+<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#task7">Full pipeline</a><a href="#reference">Reference type and #767</a><a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}{task7}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}{task7}{reference}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>
@@ -2077,6 +2231,9 @@ penalty on pair-based methods carries over.</li>
 <li>Next: a failure guard for production (detect disagreement with <code>c2-volreg</code> or an
 implausible FD, then fall back); choosing the BBR sign from the reference's grey/white contrast;
 score the held-out fixtures; and the full-pipeline runs of the short list (Task 7).</li>
+<li>Same-contrast least squares with the offset step needs real-data runs and the held-out
+fixtures before it can replace MCFLIRT; the #767-design arm should be rerun on #767's own code
+with 3dvolreg swapped in rather than the probe's reimplementation.</li>
 </ul>
 </section>
 </div>"""
