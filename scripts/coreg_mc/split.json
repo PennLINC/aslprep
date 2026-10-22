@@ -1,0 +1,880 @@
+{
+ "seed": 20261022,
+ "held_out_datasets": {
+  "tarricone": "dataset (multi-delay GRASE)",
+  "ds008719": "dataset (2D EPI)",
+  "ds006131": "scanner group 66044 (stack-of-spirals)",
+  "ds000240": "scanner group 66044 (stack-of-spirals)",
+  "ds008579": "scanner group 66044 (stack-of-spirals)"
+ },
+ "subjects": [
+  {
+   "dataset": "2d_mb_pcasl",
+   "subject": "sub-1",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds000234",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds000235",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds000236",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds000240",
+   "subject": "sub-49",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "scanner group 66044 (stack-of-spirals)"
+  },
+  {
+   "dataset": "ds000254",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5023",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0337",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds004856",
+   "subject": "sub-3131",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds004873",
+   "subject": "sub-p021",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds005752",
+   "subject": "sub-ON13986",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds006131",
+   "subject": "sub-60295",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "scanner group 66044 (stack-of-spirals)"
+  },
+  {
+   "dataset": "ds006148",
+   "subject": "sub-C00045",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20721",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0001",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0202",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds007908",
+   "subject": "sub-9006",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-19",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "ds008579",
+   "subject": "sub-112061",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "scanner group 66044 (stack-of-spirals)"
+  },
+  {
+   "dataset": "ds008719",
+   "subject": "sub-050",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "dataset (2D EPI)"
+  },
+  {
+   "dataset": "grotzinger_menopausal_asl",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "jsr-aslprep-debug",
+   "subject": "sub-lsa116",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "kashyap",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "lsa-aslprep-debug",
+   "subject": "sub-729",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "lsa-aslprep-debug",
+   "subject": "sub-747",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "lsa-aslprep-debug",
+   "subject": "sub-761",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "lsa-aslprep-debug",
+   "subject": "sub-762",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "morys_bad_brainmask",
+   "subject": "sub-MNI150003",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "shanmugan_hup6",
+   "subject": "sub-01",
+   "source": "panel",
+   "side": "development",
+   "axis": "panel exemplar"
+  },
+  {
+   "dataset": "tarricone",
+   "subject": "sub-Sub002",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "dataset (multi-delay GRASE)"
+  },
+  {
+   "dataset": "tarricone",
+   "subject": "sub-Sub004",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "dataset (multi-delay GRASE)"
+  },
+  {
+   "dataset": "tarricone",
+   "subject": "sub-Sub006",
+   "source": "panel",
+   "side": "held_out",
+   "axis": "dataset (multi-delay GRASE)"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5013",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5017",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5019",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5022",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5037",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5044",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-5060",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-6003",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-6006",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-6007",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-6024",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-7009",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-7016",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-7027",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-7028",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-7030",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-8003",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-8017",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-8028",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds003823",
+   "subject": "sub-8030",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0030",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0036",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0085",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0098",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0118",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0172",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0178",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0189",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0194",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0199",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0226",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0227",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0239",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0270",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0290",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0293",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0299",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0357",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0387",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds004146",
+   "subject": "sub-0412",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds005752",
+   "subject": "sub-ON39384",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds005752",
+   "subject": "sub-ON88753",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-19861",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20303",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20310",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20712",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20836",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20902",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20953",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-20976",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21035",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21104",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21112",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21193",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21493",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21553",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21712",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21713",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject (HMC probe assignment)"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-21855",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-22473",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-22510",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007116",
+   "subject": "sub-22654",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0063",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0088",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0197",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0210",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0212",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0257",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0320",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0325",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0350",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds007522",
+   "subject": "sub-HML0474",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-02",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-03",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-04",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-05",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-06",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-07",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-08",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-09",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-10",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-11",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-12",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-13",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-14",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-15",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-16",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-17",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-18",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-20",
+   "source": "extension",
+   "side": "held_out",
+   "axis": "subject"
+  },
+  {
+   "dataset": "ds008020",
+   "subject": "sub-21",
+   "source": "extension",
+   "side": "development",
+   "axis": "subject"
+  }
+ ]
+}
