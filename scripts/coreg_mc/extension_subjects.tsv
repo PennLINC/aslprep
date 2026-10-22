@@ -1,0 +1,92 @@
+dataset	subject	sessions	n_sessions	max_runs_per_session	multi_session	multi_run	variant	has_t1w	mb
+ds007116	sub-19861	ses-1,ses-2	2	1	True	False	False	True	60.6
+ds007116	sub-20303	ses-1,ses-2,ses-3	3	1	True	False	False	True	73.4
+ds007116	sub-20310	ses-1,ses-2	2	1	True	False	False	True	47.4
+ds007116	sub-20712	ses-1,ses-2,ses-3	3	1	True	False	False	True	82.1
+ds007116	sub-20836	ses-1,ses-2	2	1	True	False	True	True	53.0
+ds007116	sub-20902	ses-1,ses-2,ses-3	3	1	True	False	False	True	90.8
+ds007116	sub-20953	ses-1,ses-2	2	1	True	False	False	True	57.8
+ds007116	sub-20976	ses-1,ses-2,ses-3	3	1	True	False	False	True	88.4
+ds007116	sub-21035	ses-1,ses-2,ses-3	3	1	True	False	False	True	76.7
+ds007116	sub-21104	ses-1,ses-2	2	1	True	False	False	True	56.3
+ds007116	sub-21112	ses-1,ses-2	2	1	True	False	False	True	47.6
+ds007116	sub-21193	ses-1,ses-2	2	1	True	False	False	True	51.8
+ds007116	sub-21493	ses-1,ses-2	2	1	True	False	False	True	56.7
+ds007116	sub-21553	ses-1,ses-2	2	1	True	False	False	True	51.0
+ds007116	sub-21712	ses-1,ses-2	2	1	True	False	False	True	50.2
+ds007116	sub-21713	ses-1,ses-2	2	1	True	False	False	True	50.4
+ds007116	sub-21855	ses-1,ses-2	2	1	True	False	False	True	56.8
+ds007116	sub-22473	ses-1,ses-2	2	1	True	False	False	True	59.3
+ds007116	sub-22510	ses-1,ses-2	2	1	True	False	True	True	46.3
+ds007116	sub-22654	ses-1,ses-2	2	1	True	False	False	True	47.4
+ds003823	sub-5013	ses-post,ses-pre	2	2	True	True	False	True	147.5
+ds003823	sub-5017	ses-post,ses-pre	2	2	True	True	False	True	162.7
+ds003823	sub-5019	ses-post,ses-pre	2	2	True	True	False	True	165.0
+ds003823	sub-5022	ses-post,ses-pre	2	2	True	True	False	True	145.6
+ds003823	sub-5037	ses-post,ses-pre	2	2	True	True	False	True	137.0
+ds003823	sub-5044	ses-post,ses-pre	2	2	True	True	False	True	152.0
+ds003823	sub-5060	ses-post,ses-pre	2	2	True	True	False	True	118.6
+ds003823	sub-6003	ses-post	1	2	False	True	False	True	96.4
+ds003823	sub-6006	ses-post,ses-pre	2	2	True	True	False	True	124.5
+ds003823	sub-6007	ses-post,ses-pre	2	2	True	True	False	True	121.7
+ds003823	sub-6024	ses-post,ses-pre	2	2	True	True	False	True	150.6
+ds003823	sub-7009	ses-post,ses-pre	2	2	True	True	False	True	134.3
+ds003823	sub-7016	ses-post,ses-pre	2	2	True	True	False	True	166.1
+ds003823	sub-7027	ses-post,ses-pre	2	2	True	True	False	True	167.8
+ds003823	sub-7028	ses-post,ses-pre	2	2	True	True	False	True	158.5
+ds003823	sub-7030	ses-post,ses-pre	2	2	True	True	False	True	158.5
+ds003823	sub-8003	ses-post,ses-pre	2	2	True	True	False	True	164.5
+ds003823	sub-8017	ses-post,ses-pre	2	2	True	True	False	True	157.5
+ds003823	sub-8028	ses-post,ses-pre	2	2	True	True	False	True	163.2
+ds003823	sub-8030	ses-post,ses-pre	2	2	True	True	False	True	150.1
+ds004146	sub-0030	ses-01,ses-02	2	1	True	False	False	True	106.4
+ds004146	sub-0036	ses-01,ses-02	2	1	True	False	False	True	110.8
+ds004146	sub-0085	ses-01,ses-02	2	1	True	False	False	True	108.3
+ds004146	sub-0098	ses-01,ses-02	2	1	True	False	False	True	108.8
+ds004146	sub-0118	ses-01,ses-02	2	1	True	False	False	True	107.0
+ds004146	sub-0172	ses-01,ses-02	2	1	True	False	False	True	97.7
+ds004146	sub-0178	ses-01,ses-02	2	1	True	False	False	True	109.2
+ds004146	sub-0189	ses-01,ses-02	2	1	True	False	False	True	106.6
+ds004146	sub-0194	ses-01,ses-02	2	1	True	False	False	True	104.4
+ds004146	sub-0199	ses-01,ses-02	2	1	True	False	False	True	108.2
+ds004146	sub-0226	ses-01,ses-02	2	1	True	False	False	True	98.8
+ds004146	sub-0227	ses-01,ses-02	2	1	True	False	False	True	105.6
+ds004146	sub-0239	ses-01,ses-02	2	1	True	False	False	True	109.8
+ds004146	sub-0270	ses-01,ses-02	2	1	True	False	False	True	113.8
+ds004146	sub-0290	ses-01,ses-02	2	1	True	False	False	True	102.2
+ds004146	sub-0293	ses-01,ses-02	2	1	True	False	False	True	107.2
+ds004146	sub-0299	ses-01,ses-02	2	1	True	False	False	True	104.3
+ds004146	sub-0357	ses-01,ses-02	2	1	True	False	False	True	103.4
+ds004146	sub-0387	ses-01,ses-02	2	1	True	False	False	True	98.4
+ds004146	sub-0412	ses-01,ses-02	2	1	True	False	False	True	99.4
+ds008020	sub-02		1	8	False	True	False	True	143.1
+ds008020	sub-03		1	8	False	True	False	True	98.8
+ds008020	sub-04		1	8	False	True	False	True	116.8
+ds008020	sub-05		1	8	False	True	False	True	116.8
+ds008020	sub-06		1	8	False	True	False	True	131.2
+ds008020	sub-07		1	8	False	True	False	True	124.5
+ds008020	sub-08		1	8	False	True	False	True	109.8
+ds008020	sub-09		1	8	False	True	False	True	98.2
+ds008020	sub-10		1	9	False	True	False	True	78.9
+ds008020	sub-11		1	9	False	True	False	True	157.6
+ds008020	sub-12		1	9	False	True	False	True	101.0
+ds008020	sub-13		1	9	False	True	False	True	124.6
+ds008020	sub-14		1	9	False	True	False	True	119.9
+ds008020	sub-15		1	9	False	True	False	True	83.6
+ds008020	sub-16		1	9	False	True	False	True	115.2
+ds008020	sub-17		1	9	False	True	False	True	115.2
+ds008020	sub-18		1	9	False	True	False	True	110.4
+ds008020	sub-20		1	9	False	True	False	True	110.4
+ds008020	sub-21		1	9	False	True	False	True	91.6
+ds007522	sub-HML0063	ses-01,ses-follow01	2	7	True	True	False	True	174.3
+ds007522	sub-HML0088	ses-01,ses-follow01	2	7	True	True	False	True	179.3
+ds007522	sub-HML0197	ses-01,ses-follow01	2	7	True	True	False	True	196.6
+ds007522	sub-HML0210	ses-01,ses-follow01	2	7	True	True	False	True	199.6
+ds007522	sub-HML0212	ses-01,ses-follow02	2	7	True	True	False	True	179.3
+ds007522	sub-HML0257	ses-01,ses-follow01	2	7	True	True	False	True	178.0
+ds007522	sub-HML0320	ses-01,ses-follow01	2	7	True	True	False	True	188.3
+ds007522	sub-HML0325	ses-01,ses-follow01	2	7	True	True	False	True	203.4
+ds007522	sub-HML0350	ses-01,ses-follow01	2	7	True	True	False	True	172.6
+ds007522	sub-HML0474	ses-01,ses-follow01	2	7	True	True	False	True	198.1
+ds005752	sub-ON39384	ses-01,ses-02	2	1	True	False	False	True	75.3
+ds005752	sub-ON88753	ses-01,ses-02	2	1	True	False	False	True	79.0

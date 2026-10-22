@@ -514,6 +514,23 @@ about 330 MB, larger for many-run subjects; its work directory is deleted after 
 WSL's disk had 741 GB free when surveyed. Run time is measured on the first four subjects before
 the rest are started.
 
+**Drawn subjects (2026-10-22, approved; seed 20261022).** `scripts/coreg_mc/draw_extension.py`
+draws them and writes `scripts/coreg_mc/extension_subjects.tsv` (one row per subject: sessions,
+runs, size). The draw also narrowed the download to the files each curator keeps (its `FILTERS`;
+the zoo's own filter would also fetch UNIT1, FLAIR and T2w-TSE files that curation drops, 8.8 GB
+for `ds004146` alone), and fixed two errors in the proposal above: `ds005752` has 2 new
+subjects, not 3 (the third is already in the panel), and `ds004146` sizes now include the UNIT1
+images used as its T1w. 91 subjects, 2,416 files, 10.4 GB:
+
+| Dataset | n | GB | Subjects |
+|---|---|---|---|
+| `ds007116` | 20 | 1.20 | sub-19861, 20303, 20310, 20712, 20836 (variant), 20902, 20953, 20976, 21035, 21104, 21112, 21193, 21493, 21553, 21712, 21713, 21855, 22473, 22510 (variant), 22654 |
+| `ds003823` | 20 | 2.94 | sub-5013, 5017, 5019, 5022, 5037, 5044, 5060, 6003 (post session only), 6006, 6007, 6024, 7009, 7016, 7027, 7028, 7030, 8003, 8017, 8028, 8030 |
+| `ds004146` | 20 | 2.11 | sub-0030, 0036, 0085, 0098, 0118, 0172, 0178, 0189, 0194, 0199, 0226, 0227, 0239, 0270, 0290, 0293, 0299, 0357, 0387, 0412 |
+| `ds008020` | 19 | 2.15 | sub-02 to sub-18, sub-20, sub-21 |
+| `ds007522` | 10 | 1.87 | sub-HML0063, 0088, 0197, 0210, 0212, 0257, 0320, 0325, 0350, 0474 |
+| `ds005752` | 2 | 0.15 | sub-ON39384, ON88753 |
+
 #### Development and held-out data
 
 Fixed in Task 0, before any arm is scored, following the HMC probe's axes; each held-out set is
