@@ -69,8 +69,8 @@ def _img(path, alt):
     return f'<img src="data:image/jpeg;base64,{data}" alt="{escape(alt)}" loading="lazy">'
 
 
-def _f(v, nd=3):
-    return '—' if v is None or not np.isfinite(v) else f'{v:.{nd}f}'
+def _f(v, digits=3):
+    return '—' if v is None or not np.isfinite(v) else f'{v:.{digits}f}'
 
 
 def short(name):
@@ -343,7 +343,7 @@ def build(out, html_path):
             sub = masks[(masks['method'] == m) & masks['name'].isin(ok)]
             rows.append(
                 [f'<th scope="row">{METHOD_STYLE[m][0]}</th>']
-                + [f'<td>{_f(sub[c].median(), nd)}</td>' for c, nd in cols]
+                + [f'<td>{_f(sub[c].median(), digits)}</td>' for c, digits in cols]
             )
         return rows
 
