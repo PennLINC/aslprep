@@ -1751,18 +1751,21 @@ def section_reference(root, df, fig):
         ],
     )  # fmt:skip
     dm = []
-    for f in ('mo_deltamrep_drift', 'mo_deltamrep_spikes'):
-        cells = [f'<code>{esc(f)}</code>']
-        for a in ('c0', 'c0-m0', 'c0t-vr', 'c0t-vr-m0'):
-            p = root / 'fixture-scores' / a / f / 'score.json'
-            v = json.loads(p.read_text())['relative_pose']['to_mean']['max_mm'] if p.exists() else None
-            cells.append(fmt(v, 2) if v is not None else '&ndash;')
-        dm.append(cells)
+    for k in ('drift', 'spikes'):
+        for snr in (8, 20, 50):
+            f = f'mo_deltamrep_{k}_snr{snr}'
+            cells = [f'<code>{esc(k)}</code>', str(snr)]
+            for a in ('c0', 'c0-m0', 'c0-767', 'c0-767-m0', 'c0t-vr', 'c0t-vr-m0'):
+                p = root / 'fixture-scores' / a / f / 'score.json'
+                v = json.loads(p.read_text())['relative_pose']['to_mean']['max_mm'] if p.exists() else None
+                cells.append(fmt(v, 2) if v is not None else '&ndash;')
+            dm.append(cells)
     dm_table = plain_table(
-        ['Fixture', 'MCFLIRT, deltam ref.', 'MCFLIRT, M0 ref.', '#767 design + 3dvolreg, deltam ref.',
-         '#767 design + 3dvolreg, M0 ref.'],
-        dm, (1, 2, 3, 4),
+        ['Trajectory', 'Delta-M SNR', 'MCFLIRT, delta-M ref.', 'MCFLIRT, M0 ref.', '#767, delta-M ref.',
+         '#767, M0 ref.', '#767 design + 3dvolreg, delta-M ref.', '#767 design + 3dvolreg, M0 ref.'],
+        dm, tuple(range(1, 8)),
     )  # fmt:skip
+    ge = ge_reference(root)
     return f"""
 <section id="reference"><h2>Reference type, #767 and 3dvolreg</h2>
 <p>Every fixture in the earlier engine screens has an M0, so production's reference was the M0
@@ -1809,12 +1812,58 @@ runs use the probe's reimplementation of it.</li>
 {fb_table}
 <h3>Delta-M reference or M0 reference?</h3>
 <p>On the two delta-M fixtures (eight delta-M volumes and an included M0) ASLPrep's reference is
-the delta-M mean. Forcing the M0 instead makes every delta-M volume a cross-contrast registration,
-and the max pose error rises in every arm tested:</p>
+the delta-M mean. Forcing the M0 instead makes every delta-M volume a cross-contrast registration.
+Real delta-M images are noisier than the fixtures' (grey-matter delta-M SNR 50): on the GE
+ds005752 runs it is between about 8 (noise from the high-pass residual inside the brain, an
+underestimate) and 21 (noise from the background, an overestimate). Both fixtures were rebuilt at
+8, 20 and 50 (the rebuild at 50 reproduces the originals exactly). The delta-M reference keeps the
+lower max pose error in every arm and at every SNR:</p>
 {dm_table}
-<p class="note">Max pose error (mm) relative to the series mean. Two fixtures; aslscan's delta-M
-volumes are probably cleaner than real ones, which would favour the M0.</p>
+<p class="note">Max pose error (mm) relative to the series mean. aslscan's noise is white;
+the GE images' background noise is structured, which the simulation does not reproduce.</p>
+{ge}
 </section>"""
+
+
+def ge_reference(root):
+    """The GE ds005752 runs (one M0, one delta-M): where each reference puts the delta-M."""
+    import nibabel as nb
+    from batch_harness import rms
+    from harness import load_itk_series
+
+    out = root / 'deltam-ref-real'
+    if not (out / 'c0-dmref').exists():
+        return ''
+    rows = []
+    for r in sorted((out / 'c0' / 'ds005752').iterdir()):
+        rel = {}
+        for lab in ('c0', 'c0-dmref'):
+            d = out / lab / 'ds005752' / r.name
+            if not (d / 'hmc_xfms.txt').exists():
+                break
+            h = load_itk_series(d / 'hmc_xfms.txt')
+            ctx = pd.read_table(d / 'hmc_aslcontext.tsv')['volume_type'].tolist()
+            ref = nb.load(d / 'aslref.nii.gz')
+            centre = (ref.affine @ np.r_[(np.array(ref.shape[:3]) - 1) / 2, 1])[:3]
+            rel[lab] = (np.linalg.inv(h[ctx.index('m0scan')]) @ h[ctx.index('deltam')], centre)
+        if len(rel) == 2:
+            c = rel['c0'][1]
+            rows.append([rms(rel['c0'][0], c), rms(rel['c0-dmref'][0], c),
+                         rms(rel['c0'][0] @ np.linalg.inv(rel['c0-dmref'][0]), c)])  # fmt:skip
+    if not rows:
+        return ''
+    a = np.array(rows)
+    return f"""
+<p>The GE runs of ds005752 have one M0 and one delta-M volume each, so the reference choice only
+decides which of the two is registered to the other. On {len(a)} runs the delta-M lands
+{fmt(np.median(a[:, 0]), 2)} mm from the M0 (median; range {fmt(a[:, 0].min(), 1)}&ndash;{
+        fmt(a[:, 0].max(), 1)}) with the M0 reference, {fmt(np.median(a[:, 1]), 2)} mm with the
+delta-M reference, and the two estimates disagree by {fmt(np.median(a[:, 2]), 2)} mm (range
+{fmt(a[:, 2].min(), 1)}&ndash;{fmt(a[:, 2].max(), 1)}), mostly through-plane and in no consistent
+direction. Both come from one GE sequence, so the true motion between them should be small: these
+offsets look like registration error, larger than any simulated case. For single-delta-M GE
+series, not registering the M0 and delta-M to each other may beat either reference; that cannot be
+settled without truth.</p>"""
 
 
 def section_coreg(root, fig):
@@ -2173,8 +2222,10 @@ few hundredths of a millimetre. The offset step removes it. Reported on the PR.<
 <li><b>Same-contrast least squares plus the offset step is the best combination so far</b>: 3dvolreg
 to the control mean with the fallback, or #767's design with 3dvolreg, each followed by the offset
 step. Label-control offsets are 3&ndash;4 times smaller than <code>typewise_offset</code>'s.</li>
-<li><b>A delta-M reference beats an M0 reference for delta-M series</b> on the two fixtures tested:
-forcing the M0 raised the max pose error in every arm.</li>
+<li><b>A delta-M reference beats an M0 reference for delta-M series</b> in simulation, at every
+delta-M SNR down to GE-like levels (8): forcing the M0 raised the max pose error in every arm. On
+the real GE runs (one M0, one delta-M) the two references disagree by about 1.2 mm, more than any
+simulated case, so the M0-to-delta-M registration itself is unreliable there.</li>
 <li><b>ASLPrep ignores precomputed transforms whenever atlases are enabled</b> (found wiring the
 candidates in): the atlas datasets are collected last and replace the transforms.</li>
 <li><b>The simulator favours production.</b> aslscan moves otherwise clean images rigidly, with no
