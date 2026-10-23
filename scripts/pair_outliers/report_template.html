@@ -1,0 +1,266 @@
+<title>Multi-Delay Pair Exclusion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column of prose, with figures and tables allowed to run wider. */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --ink: #141820;
+  --ink-2: #4a5160;
+  --rule: #c9ced8;
+  --grid: #e3e6ec;
+  --accent: #2a78d6;
+  --accent-soft: #e4eefb;
+  --m-none: #8b919c;
+  --m-zfrac: #eb6834;
+  --m-hybrid: #2a78d6;
+  --m-oracle: #141820;
+  --m-model: #1baf7a;
+  --m-empirical: #b07800;
+  --m-zfrac-loo: #6250d6;
+  --display: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+  --body: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11141a; --surface: #181c24; --ink: #e8ebf1; --ink-2: #a9b0bd; --rule: #3a4150;
+    --grid: #262c37; --accent: #5598e7; --accent-soft: #1b2a40; --m-none: #8b919c;
+    --m-zfrac: #d95926; --m-hybrid: #3987e5; --m-oracle: #e8ebf1; --m-model: #199e70;
+    --m-empirical: #c98500; --m-zfrac-loo: #9085e9; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11141a; --surface: #181c24; --ink: #e8ebf1; --ink-2: #a9b0bd; --rule: #3a4150;
+  --grid: #262c37; --accent: #5598e7; --accent-soft: #1b2a40; --m-none: #8b919c;
+  --m-zfrac: #d95926; --m-hybrid: #3987e5; --m-oracle: #e8ebf1; --m-model: #199e70;
+  --m-empirical: #c98500; --m-zfrac-loo: #9085e9; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--body); }
+main {
+  max-width: 980px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 18px;
+}
+main > p, main > ul, main > ol, main > .callout, main > h2, main > h3 { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.1rem; font-weight: 600; }
+h2 { font-size: 1.45rem; font-weight: 600; margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.1rem; font-weight: 600; margin-top: 8px; }
+p, ul, ol { margin: 0; }
+li + li { margin-top: 4px; }
+.eyebrow { font: 500 0.75rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.lede { font-size: 1.08rem; }
+.callout { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 2px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--grid); padding: 12px 14px; display: grid; gap: 2px; }
+.stat b { font: 600 1.6rem var(--display); font-variant-numeric: tabular-nums; }
+.stat span { color: var(--ink-2); font-size: 0.85rem; }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+.fig-wrap { background: var(--surface); border: 1px solid var(--grid); padding: 12px; overflow-x: auto; }
+svg.fig { width: 100%; height: auto; min-width: 560px; display: block; }
+figcaption { color: var(--ink-2); font-size: 0.88rem; margin-top: 8px; max-width: 80ch; }
+figure { margin: 0; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--grid); }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+th, td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--grid); vertical-align: top; }
+th { font-family: var(--display); font-weight: 600; color: var(--ink-2); background: var(--bg); }
+table.num td:not(:first-child), table.num th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+table.dense td, table.dense th { padding: 4px 7px; }
+td strong { color: var(--accent); }
+.steps { counter-reset: step; list-style: none; padding: 0; display: grid; gap: 10px; }
+.steps li { counter-increment: step; display: grid; grid-template-columns: 2.2em 1fr; gap: 8px; }
+.steps li::before { content: counter(step); font: 600 1rem var(--display); color: var(--accent); }
+.eq { font-family: var(--mono); background: var(--surface); border: 1px solid var(--grid); padding: 8px 12px; overflow-x: auto; white-space: pre; font-size: 0.86rem; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { color: var(--ink-2); font-size: 0.85rem; border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 24px; }
+</style>
+
+<main>
+<div class="eyebrow">ASLPrep · multi-delay ASL · pair exclusion study</div>
+<h1>Multi-Delay Pair Exclusion</h1>
+<p class="lede">Can a kinetic model fit tell which control-label pairs of a multi-delay ASL run are
+corrupted? This study builds a model-based detector for ASLPrep's general kinetic model fit and
+tests it against a model-free per-delay rule, on $n_runs simulated runs with known corruption
+($n_seeds noise realizations per condition) and on real runs with injected artifacts.</p>
+
+<div class="stats">
+  <div class="stat"><b>$hyb_tpr</b><span>of corrupted pairs excluded by the proposed hybrid detector ($zf_tpr for the published per-delay z rule, $zl_tpr for its leave-one-out version)</span></div>
+  <div class="stat"><b>$hyb_fpr</b><span>of clean pairs excluded by the hybrid detector ($zf_fpr and $zl_fpr for the two z rules)</span></div>
+  <div class="stat"><b>$dm_none% → $dm_hybrid%</b><span>mean ΔM error with $n_heavy corrupted pairs in 43 (2D, HCP-Aging-like): no exclusion → hybrid (oracle $dm_oracle%; z rules $dm_zfrac% and $dm_zloo%)</span></div>
+</div>
+
+<h2>The method</h2>
+<p>ASLPrep fits the general kinetic model (CBF, ATT, aBAT, aBV) in every voxel, after averaging
+the pairs that share a delay. A corrupted pair biases that average, and with few pairs per delay
+one bad pair can move CBF and ATT. The detector asks how well each pair is predicted by
+everything else in the run, and flags pairs that are predicted much worse than the rest.</p>
+<ol class="steps">
+  <li><span><strong>Robust first fit.</strong> Fit the model to the voxelwise <em>median</em> of the
+  pairs at each delay, so that a corrupted pair cannot distort the first prediction.</span></li>
+  <li><span><strong>Predict every pair.</strong> The prediction for pair <i>p</i> at delay <i>d</i>
+  is the model's signal, plus a correction toward the other pairs at the same delay:</span></li>
+</ol>
+<div class="eq">pred_p = model_d + w · median_{q ≠ p, q at d}(ΔM_q − model_d),     w = m / (m + κ)</div>
+<p>Here <i>m</i> is the number of other kept pairs at the delay and κ (the shrinkage) is 2.
+With many repeats the prediction leans on the pair's own delay, which absorbs systematic model
+misfit that would otherwise make a whole delay look corrupted. The correction is used only when
+at least three other pairs share the delay (<i>w</i> = 0 otherwise), because the median of one
+or two pairs is not robust: a corrupted neighbor would move it and spread its artifact to the
+clean pairs. With few repeats the prediction is the model's, and so comes from the pairs at the
+other delays. κ = 0 gives a same-delay median predictor and κ = ∞ the model alone; both are
+tested.</p>
+<ol class="steps" start="3" style="counter-reset: step 2">
+  <li><span><strong>Score each pair</strong> by three statistics of its residual over the brain:
+  the mean squared residual standardized by each voxel's robust noise level (<em>energy</em>);
+  the same after Gaussian smoothing (<em>smoothed energy</em>, which favors spatially coherent
+  artifacts such as motion edges and slice dropouts over thermal noise); and the
+  <em>amplitude</em>, the slope of a regression of the residual on the predicted signal plus a
+  constant, which is −1 when a pair has lost all of its perfusion signal (failed labeling) and
+  is not confused by global offsets.</span></li>
+  <li><span><strong>Flag outliers among the pairs</strong> with robust z-scores (median and MAD
+  across all pairs) above 3.5, together with an effect-size floor (energy at least 1.25 times the
+  median; amplitude at least 0.25 from the median), so that near-identical pairs are not split
+  by tiny differences. At least one pair is kept at every delay.</span></li>
+  <li><span><strong>Refit without the flagged pairs and repeat</strong> until the set of flagged
+  pairs stops changing (at most five passes). A pair flagged against a poor early fit can be
+  restored later. The final fit is the ordinary ASLPrep fit on the kept pairs.</span></li>
+</ol>
+<p>The code is <code>aslprep/utils/pair_outliers.py</code>
+(<code>detect_outlier_pairs_multipld</code>), with unit tests in
+<code>aslprep/tests/test_utils_pair_outliers.py</code>. It reuses the model and fitter in
+<code>aslprep/utils/cbf.py</code> and is not yet wired into the workflow.</p>
+
+<h2>Prior work</h2>
+<p>A literature search found no published method that rejects multi-delay ASL pairs by their
+residuals from a kinetic-model fit. Existing ASL rejection methods either work on single-delay
+CBF time series or compare the repeats of one delay without a model.
+The closest templates are in diffusion MRI, where RESTORE and FSL eddy's outlier replacement
+predict each measurement from a model and reject large standardized residuals.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Method</th><th>Unit rejected</th><th>Delays</th><th>Model-based?</th><th>Rule</th></tr></thead>
+<tbody>
+<tr><td>Tan et al., JMRI 2009 (<a href="https://doi.org/10.1002/jmri.21721">doi</a>)</td><td>volume</td><td>single</td><td>no</td><td>global mean or SD &gt; 2.5 / 1.5 SD from the run</td></tr>
+<tr><td>Wang et al., AOC, NeuroImage Clin 2013 (<a href="https://doi.org/10.1016/j.nicl.2013.04.014">doi</a>)</td><td>volume</td><td>single</td><td>no</td><td>iterative removal of volumes least correlated with the mean</td></tr>
+<tr><td>Maumet et al., MRI 2014 (<a href="https://doi.org/10.1016/j.mri.2014.01.016">doi</a>)</td><td>none (down-weights)</td><td>single</td><td>location only</td><td>Huber M-estimation across repeats</td></tr>
+<tr><td>SCORE, Dolui et al., JMRI 2017 (<a href="https://doi.org/10.1002/jmri.25436">doi</a>)</td><td>pair</td><td>single</td><td>no</td><td>greedy removal while pooled tissue variance falls</td></tr>
+<tr><td>SCRUB, Dolui et al., ISMRM 2016 (<a href="https://archive.ismrm.org/2016/2880.html">abstract</a>)</td><td>none (robust Bayes)</td><td>single</td><td>empirical prior</td><td>robust Bayesian estimate per voxel after SCORE</td></tr>
+<tr><td>ENABLE, Shirzadi et al., JMRI 2018 (<a href="https://doi.org/10.1002/jmri.25807">doi</a>)</td><td>repeat, per delay</td><td>multi</td><td>no</td><td>keeps the subset of repeats that maximizes a CNR / tSNR score</td></tr>
+<tr><td>BASIL / oxford_asl (FSL)</td><td>none</td><td>multi</td><td>yes</td><td>variational Bayes with spatial priors; white or AR noise only, no outlier model or rejection</td></tr>
+<tr><td>RESTORE, Chang et al., MRM 2005 (<a href="https://doi.org/10.1002/mrm.20426">doi</a>), dMRI</td><td>measurement per voxel</td><td>–</td><td>yes</td><td>robust fit, then reject |residual| &gt; 3 robust SD and refit</td></tr>
+<tr><td>eddy outlier replacement, Andersson et al., NeuroImage 2016 (<a href="https://doi.org/10.1016/j.neuroimage.2016.06.058">doi</a>), dMRI</td><td>slice or multiband group</td><td>–</td><td>yes (Gaussian process)</td><td>mean standardized residual &gt; 4 SD, per shell</td></tr>
+</tbody></table></div>
+<p>This design departs from BASIL's Bayesian treatment. BASIL would handle a corrupted pair, if
+at all, through its noise model, and it has no heavy-tailed or mixture noise option. Rejection is
+explicit and auditable instead: each run's excluded pairs can be listed with their scores
+(as PennLINC/aslprep#683 proposes), and the final fit is unchanged ASLPrep code on the kept
+pairs. A robust likelihood inside a Bayesian fit is a reasonable alternative that this study does
+not test. The model-free comparator below is the per-delay rule that a parallel study
+(<code>asl-outlier-eval</code>) attributes to Harteveld et al. (MAGMA 2022): within each delay
+with at least three pairs, reject a pair if more than 20% of brain voxels lie more than 1.5 SD
+from that voxel's mean over the delay's repeats. I could not confirm that citation. With
+<i>n</i> repeats, no value can lie more than (<i>n</i> − 1)/√<i>n</i> standard deviations
+from the mean of the <i>n</i>, which is exactly 1.5 for four repeats. So this rule can never
+reject a pair at a delay with four or fewer repeats, and it needs about six to reject reliably.
+A fairer model-free baseline compares each pair with the mean and SD of the <em>other</em>
+pairs at its delay. With two or three other pairs that ratio has very heavy tails (a t
+distribution), so the 1.5 SD threshold would reject almost every clean pair. The leave-one-out
+version tested here therefore uses the t quantile that clean voxels exceed as often as they
+exceed 1.5 SD in a large sample (13.4%), with the same 20% rule. It was added after an
+independent code review pointed out that the published rule cannot act on these protocols.</p>
+
+<h2>Simulation</h2>
+<p>Each simulated run uses the MNI152NLin2009cAsym tissue maps at 4 mm, with smooth spatial
+variation in CBF (GM median about 53 mL/100 g/min in the noise-free fit), ATT (longer in white
+matter and toward the back of the brain) and sparse macrovascular signal. The signal model is
+richer than the one ASLPrep fits, so clean pairs carry realistic model misfit: the bolus is
+dispersed (gamma kernel), label in tissue relaxes with tissue T1, and every image carries
+physiological noise proportional to its static signal (a global scale and a smooth field) on
+top of slightly smoothed thermal noise. Without dispersion and with tissue T1 equal to blood T1,
+the simulator matches ASLPrep's model to within 0.14%.</p>
+<p>Four protocols span the range of repeats per delay: an HCP-Aging-like 2D protocol without
+background suppression (43 pairs; slice timing included), and 3D background-suppressed protocols
+with four, two and one pair per delay. Corrupted pairs get one of four artifacts with random
+severity: residual motion of the label image (0.3–1.5 mm and degrees), an intensity change in a
+slab of slices (2D) or the whole image (3D), partial labeling failure (30–100% of the signal lost),
+or 2–5 times the thermal noise. Errors are measured against fits to the noise-free signal, so
+the model's misfit to the simulated physics is not counted.</p>
+
+<h3>Detection</h3>
+<figure><div class="fig-wrap">$fig_detection</div>
+<figcaption>Share of corrupted pairs that each method excluded, by artifact type and protocol.
+The per-delay z rule cannot act on delays with fewer than three pairs.</figcaption></figure>
+$det_table
+<p>Pooled over every protocol ($n_kind corrupted pairs). <em>Clean runs losing a pair</em> is the
+share of runs without any corruption in which a method excluded at least one pair.</p>
+
+<h3>False exclusions</h3>
+$fpr_table
+<figure><div class="fig-wrap">$fig_threshold</div>
+<figcaption>How the share of pairs flagged would change with the z threshold (dotted line: the
+default, 3.5), from each pair's largest score in the last scoring pass. This is approximate,
+because a different threshold would also change the fit the pairs are scored against, and it
+ignores the effect-size floors and the rule that keeps one pair per delay. Excludes the protocol
+with one pair per delay, where nothing can be excluded.</figcaption></figure>
+<p>Every excluded clean pair costs a little SNR. In the HCP-Aging-like protocol without
+corruption, the mean ΔM error went from $dm_clean_none% (all pairs) to $dm_clean_hybrid%
+with the hybrid detector.</p>
+
+<h3>Effect on ΔM and on the fits</h3>
+<figure><div class="fig-wrap">$fig_dm</div>
+<figcaption>RMS error of the mean ΔM at each delay, over the brain, as a percentage of the mean
+grey-matter signal, against the noise-free signal. Averages over noise realizations.</figcaption></figure>
+<figure><div class="fig-wrap">$fig_cbf</div>
+<figcaption>RMS error of CBF fit to the grey-matter mean of 12 mm cubic parcels, against the same
+fit to noise-free data.</figcaption></figure>
+$outcome_table
+<p>Means over noise realizations. Bold marks the best of no exclusion, the per-delay z rule and
+the hybrid detector. The oracle excludes exactly the corrupted pairs.</p>
+
+<h3>What drives detection</h3>
+<figure><div class="fig-wrap">$fig_severity</div>
+<figcaption>Detection by severity, in the two protocols where the per-delay z rule can act
+(four or more pairs per delay).</figcaption></figure>
+<figure><div class="fig-wrap">$fig_scores</div>
+<figcaption>The scores of every pair in one simulated HCP-Aging-like run with corruption in
+$example_desc.</figcaption></figure>
+<h3>Ablations</h3>
+$abl_table
+<p>Pooled over every run with at least one corrupted pair, except the clean-pair column, which
+pools every run. $amp_note</p>
+
+<h3>A change made after the first run</h3>
+<p>In the first full simulation, the same-delay correction was applied whenever at least one other
+pair shared the delay. With two pairs per delay, that made the hybrid detector worse than the
+model alone: each pair was predicted partly from its only neighbor, so a corrupted pair raised its
+clean neighbor's residual. The rule above (at least three other pairs) follows from the
+robustness of the median, but it was chosen after seeing those results, so it is reported here.
+Every number on this page is from the second run with the revised rule, except the first-run
+rows below, for the protocols the change affects.</p>
+$version_table
+<p>$version_note</p>
+
+$real_section
+
+<h2>Single-delay data</h2>
+<p>The kinetic model has nothing to contribute with one delay. ATT cannot be identified, and the
+best fit is a scaled average of the pairs, so the model's prediction reduces to the run's mean
+(or, with the robust start, median) ΔM. That is the same-delay median predictor (κ = 0) above.
+The scoring still applies: noise-standardized residual energy, the smoothed energy for
+spatially coherent artifacts, the amplitude test for labeling failures, and robust z-scores
+across pairs with refitting. Applied to single-delay data, this is a leave-one-out,
+median-referenced pair detector in the family of Tan et al.'s z-score rule and SCORE. In these
+simulations the same-delay median variant caught $empirical_tpr of corrupted pairs, against
+$hyb_tpr for the hybrid, and single-delay runs usually have far more repeats than one delay of
+a multi-delay run, which helps it. Whether it beats SCORE and SCRUB, which ASLPrep already has, is
+untested here. The parallel <code>asl-outlier-eval</code> study already benchmarks single-delay
+rejection on real runs, and these scores would fit there as one more method.</p>
+
+$conclusions
+
+</main>
