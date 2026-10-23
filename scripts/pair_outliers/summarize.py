@@ -40,7 +40,7 @@ def load(directory):
 def exclusion_rates(results, methods):
     """Per method: share of clean pairs excluded, and share of corrupted pairs excluded.
 
-    Returns ``{method: {'fpr': ..., 'tpr': ..., 'n_clean': ..., 'n_bad': ...}}``.
+    Returns ``{method: {'clean_excl': ..., 'detect': ..., 'n_clean': ..., 'n_bad': ...}}``.
     """
     out = {}
     for method in methods:
@@ -53,8 +53,8 @@ def exclusion_rates(results, methods):
             n_clean += int((~bad).sum())
             n_bad += int(bad.sum())
         out[method] = {
-            'fpr': fp / max(n_clean, 1),
-            'tpr': tp / max(n_bad, 1) if n_bad else np.nan,
+            'clean_excl': fp / max(n_clean, 1),
+            'detect': tp / max(n_bad, 1) if n_bad else np.nan,
             'n_clean': n_clean,
             'n_bad': n_bad,
         }

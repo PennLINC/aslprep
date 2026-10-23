@@ -167,10 +167,10 @@ def fig_threshold(sim):
     runs = [r for r in sim if r['design'] != 'rep1']
     fig, axes = P.figure(width=7.2, height=2.5, ncols=2)
     for method in ('model', 'hybrid'):
-        fpr, tpr = S.threshold_tradeoff(runs, method, THRESHOLDS)
-        axes[0].plot(THRESHOLDS, fpr, color=P.METHOD_COLOR[method], linewidth=1.6,
+        clean_excl, detect = S.threshold_tradeoff(runs, method, THRESHOLDS)
+        axes[0].plot(THRESHOLDS, clean_excl, color=P.METHOD_COLOR[method], linewidth=1.6,
                      label=S.METHOD_LABELS[method])  # fmt: skip
-        axes[1].plot(THRESHOLDS, tpr, color=P.METHOD_COLOR[method], linewidth=1.6,
+        axes[1].plot(THRESHOLDS, detect, color=P.METHOD_COLOR[method], linewidth=1.6,
                      label=S.METHOD_LABELS[method])  # fmt: skip
     for ax, title in zip(axes, ('Clean pairs above threshold', 'Corrupted pairs above threshold'),
                          strict=True):  # fmt: skip
@@ -312,18 +312,18 @@ treated as a QC score rather than an exclusion rule.</li>
 <ul>
 <li>Model-based pair exclusion works for multi-delay ASL when each delay has several repeats.
 With four or more pairs per delay, the hybrid detector excluded
-{pct(design_rates['rep4']['hybrid']['tpr'])} (3D, four per delay) and
-{pct(design_rates['hcpa']['hybrid']['tpr'])} (2D, HCP-Aging-like) of corrupted pairs, and its
+{pct(design_rates['rep4']['hybrid']['detect'])} (3D, four per delay) and
+{pct(design_rates['hcpa']['hybrid']['detect'])} (2D, HCP-Aging-like) of corrupted pairs, and its
 ΔM and kinetic fits came close to those of the oracle that knows which pairs are corrupted.</li>
 <li>It finds more corrupted pairs than either model-free per-delay rule
-({pct(rates['hybrid']['tpr'])} overall, against {pct(rates['zfrac']['tpr'])} and
-{pct(rates['zfrac_loo']['tpr'])}). The kinetic model helps most where a delay has few pairs to
+({pct(rates['hybrid']['detect'])} overall, against {pct(rates['zfrac']['detect'])} and
+{pct(rates['zfrac_loo']['detect'])}). The kinetic model helps most where a delay has few pairs to
 compare: the published per-delay rule cannot act at all with four or fewer repeats.</li>
-<li>With two pairs per delay it still finds {pct(design_rates['rep2']['hybrid']['tpr'])} of
+<li>With two pairs per delay it still finds {pct(design_rates['rep2']['hybrid']['detect'])} of
 corrupted pairs, but only by leaning on the model, because two pairs cannot outvote each other.
 With one pair per delay nothing can be excluded without losing a delay, so the method only
 scores the pairs.</li>
-<li>The cost is a small rate of false exclusions: {pct(rates['hybrid']['fpr'], 1)} of clean pairs
+<li>The cost is a small rate of false exclusions: {pct(rates['hybrid']['clean_excl'], 1)} of clean pairs
 overall. In runs without corruption this raised the mean ΔM error by
 {num(clean_cost['hcpa'], 1)}% (2D) and {num(clean_cost['rep4'], 1)}% (3D, four per delay)
 relative to keeping every pair.</li>
@@ -391,7 +391,11 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
     det_rows = [
         [S.METHOD_LABELS[method]]
         + [pct(det[method][k][0]) for k in KINDS]
-        + [pct(rates[method]['tpr']), pct(rates[method]['fpr'], 1), pct(clean_runs[method])]
+        + [
+            pct(rates[method]['detect']),
+            pct(rates[method]['clean_excl'], 1),
+            pct(clean_runs[method]),
+        ]
         for method in all_methods[1:-1]
     ]
     det_table = table_html(
@@ -402,16 +406,16 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
     n_kind = {k: det['hybrid'][k][1] for k in KINDS}
 
     # False exclusions by design
-    fpr_methods = ('zfrac', 'zfrac_loo', 'empirical', 'model', 'hybrid')
-    fpr_rows = [
+    clean_excl_methods = ('zfrac', 'zfrac_loo', 'empirical', 'model', 'hybrid')
+    clean_excl_rows = [
         [DESIGN_LABELS[design]]
-        + [pct(by_design[design][m]['fpr'], 1) for m in fpr_methods]
-        + [pct(by_design[design][m]['tpr']) for m in ('zfrac_loo', 'hybrid')]
+        + [pct(by_design[design][m]['clean_excl'], 1) for m in clean_excl_methods]
+        + [pct(by_design[design][m]['detect']) for m in ('zfrac_loo', 'hybrid')]
         for design in DESIGN_ORDER
     ]
-    fpr_table = table_html(
+    clean_excl_table = table_html(
         ['Design', 'Per-delay z', 'Per-delay z (LOO)', 'Same-delay median', 'Model only',
-         'Hybrid', 'Detection: z (LOO)', 'Detection: hybrid'], fpr_rows, 'num')  # fmt: skip
+         'Hybrid', 'Detection: z (LOO)', 'Detection: hybrid'], clean_excl_rows, 'num')  # fmt: skip
 
     # Outcome tables
     out_methods = ['none', 'zfrac', 'zfrac_loo', 'hybrid', 'oracle']
@@ -445,8 +449,8 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
     for method in ('empirical', 'model', 'hybrid_raw', 'hybrid_noamp', 'hybrid'):
         dm = np.mean([r['metrics'][method]['dm_rmse_pct'] for r in contaminated])
         cbf = np.mean([r['metrics'][method]['region_cbf_rmse'] for r in contaminated])
-        abl_rows.append([S.METHOD_LABELS[method], pct(rates[method]['tpr']),
-                         pct(rates[method]['fpr'], 1), num(dm, 1), num(cbf, 1)])  # fmt: skip
+        abl_rows.append([S.METHOD_LABELS[method], pct(rates[method]['detect']),
+                         pct(rates[method]['clean_excl'], 1), num(dm, 1), num(cbf, 1)])  # fmt: skip
     abl_table = table_html(
         ['Variant', 'Detection', 'Clean pairs excluded', 'ΔM error %', 'Regional CBF RMSE'],
         abl_rows,
@@ -459,8 +463,8 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
         f'({pct(det["hybrid"]["labeling"][0])} with it, '
         f'{pct(det["hybrid_noamp"]["labeling"][0])} without), but it also causes most of the '
         f'false exclusions in the 3D protocol with four pairs per delay '
-        f'({pct(by_design["rep4"]["hybrid"]["fpr"], 1)} of clean pairs with it, '
-        f'{pct(by_design["rep4"]["hybrid_noamp"]["fpr"], 1)} without). Smoothed energy is '
+        f'({pct(by_design["rep4"]["hybrid"]["clean_excl"], 1)} of clean pairs with it, '
+        f'{pct(by_design["rep4"]["hybrid_noamp"]["clean_excl"], 1)} without). Smoothed energy is '
         f'what catches intensity changes ({pct(det["hybrid"]["intensity"][0])} with it, '
         f'{pct(det["hybrid_raw"]["intensity"][0])} without).'
     )
@@ -484,12 +488,12 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
             rate = S.exclusion_rates(runs, ['hybrid'])['hybrid']
             bad_runs = [r for r in runs if r['n_bad'] > 0]
             version_stats[(design, label)] = (
-                rate['tpr'],
-                rate['fpr'],
+                rate['detect'],
+                rate['clean_excl'],
                 np.mean([r['metrics']['hybrid']['region_cbf_rmse'] for r in bad_runs]),
             )
             version_rows.append([
-                DESIGN_LABELS[design], label, pct(rate['tpr']), pct(rate['fpr'], 1),
+                DESIGN_LABELS[design], label, pct(rate['detect']), pct(rate['clean_excl'], 1),
                 num(np.mean([r['metrics']['hybrid']['dm_rmse_pct'] for r in bad_runs]), 1),
                 num(np.mean([r['metrics']['none']['dm_rmse_pct'] for r in bad_runs]), 1),
                 num(np.mean([r['metrics']['hybrid']['region_cbf_rmse'] for r in bad_runs]), 1),
@@ -513,8 +517,8 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
             f'{change("rep4", 2, num)}). With four pairs per delay, once one pair at a delay is '
             'excluded only two others remain, so the correction switches off and those pairs '
             'are predicted from the model alone. Requiring two other pairs instead of three '
-            'would probably keep the first run\'s behaviour with four pairs per delay and this '
-            'run\'s with two, but choosing it from these same simulations would be a third '
+            "would probably keep the first run's behaviour with four pairs per delay and this "
+            "run's with two, but choosing it from these same simulations would be a third "
             'change tuned on them. It should be checked on independent data before it is '
             'adopted.'
         )
@@ -526,12 +530,12 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
     page = TEMPLATE.substitute(
         n_runs=n_runs,
         n_seeds=n_seeds,
-        hyb_tpr=pct(hyb['tpr']),
-        zf_tpr=pct(zf['tpr']),
-        zl_tpr=pct(zl['tpr']),
-        hyb_fpr=pct(hyb['fpr'], 1),
-        zf_fpr=pct(zf['fpr'], 1),
-        zl_fpr=pct(zl['fpr'], 1),
+        hyb_detect=pct(hyb['detect']),
+        zf_detect=pct(zf['detect']),
+        zl_detect=pct(zl['detect']),
+        hyb_clean_excl=pct(hyb['clean_excl'], 1),
+        zf_clean_excl=pct(zf['clean_excl'], 1),
+        zl_clean_excl=pct(zl['clean_excl'], 1),
         dm_none=num(dm_heavy['none'], 0),
         dm_zfrac=num(dm_heavy['zfrac'], 0),
         dm_zloo=num(dm_heavy['zfrac_loo'], 0),
@@ -542,7 +546,7 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
         n_heavy=heavy[0]['n_bad'],
         n_kind=', '.join(f'{n_kind[k]} {k}' for k in KINDS),
         det_table=det_table,
-        fpr_table=fpr_table,
+        clean_excl_table=clean_excl_table,
         outcome_table=outcome_table,
         abl_table=abl_table,
         fig_detection=fig_detection(sim),
@@ -562,7 +566,7 @@ def build(sim, real, out, sim_v1=(), prep_dir=None):
         version_table=version_table,
         version_note=version_note,
         amp_note=amp_note,
-        empirical_tpr=pct(rates['empirical']['tpr']),
+        empirical_detect=pct(rates['empirical']['detect']),
         conclusions=conclusions(sim, real, rates),
     )
     Path(out).write_text(page, encoding='utf-8')

@@ -90,8 +90,8 @@ tests it against a model-free per-delay rule, on $n_runs simulated runs with kno
 ($n_seeds noise realizations per condition) and on real runs with injected artifacts.</p>
 
 <div class="stats">
-  <div class="stat"><b>$hyb_tpr</b><span>of corrupted pairs excluded by the proposed hybrid detector ($zf_tpr for the published per-delay z rule, $zl_tpr for its leave-one-out version)</span></div>
-  <div class="stat"><b>$hyb_fpr</b><span>of clean pairs excluded by the hybrid detector ($zf_fpr and $zl_fpr for the two z rules)</span></div>
+  <div class="stat"><b>$hyb_detect</b><span>of corrupted pairs excluded by the proposed hybrid detector ($zf_detect for the published per-delay z rule, $zl_detect for its leave-one-out version)</span></div>
+  <div class="stat"><b>$hyb_clean_excl</b><span>of clean pairs excluded by the hybrid detector ($zf_clean_excl and $zl_clean_excl for the two z rules)</span></div>
   <div class="stat"><b>$dm_none% → $dm_hybrid%</b><span>mean ΔM error with $n_heavy corrupted pairs in 43 (2D, HCP-Aging-like): no exclusion → hybrid (oracle $dm_oracle%; z rules $dm_zfrac% and $dm_zloo%)</span></div>
 </div>
 
@@ -200,7 +200,7 @@ $det_table
 share of runs without any corruption in which a method excluded at least one pair.</p>
 
 <h3>False exclusions</h3>
-$fpr_table
+$clean_excl_table
 <figure><div class="fig-wrap">$fig_threshold</div>
 <figcaption>How the share of pairs flagged would change with the z threshold (dotted line: the
 default, 3.5), from each pair's largest score in the last scoring pass. This is approximate,
@@ -255,8 +255,8 @@ The scoring still applies: noise-standardized residual energy, the smoothed ener
 spatially coherent artifacts, the amplitude test for labeling failures, and robust z-scores
 across pairs with refitting. Applied to single-delay data, this is a leave-one-out,
 median-referenced pair detector in the family of Tan et al.'s z-score rule and SCORE. In these
-simulations the same-delay median variant caught $empirical_tpr of corrupted pairs, against
-$hyb_tpr for the hybrid, and single-delay runs usually have far more repeats than one delay of
+simulations the same-delay median variant caught $empirical_detect of corrupted pairs, against
+$hyb_detect for the hybrid, and single-delay runs usually have far more repeats than one delay of
 a multi-delay run, which helps it. Whether it beats SCORE and SCRUB, which ASLPrep already has, is
 untested here. The parallel <code>asl-outlier-eval</code> study already benchmarks single-delay
 rejection on real runs, and these scores would fit there as one more method.</p>
