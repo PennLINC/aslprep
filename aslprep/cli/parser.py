@@ -513,15 +513,20 @@ any spatial references.""",
         '--hmc-method',
         '--hmc_method',
         action='store',
-        default='typewise',
-        choices=['typewise', 'typewise_offset'],
+        default='typewise_offset',
+        choices=['typewise', 'typewise_offset', 'typewise_volreg'],
         help=(
-            'Head-motion correction method. "typewise" (default) registers each volume type '
-            'separately to the reference with MCFLIRT. "typewise_offset" (experimental) does the '
-            'same, then removes the systematic offset between the corrected label and control '
-            'volumes: for each post-labeling delay, the mean corrected label image is registered '
-            'rigidly to the mean corrected control image, and the correction is composed into '
-            "the label volumes' transforms."
+            'Head-motion correction method. "typewise" registers each volume type separately to '
+            'the reference with MCFLIRT. "typewise_offset" (default) does the same, then removes '
+            'the systematic offset between the corrected label and control volumes: for each '
+            'post-labeling delay of at least 1 s (inversion time of at least 0.8 s for PASL), '
+            'the mean corrected label image is registered rigidly to the mean corrected control '
+            "image, and the correction is composed into the label volumes' transforms; labels "
+            'at shorter delays, which may still hold arterial signal, are not corrected. '
+            '"typewise_volreg" (experimental) registers each volume type with AFNI '
+            "3dvolreg to the type's own mean, which FLIRT aligns to the reference, and then "
+            'removes the label offset as "typewise_offset" does; it is not suited to '
+            'multi-delay PCASL with background suppression.'
         ),
     )
     g_conf.add_argument(
