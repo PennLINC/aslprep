@@ -336,8 +336,14 @@ differences between the types are not read as motion:
    cutoff: each type is aligned to the reference separately, and without the correction the
    types' alignments leave a larger offset than ``typewise`` does.
    On most simulated data with known motion it leaves smaller label-control offsets and pose
-   errors than ``typewise_offset``; it is not yet validated as widely, on multi-delay or on real
-   data.
+   errors than ``typewise_offset``, and on PASL multi-delay data it matches it;
+   it is not yet validated as widely on real data.
+   It is not suited to multi-delay PCASL with background suppression:
+   background suppression changes the images' intensity from one delay to the next, which
+   least squares (unlike MCFLIRT's mutual information) reads partly as motion.
+   On simulated data of that kind it was worse than both ``typewise`` and ``typewise_offset``,
+   and with motion it could leave large label-control offsets at the delays below the cutoff,
+   whose labels are not corrected.
    The motion parameters it writes are decomposed from the transforms,
    so they differ slightly in convention from MCFLIRT's.
 

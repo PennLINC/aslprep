@@ -525,7 +525,8 @@ any spatial references.""",
             'at shorter delays, which may still hold arterial signal, are not corrected. '
             '"typewise_volreg" (experimental) registers each volume type with AFNI '
             "3dvolreg to the type's own mean, which FLIRT aligns to the reference, and then "
-            'removes the label offset as "typewise_offset" does.'
+            'removes the label offset as "typewise_offset" does; it is not suited to '
+            'multi-delay PCASL with background suppression.'
         ),
     )
     g_conf.add_argument(
