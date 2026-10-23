@@ -1835,9 +1835,15 @@ def real_volreg(root):
     if not f.exists():
         return ''
     d = pd.read_csv(f, sep='\t')
+    pr = root / 'harness-runs' / 'real_vr767.tsv'
+    if pr.exists():
+        e = pd.read_csv(pr, sep='\t')
+        d = pd.concat([d, e[e.label == 'c0-767vr-off']])
     c0 = d[d.label == 'c0'].set_index(['dataset', 'run'])
     names = {'c9-auto': 'typewise_offset', 'c9-fb-ctl': '3dvolreg to control mean + fallback + offset',
-             'c9-t-vr': '#767 design, 3dvolreg + offset'}  # fmt:skip
+             'c9-t-vr': '#767 design, 3dvolreg + offset (probe reimplementation)',
+             'c0-767vr-off': "#767's code, 3dvolreg + its typewise_offset"}  # fmt:skip
+    names = {k: v for k, v in names.items() if k in set(d.label)}
     rows = []
     for lab, name in names.items():
         j = d[d.label == lab].set_index(['dataset', 'run']).join(
@@ -1871,7 +1877,13 @@ disagree by more than 1 mm on {int((dev > 1).sum())} of {len(dev)} runs (median
 {fmt(np.median(dev), 1)} mm; {int((dev > 5).sum())} runs over 5 mm, mostly spirals at about
 20 mm and 3D GRASE). Some of those are 3dvolreg diverging, as on the simulated spiral; others are
 production failing (ds007116, where production's own framewise displacement reaches 15 mm), and
-falling back then restores the failure. A rule that trusts MCFLIRT cannot tell the two apart.</p>"""
+falling back then restores the failure. A rule that trusts MCFLIRT cannot tell the two apart.</p>
+<p>#767's own code with its two MCFLIRT steps replaced by 3dvolreg reproduces the probe's
+reimplementation exactly on all fifteen simulated fixtures (edge error within 0.0001), and its
+own <code>typewise_offset</code> matches the probe's offset step. On real data the two agree on
+the verdict; the energy ratio differs by more than 0.01 on 19 of 259 runs, in both directions
+(eleven of them one 7 T dataset): small input differences move the cross-contrast FLIRT step by
+a few hundredths of a millimetre, as on the simulations.</p>"""
 
 
 def deltam_reference(root, df):
