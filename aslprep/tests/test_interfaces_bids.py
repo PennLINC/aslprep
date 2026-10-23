@@ -13,8 +13,6 @@ from niworkflows.utils.images import unsafe_write_nifti_header_and_data as zlib_
 
 from aslprep.interfaces import bids
 
-needs_isal = pytest.mark.skipif(bids.IGzipFile is None, reason='isal is not installed')
-
 
 def _image(shape=(6, 5, 4, 3), dtype='float32'):
     rng = np.random.default_rng(0)
@@ -22,13 +20,11 @@ def _image(shape=(6, 5, 4, 3), dtype='float32'):
     return nb.Nifti1Image(data, np.diag([1.8, 1.8, 1.8, 1.0]))
 
 
-@needs_isal
 def test_niworkflows_sinks_write_with_isal():
     """Test that importing ASLPrep's sinks routes niworkflows' writer to ISA-L."""
     assert niworkflows_bids.unsafe_write_nifti_header_and_data is bids.write_nifti_isal
 
 
-@needs_isal
 @pytest.mark.parametrize('dtype', ['float32', 'float64', 'int16'])
 def test_isal_writer_matches_the_zlib_writer(tmp_path, dtype):
     """Test that the ISA-L file decompresses to exactly the bytes niworkflows writes."""
@@ -44,7 +40,6 @@ def test_isal_writer_matches_the_zlib_writer(tmp_path, dtype):
     assert np.array_equal(np.asanyarray(out.dataobj), data)
 
 
-@needs_isal
 def test_isal_writer_is_deterministic(tmp_path):
     """Test that two writes of one image are byte-identical (no name or time in the header)."""
     img = _image()
@@ -54,7 +49,6 @@ def test_isal_writer_is_deterministic(tmp_path):
     assert (tmp_path / 'a.nii.gz').read_bytes() == (tmp_path / 'b.nii.gz').read_bytes()
 
 
-@needs_isal
 def test_isal_writer_leaves_uncompressed_files_uncompressed(tmp_path):
     """Test that a .nii file is written uncompressed."""
     img = _image()

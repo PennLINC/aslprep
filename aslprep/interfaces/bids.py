@@ -8,6 +8,7 @@ import filelock
 import nibabel as nb
 import numpy as np
 from bids.layout import Config
+from isal.igzip import IGzipFile
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -26,11 +27,6 @@ from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDa
 from aslprep import config
 from aslprep.data import load as load_data
 from aslprep.utils.bids import _get_bidsuris, get_entity
-
-try:
-    from isal.igzip import IGzipFile
-except ImportError:  # pragma: no cover
-    IGzipFile = None
 
 
 def write_nifti_isal(fname, header, data):
@@ -56,8 +52,7 @@ def write_nifti_isal(fname, header, data):
 
 # niworkflows' DerivativesDataSink looks this writer up in its own module's namespace,
 # so replacing it there covers every ASLPrep sink, all of which subclass it.
-if IGzipFile is not None:
-    niworkflows_bids.unsafe_write_nifti_header_and_data = write_nifti_isal
+niworkflows_bids.unsafe_write_nifti_header_and_data = write_nifti_isal
 
 # NOTE: Modified for aslprep's purposes
 aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())
