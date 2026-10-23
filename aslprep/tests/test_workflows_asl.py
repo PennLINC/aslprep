@@ -366,11 +366,12 @@ def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
             for src_field, dst_field in data['connect']
         }
         basil_inputs = {
-            dst_field
-            for _, dst, data in wf._graph.edges(data=True)
+            dst_field: src.name
+            for src, dst, data in wf._graph.edges(data=True)
             if dst.name == 'basilcbf'
             for _, dst_field in data['connect']
         }
+        has_pv_maps = wf.get_node('asl_pv_wf') is not None
 
     assert basilcbf.inputs.pvc is (not sloppy)
     assert ('--pvcorr' in basilcbf.interface._parse_inputs(skip=['deltam', 'mask'])) is (
@@ -381,12 +382,14 @@ def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
         # The corrected maps are stand-ins, so the rest of the workflow still runs.
         assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_basil')
         assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_basil')
-        assert not {'gm_tpm', 'wm_tpm'} & basil_inputs
+        assert not {'gm_tpm', 'wm_tpm'} & set(basil_inputs)
+        assert not has_pv_maps
         assert 'Partial volume correction was skipped' in wf.__desc__
     else:
         assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_gm_basil')
         assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_wm_basil')
-        assert {'gm_tpm', 'wm_tpm'} <= basil_inputs
+        # The voxel-averaged PV maps, not the point-sampled TPMs (gh-740)
+        assert basil_inputs['gm_tpm'] == basil_inputs['wm_tpm'] == 'asl_pv_wf'
         assert 'partial-volume corrected CBF image' in wf.__desc__
 
 

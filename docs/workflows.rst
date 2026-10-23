@@ -943,6 +943,10 @@ it is the labeling duration for (P)CASL data,
 and the bolus cut-off delay time (TI1) for PASL data with a bolus cut-off.
 Without this flag, ``oxford_asl`` would estimate the bolus duration for multi-delay PASL data.
 
+For partial volume correction, BASIL is given the gray and white matter fractions of each ASL
+voxel, built by :py:func:`~aslprep.workflows.asl.pv.init_asl_pv_wf` (described below), which
+local-regression PVC also uses.
+
 A sample of BASIL CBF with spatial regularization is shown below:
 
 .. figure:: _static/sub-20589_ses-11245_task-rest_desc-basilplot_asl.svg

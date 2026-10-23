@@ -822,11 +822,12 @@ def init_ds_pvc_native_wf(
     model_metadata: dict | None = None,
     name: str = 'ds_pvc_native_wf',
 ) -> pe.Workflow:
-    """Write out local-regression partial volume correction outputs in aslref space.
+    """Write out the partial volume maps and local-regression PVC outputs in aslref space.
 
     The corrected maps, their standard errors (single-delay data), the fit diagnostics and the
     PV maps are always written in aslref space, because the standard errors, diagnostics and
-    PV maps only exist there.
+    PV maps only exist there. With no ``sources``, only the PV maps are written: those BASIL
+    used, when local-regression PVC is off.
 
     Parameters
     ----------
@@ -835,7 +836,8 @@ def init_ds_pvc_native_wf(
     output_dir : str
         The output directory.
     sources : list of str
-        The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
+        The CBF maps that local regression corrected: ``mean_cbf``, and ``mean_cbf_score`` with
+        SCORE. Empty without local-regression PVC.
     multi_delay : bool
         Whether the data have several delays, which changes the outputs (spec Section 5.7.5).
     model_metadata : dict or None
