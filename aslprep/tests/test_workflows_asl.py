@@ -313,6 +313,7 @@ def test_init_cbf_wf_basil_slice_timing(tmp_path, slice_timing, expected, slice_
 
     if expected == 'tiimg':
         assert basil_sources['tiimg'] == ('make_tiimg', 'out_file')
+        assert not wf.get_node('make_tiimg').run_without_submitting
         assert 'tis' not in basil_sources
         assert not isdefined(basilcbf.inputs.slice_spacing)
         assert 'inflow time of each voxel' in wf.__desc__
@@ -1109,3 +1110,58 @@ def test_calibration_summary(tmp_path):
     assert '<td>BloodT1</td><td>1.65 s</td><td>default</td>' in report
     assert '<td>TissueT1</td><td>1.607 s</td>' in report
     assert 'One background suppression pulse is assumed' in report
+
+
+def test_init_asl_wf_expensive_nodes_run_in_workers():
+    """Expensive nodes are submitted to workers, and small sinks stay on the main thread.
+
+    A node with run_without_submitting=True runs in nipype's main process, which dispatches no
+    other node until it returns. BASIL takes minutes, and compressing a 4D series takes seconds,
+    so either one there stalls the whole run.
+    """
+    reset_config()
+    with mock_config():
+        config.workflow.level = 'full'
+        config.workflow.cifti_output = False
+        config.workflow.basil = True
+        config.workflow.scorescrub = True
+        config.workflow.output_timeseries = True
+        config.workflow.force = ['no-ge']
+        config.execution.output_spaces = 'asl T1w MNI152NLin2009cAsym'
+        config.init_spaces()
+        from aslprep.workflows.asl.base import init_asl_wf
+
+        asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
+        wf = init_asl_wf(asl_file=str(asl_file))
+
+    def main_thread(path):
+        return wf.get_node(path).run_without_submitting
+
+    in_workers = [
+        'cbf_wf.extract_deltam',
+        'cbf_wf.compute_cbf',
+        'cbf_wf.basilcbf',
+        'cbf_wf.score_and_scrub_cbf',
+        'cbf_confounds_wf.compute_qc_metrics',
+        'ds_asl_native_wf.ds_asl',
+        'ds_asl_native_wf.ds_cbf_ts',
+        'ds_asl_native_wf.ds_cbf_ts_score',
+        'ds_asl_std_wf.ds_asl',
+        'ds_asl_std_wf.ds_cbf_ts',
+        'ds_asl_std_wf.ds_cbf_ts_score',
+        'ds_asl_std_wf.resample_ref',
+        'ds_asl_std_wf.warp_cbf_ts_to_std',
+        'ds_asl_std_wf.warp_cbf_sd_basil_to_std',
+    ]
+    assert [path for path in in_workers if main_thread(path)] == []
+
+    on_main_thread = [
+        'ds_asl_native_wf.ds_mean_cbf',
+        'ds_asl_native_wf.ds_cbf_sd_basil',
+        'ds_asl_std_wf.ds_ref',
+        'ds_asl_std_wf.ds_mask',
+        'ds_asl_std_wf.ds_mean_cbf',
+        'ds_asl_std_wf.ds_cbf_sd_basil',
+        'cbf_confounds_wf.ds_qc',
+    ]
+    assert [path for path in on_main_thread if not main_thread(path)] == []

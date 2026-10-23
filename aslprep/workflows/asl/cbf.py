@@ -38,6 +38,7 @@ from aslprep.utils.calibration import (
     resolve_calibration,
 )
 from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
+from aslprep.utils.misc import estimate_series_mem_gb
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -567,13 +568,15 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             ]),
         ])  # fmt:skip
 
+    # Nodes that load the ASL series, or a CBF time series of the same size, run in workers,
+    # so the scheduler needs their memory to pack them.
+    series_mem_gb = estimate_series_mem_gb(name_source)
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
             fwhm=smooth_kernel,
         ),
-        mem_gb=0.2,
-        run_without_submitting=True,
+        mem_gb=series_mem_gb,
         name='extract_deltam',
     )
 
@@ -606,9 +609,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             use_gpu=fit_on_gpu,
             write_calibration=pvc_method != 'none',
         ),
-        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
+        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else series_mem_gb,
         n_procs=fit_nthreads,
-        run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
     if calibration is not None:
@@ -657,9 +659,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
             ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function='huber'),
-            mem_gb=0.2,
+            mem_gb=series_mem_gb,
             name='score_and_scrub_cbf',
-            run_without_submitting=True,
         )
 
         workflow.__desc__ += """
@@ -768,8 +769,7 @@ rather than estimated.
                 **basil_kwargs,
             ),
             name='basilcbf',
-            run_without_submitting=True,
-            mem_gb=0.2,
+            mem_gb=series_mem_gb,
         )
 
         workflow.connect([
@@ -793,8 +793,7 @@ rather than estimated.
             make_tiimg = pe.Node(
                 BASILInflowTimeImage(),
                 name='make_tiimg',
-                run_without_submitting=True,
-                mem_gb=0.2,
+                mem_gb=series_mem_gb,
             )
             workflow.connect([
                 (extract_deltam, make_tiimg, [

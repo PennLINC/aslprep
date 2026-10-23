@@ -81,6 +81,20 @@ def estimate_asl_mem_usage(asl_fname: str) -> tuple[int, dict]:
     return asl_tlen, mem_gb
 
 
+def estimate_series_mem_gb(asl_fname: str, default: float = 1.0) -> float:
+    """Memory for a node that loads the ASL series or a time series of the same size, in GB.
+
+    This is the ``resampled`` estimate from :func:`estimate_asl_mem_usage`, with at least
+    0.2 GB. If the series cannot be read (as with the placeholder files in tests),
+    ``default`` is returned.
+    """
+    try:
+        _, mem_gb = estimate_asl_mem_usage(asl_fname)
+    except Exception:  # noqa: BLE001 - the series may be a placeholder, as in tests
+        return default
+    return max(mem_gb['resampled'], 0.2)
+
+
 def list_to_str(lst):
     """Convert a list to a pretty string."""
     if not lst:
