@@ -1827,18 +1827,21 @@ the GE images' background noise is structured, which the simulation does not rep
 </section>"""
 
 
+#: Arms plotted; md-after (one offset from the longest delay) was rejected and is in the table.
 MD_ARMS = {
     'md-typewise': ('typewise', '#7f7f7f'),
     'md-before': ('typewise_offset, before the fix', '#d9822b'),
-    'md-after': ('typewise_offset, after the fix', '#2b6cb0'),
+    'md-cutoff': ('typewise_offset, after the fix', '#2b6cb0'),
 }
-MD_SERIES = ['pcasl_multipld', 'pasl_multipld', 'rc_pasl_multipld', 'mo_pasl_drift',
-             'mo_paslrep_withinpairs', 'mo_pasl_pldconfounded']  # fmt:skip
+MD_TABLE = {**MD_ARMS, 'md-after': ('longest delay only (rejected)', None)}
+MD_SERIES = ['pcasl_multipld', 'st_pcaslmulti_attlong', 'st_pcaslmulti_sparse',
+             'mo_pcaslmulti_drift', 'mo_pcaslmulti_withinpairs', 'pasl_multipld',
+             'mo_pasl_drift', 'mo_paslrep_withinpairs']  # fmt:skip
 
 
 def _md_fixture_dir(root, name):
-    for base in (root / 'pldbs' / 'aslscan', root / 'motion-fixtures' / 'aslscan',
-                 root / 'fixtures' / 'aslscan'):  # fmt:skip
+    for base in (root / 'pldbs' / 'aslscan', root / 'pcaslmulti' / 'aslscan',
+                 root / 'motion-fixtures' / 'aslscan', root / 'fixtures' / 'aslscan'):  # fmt:skip
         if (base / name).exists():
             return base / name
     return None
@@ -1907,9 +1910,9 @@ def section_delay_fix(root, df, fig):
     mpl.use('Agg')
     import matplotlib.pyplot as plt
 
-    if not (root / 'fixture-scores' / 'md-after').exists():
+    if not (root / 'fixture-scores' / 'md-cutoff').exists():
         return ''
-    names = [n for n in MD_SERIES if (root / 'fixture-scores' / 'md-after' / n).exists()]
+    names = [n for n in MD_SERIES if (root / 'fixture-scores' / 'md-cutoff' / n).exists()]
     figs = []
     for name in names:
         s = _md_series(root, name)
@@ -1943,52 +1946,74 @@ def section_delay_fix(root, df, fig):
         )
     # Read directly: load_scores leaves out the held-out fixtures, which belong in this table.
     recs = []
-    for arm in MD_ARMS:
+    for arm in MD_TABLE:
         for f in (root / 'fixture-scores' / arm).glob('*/score.json'):
+            if _md_fixture_dir(root, f.parent.name) is None:
+                continue
             s = json.loads(f.read_text())
             recs.append({'label': arm, 'fixture': f.parent.name,
                          **{k: _get(s, METRICS[k]) for k in ('dm_edge', 'pair_max')}})  # fmt:skip
     sub = pd.DataFrame(recs)
     piv = sub.pivot_table(index='fixture', columns='label', values='dm_edge')
-    pair = sub.pivot_table(index='fixture', columns='label', values='pair_max')
+    piv = piv[piv.index.isin(sub[sub.label == 'md-cutoff'].fixture)]
+    arms = [a for a in MD_TABLE if a in piv]
     rows = [
         [f'<code>{esc(n)}</code>']
-        + [fmt(piv.at[n, a], 3) if a in piv and n in piv.index else '&ndash;' for a in MD_ARMS]
-        + [fmt(pair.at[n, a], 3) if a in pair and n in pair.index else '&ndash;' for a in MD_ARMS]
+        + [fmt(piv.at[n, a], 3) if np.isfinite(piv.at[n, a]) else '&ndash;' for a in arms]
         for n in piv.index
     ]
     table = plain_table(
-        ['Fixture'] + [f'Edge &Delta;M, {esc(v[0])}' for v in MD_ARMS.values()]
-        + [f'Pair offset (mm), {esc(v[0])}' for v in MD_ARMS.values()],
-        rows, tuple(range(1, 7)),
+        ['Fixture'] + [f'Edge &Delta;M, {esc(MD_TABLE[a][0])}' for a in arms],
+        rows, tuple(range(1, len(arms) + 1)),
     )  # fmt:skip
-    better = int((piv['md-after'] < 0.9 * piv['md-before']).sum())
-    worse = int((piv['md-after'] > 1.1 * piv['md-before']).sum())
-    vs_typewise = int((piv['md-after'] > 1.1 * piv['md-typewise']).sum())
+    groups = {
+        'PCASL multi-delay': [n for n in piv.index if 'pcasl' in n],
+        'PASL multi-delay': [n for n in piv.index if 'pcasl' not in n],
+    }
+    summary = []
+    for title, ns in groups.items():
+        g = piv.loc[ns]
+        r0, rt = g['md-cutoff'] / g['md-before'], g['md-cutoff'] / g['md-typewise']
+        summary.append([
+            esc(title), str(len(g)),
+            *[fmt(g[a].median(), 3) for a in ('md-typewise', 'md-before', 'md-cutoff')],
+            f'{int((r0 < 0.9).sum())} / {int(((r0 >= 0.9) & (r0 <= 1.1)).sum())} / '
+            f'{int((r0 > 1.1).sum())}',
+            f'{int((rt < 0.9).sum())} / {int(((rt >= 0.9) & (rt <= 1.1)).sum())} / '
+            f'{int((rt > 1.1).sum())}',
+        ])  # fmt:skip
+    summary_table = plain_table(
+        ['Fixtures', 'n', 'Median, typewise', 'Median, before', 'Median, after',
+         'After vs before: better / tie / worse', 'After vs typewise: better / tie / worse'],
+        summary, (1, 2, 3, 4),
+    )  # fmt:skip
     return f"""
 <section id="delayfix"><h2>The offset step's delay rule</h2>
 <p>The offset step registers the corrected label mean to the corrected control mean at each
-delay. At delays shorter than the arterial transit time the labels still hold arterial signal,
-and the registration partly fits it. The first version let delays under 0.5 s (0.8 s for PASL)
-borrow the nearest other delay's estimate, but transit times run to a second or more, so on
+delay and treats what it finds as the offset between labels and controls. At delays shorter
+than the arterial transit time the labels still hold arterial signal, bright vessels the
+controls lack, and the registration partly fits them as an offset of the head. The first
+version let delays under 0.5 s (0.8 s for PASL) borrow the nearest other delay's estimate; on
 <code>pcasl_multipld</code> (transit 0.7 s in grey matter, 1.0 s in white matter) the 0.5 s
-labels produced a 0.066&deg; estimate, fifteen times the other delays', and the 0.25 s labels
-borrowed it. The fix estimates the offset from the longest delay only and gives it to every
-other delay.</p>
+labels gave a 0.066&deg; estimate, fifteen times the other delays', and the 0.25 s labels
+borrowed it.</p>
+<p>Taking one offset from the longest delay for every delay was tried first and rejected (the
+right-hand column of the table): when the delays are acquired one after another, each delay's
+estimate also carries the residual misregistration of its own pairs, so a borrowed estimate
+moves labels by the wrong amount (<code>mo_pasl_withinpairs</code>: 0.21 to 4.05). The fix
+kept here corrects each delay of at least 1.0 s (0.8 s for PASL) with its own estimate and
+leaves the labels of shorter delays uncorrected, with the <code>typewise</code> transforms. If
+the cutoff errs, it errs towards <code>typewise</code>. Twelve PCASL multi-delay fixtures were
+added for it, all from <code>pcasl_multipld</code>: motion (drift, within-pair jumps, spikes,
+with held-out seeds), arterial transit 0.5/0.7 s and 1.2/1.6 s, no background suppression,
+and three delays of 0.5, 1.0 and 1.5 s.</p>
+{summary_table}
+<p class="note">Edge delta-M error (0&ndash;3 mm shell, relative to GM). Better or worse means by
+more than 10%.</p>
 {''.join(figure(img, 'PLD (top) and framewise displacement (bottom, Power, from the transforms) per control and label volume.', fig + k) for k, img in enumerate(figs))}
 {table}
-<p class="note">Edge delta-M error (0&ndash;3 mm shell, relative to GM) and the largest
-label-control pair offset, per multi-delay fixture. Fixtures ending <code>_ho</code> and
-<code>_ho2</code> are the held-out sets.</p>
-<p>After the fix the edge error is lower than before on {better} of {len(piv)} fixtures and
-higher on {worse} (by more than 10%); it is more than 10% above <code>typewise</code> on
-{vs_typewise}. The fix is not kept. In these series the delays are acquired one after another,
-so each delay's estimate also carries the residual misregistration of its own pairs, at the
-pose the head had then; the longest delay's estimate, applied to every other delay, moves their
-labels by the wrong amount (on <code>mo_pasl_withinpairs</code> the edge error goes from 0.21
-to 4.05, against 0.89 for <code>typewise</code>). Per-delay estimation is needed; what the
-short delays need is a rule for when their own estimate is not to be trusted. A single offset
-from the later delays (C9-late) failed the held-out PASL fixtures in the same way.</p>
+<p class="note">Per fixture. Names ending <code>_ho</code> and <code>_ho2</code> are held-out
+sets.</p>
 </section>"""
 
 
