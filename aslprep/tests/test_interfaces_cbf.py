@@ -23,6 +23,63 @@ def test_scoreandscrubcbf_wavelet_function():
         cbf.ScoreAndScrubCBF(wavelet_function='logistics')
 
 
+def test_scoreandscrubcbf_writes_float32_with_uint8_mask(tmp_path):
+    """Test that the SCORE and SCRUB outputs are float32 when the mask is uint8.
+
+    The outputs used to be written with the mask's header, and nibabel writes an image in its
+    header's data type, so the CBF maps were stored as scaled uint8 (at most 256 values).
+    """
+    from aslprep.utils.cbf import _getcbfscore, _scrubcbf
+
+    rng = np.random.default_rng(0)
+    shape = (12, 12, 10)
+    mask = np.zeros(shape, dtype=np.uint8)
+    mask[2:10, 2:10, 2:8] = 1
+    gm = rng.uniform(0, 1, shape).astype(np.float32)
+    wm = ((1 - gm) * rng.uniform(0, 1, shape)).astype(np.float32)
+    csf = np.clip(1 - gm - wm, 0, 1).astype(np.float32)
+    cbf_ts = (60 * gm + 20 * wm)[..., None] + rng.normal(0, 8, shape + (20,))
+    cbf_ts = (cbf_ts * mask[..., None]).astype(np.float32)
+
+    interface = cbf.ScoreAndScrubCBF(
+        cbf_ts=_save_img(cbf_ts, tmp_path, 'cbf_ts.nii.gz'),
+        mask=_save_img(mask, tmp_path, 'mask.nii.gz'),
+        gm_tpm=_save_img(gm, tmp_path, 'gm.nii.gz'),
+        wm_tpm=_save_img(wm, tmp_path, 'wm.nii.gz'),
+        csf_tpm=_save_img(csf, tmp_path, 'csf.nii.gz'),
+    )
+    results = interface.run(cwd=tmp_path)
+
+    # The same computation as the interface, on the saved inputs
+    expected_ts, _ = _getcbfscore(
+        cbfts=cbf_ts.astype(float),
+        wm=wm.astype(float),
+        gm=gm.astype(float),
+        csf=csf.astype(float),
+        mask=mask.astype(float),
+        thresh=0.7,
+    )
+    expected = {
+        'cbf_ts_score': expected_ts,
+        'mean_cbf_score': np.mean(expected_ts, axis=3),
+        'mean_cbf_scrub': _scrubcbf(
+            cbf_ts=expected_ts,
+            gm=gm.astype(float),
+            wm=wm.astype(float),
+            csf=csf.astype(float),
+            mask=mask.astype(float),
+            wfun='huber',
+            thresh=0.7,
+        ),
+    }
+    for name, expected_data in expected.items():
+        img = nb.load(getattr(results.outputs, name))
+        assert img.get_data_dtype() == np.float32, name
+        np.testing.assert_allclose(
+            img.get_fdata(), expected_data.astype(np.float32), rtol=1e-6, atol=1e-4
+        )
+
+
 def test_computecbf_casl(datasets, tmp_path_factory):
     """Test aslprep.interfaces.cbf.ComputeCBF with (P)CASL."""
     tmpdir = tmp_path_factory.mktemp('test_computecbf_casl')
