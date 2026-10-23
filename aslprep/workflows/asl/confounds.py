@@ -15,7 +15,7 @@ from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import ComputeCBFQC, GatherConfounds
-from aslprep.interfaces.plotting import ASLCarpetPlot
+from aslprep.interfaces.plotting import ASLCarpetPlot, BackgroundSuppressionPlot
 
 
 def init_asl_confounds_wf(
@@ -487,6 +487,7 @@ def init_cbf_confounds_wf(
     basil=False,
     lr_pvc=False,
     anatomical_mask=False,
+    plot_background_suppression=False,
     name='cbf_confounds_wf',
 ):
     """Create a workflow for :abbr:`dolui2024automated (compute cbf)`.
@@ -503,6 +504,7 @@ def init_cbf_confounds_wf(
                 wf = init_cbf_confounds_wf(
                     scorescrub=True,
                     basil=True,
+                    plot_background_suppression=True,
                     name="cbf_confounds_wf",
                 )
 
@@ -517,6 +519,9 @@ def init_cbf_confounds_wf(
         Whether the brain mask is the anatomical one (``--skull-strip-asl anatomical``).
         If so, the measures of its check against SynthStrip (``skullstrip_qc``) are added to
         the QC file.
+    plot_background_suppression : bool
+        Whether to plot the control and label signal against the noise floor, for
+        background-suppressed data with control and label volumes.
     name : :obj:`str`
         Name of workflow (default: "cbf_qc_wf")
 
@@ -536,6 +541,9 @@ def init_cbf_confounds_wf(
         (with ``anatomical_mask``), added as columns of the QC file.
     asl_file
         ASL file, as acquired. Used to check for clipped values.
+    aslcontext
+        aslcontext file of ``asl_file``. With it, the control and label magnitudes are
+        compared to the noise floor.
     m0scan
         Separate M0 scan, as acquired, if there is one. Used to check for clipped values.
     asl_mask
@@ -568,6 +576,7 @@ negative CBF values.
             fields=[
                 'name_source',
                 'asl_file',
+                'aslcontext',
                 'm0scan',
                 'asl_mask',
                 't1w_mask',
@@ -725,6 +734,7 @@ negative CBF values.
         (inputnode, compute_qc_metrics, [
             ('name_source', 'name_source'),
             ('asl_file', 'asl_file'),
+            ('aslcontext', 'aslcontext'),
             ('m0scan', 'm0scan'),
             ('asl_mask', 'asl_mask'),
             ('mean_cbf', 'mean_cbf'),
@@ -743,6 +753,26 @@ negative CBF values.
         workflow.connect([(inputnode, compute_qc_metrics, [('pvc_qc', 'pvc_qc')])])
     if anatomical_mask:
         workflow.connect([(inputnode, compute_qc_metrics, [('skullstrip_qc', 'skullstrip_qc')])])
+
+    if plot_background_suppression:
+        plot_bs = pe.Node(BackgroundSuppressionPlot(), name='plot_bs', mem_gb=0.5)
+        workflow.connect([
+            (inputnode, plot_bs, [
+                ('asl_file', 'asl_file'),
+                ('aslcontext', 'aslcontext'),
+                ('asl_mask', 'asl_mask'),
+            ]),
+            (gm_tfm, plot_bs, [('output_image', 'gm_tpm')]),
+            (csf_tfm, plot_bs, [('output_image', 'csf_tpm')]),
+        ])  # fmt:skip
+
+        ds_report_bs = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='backgroundSuppression', suffix='asl'),
+            name='ds_report_bs',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([(plot_bs, ds_report_bs, [('out_file', 'in_file')])])
 
     ds_qc = pe.Node(
         DerivativesDataSink(

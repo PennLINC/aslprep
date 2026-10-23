@@ -358,3 +358,147 @@ class PVCDiagnosticsPlot(SimpleInterface):
         fig.savefig(self._results['out_file'])
         plt.close(fig)
         return runtime
+
+
+class _BackgroundSuppressionPlotInputSpec(BaseInterfaceInputSpec):
+    asl_file = File(exists=True, mandatory=True, desc='ASL file, as acquired.')
+    aslcontext = File(exists=True, mandatory=True, desc='aslcontext file of asl_file.')
+    asl_mask = File(exists=True, mandatory=True, desc='Brain mask in ASL space.')
+    gm_tpm = File(exists=True, mandatory=True, desc='Gray matter probability map in ASL space.')
+    csf_tpm = File(exists=True, mandatory=True, desc='CSF probability map in ASL space.')
+
+
+class _BackgroundSuppressionPlotOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The figure.')
+
+
+class BackgroundSuppressionPlot(SimpleInterface):
+    """Plot how close the control and label magnitudes are to the noise floor.
+
+    The maps show the control signal over the noise floor and delta-M (control minus label)
+    in three axial slices. The profiles show both against the CSF fraction of brain voxels:
+    a dip of the signal to the floor at intermediate CSF fractions, with negative delta-M on
+    the tissue side, means background suppression inverted the tissue (or the CSF)
+    magnetization and the magnitude images flipped its sign.
+    See :func:`~aslprep.utils.confounds.compute_background_suppression_qc`.
+    """
+
+    input_spec = _BackgroundSuppressionPlotInputSpec
+    output_spec = _BackgroundSuppressionPlotOutputSpec
+
+    def _run_interface(self, runtime):
+        import matplotlib.pyplot as plt
+
+        from aslprep.utils.confounds import (
+            BS_NEAR_FLOOR_RATIO,
+            compute_background_suppression_qc,
+        )
+
+        qc = compute_background_suppression_qc(
+            asl_file=self.inputs.asl_file,
+            aslcontext=self.inputs.aslcontext,
+            mask=self.inputs.asl_mask,
+            gm=self.inputs.gm_tpm,
+            csf=self.inputs.csf_tpm,
+        )
+        metrics, profile, mask = qc['metrics'], qc['profile'], qc['mask']
+        ratio, deltam = qc['signal_floor_ratio'], qc['deltam']
+
+        fig = plt.figure(figsize=(18, 8))
+        grid = fig.add_gridspec(2, 4, width_ratios=[1, 1, 1, 1.6])
+        slices = []
+        if mask.any():
+            z_extent = np.flatnonzero(mask.any(axis=(0, 1)))
+            slices = [int(np.percentile(z_extent, q)) for q in (30, 50, 70)]
+
+        ratio_vmax = 10
+        dm_in_mask = deltam[mask & np.isfinite(deltam)]
+        dm_vmax = float(np.percentile(np.abs(dm_in_mask), 98)) if dm_in_mask.size else 1.0
+        for i_slice, k in enumerate(slices):
+            ax_map = fig.add_subplot(grid[0, i_slice])
+            im_ratio = ax_map.imshow(
+                np.rot90(ratio[:, :, k]), cmap='magma', vmin=0, vmax=ratio_vmax
+            )
+            near_floor = mask[:, :, k] & (ratio[:, :, k] < BS_NEAR_FLOOR_RATIO)
+            ax_map.imshow(
+                np.rot90(np.where(near_floor, 1.0, np.nan)),
+                cmap='cool',
+                vmin=0,
+                vmax=1,
+                alpha=0.6,
+            )
+            ax_map.contour(np.rot90(mask[:, :, k]), levels=[0.5], colors='white', linewidths=0.5)
+            ax_map.set_title(f'Control / noise floor, slice {k}')
+            ax_map.axis('off')
+
+            ax_dm_map = fig.add_subplot(grid[1, i_slice])
+            im_dm = ax_dm_map.imshow(
+                np.rot90(np.where(mask[:, :, k], deltam[:, :, k], np.nan)),
+                cmap='RdBu_r',
+                vmin=-dm_vmax,
+                vmax=dm_vmax,
+            )
+            ax_dm_map.set_title(f'Delta-M (control - label), slice {k}')
+            ax_dm_map.axis('off')
+
+        if slices:
+            fig.colorbar(im_ratio, ax=ax_map, fraction=0.046, extend='max')
+            fig.colorbar(im_dm, ax=ax_dm_map, fraction=0.046)
+
+        ax_ratio = fig.add_subplot(grid[0, 3])
+        ax_dm = fig.add_subplot(grid[1, 3], sharex=ax_ratio)
+        if not profile.empty:
+            centers = (profile['csf_low'] + profile['csf_high']) / 2
+            ax_ratio.fill_between(
+                centers,
+                profile['signal_floor_ratio_q25'],
+                profile['signal_floor_ratio_q75'],
+                alpha=0.3,
+                color='#1b60a5',
+            )
+            ax_ratio.plot(centers, profile['signal_floor_ratio_median'], 'o-', color='#1b60a5')
+            scale = profile['deltam_median'].abs().max()
+            scale = scale if scale > 0 else 1.0
+            ax_dm.fill_between(
+                centers,
+                profile['deltam_q25'] / scale,
+                profile['deltam_q75'] / scale,
+                alpha=0.3,
+                color='#2da467',
+            )
+            ax_dm.plot(centers, profile['deltam_median'] / scale, 'o-', color='#2da467')
+        ax_ratio.axhline(1, color='#c0392b', linestyle='--', label='noise floor')
+        ax_ratio.axhline(
+            BS_NEAR_FLOOR_RATIO, color='#9d8f25', linestyle=':', label='twice the noise floor'
+        )
+        ax_ratio.set_ylim(bottom=0)
+        ax_ratio.set_ylabel('Control / noise floor\n(median and IQR)')
+        ax_ratio.legend(loc='upper right')
+        ax_ratio.set_title('Along the tissue-to-CSF partial volume axis')
+        ax_dm.axhline(0, color='black', linewidth=0.8)
+        ax_dm.set_ylabel('Delta-M / largest |median|\n(median and IQR)')
+        ax_dm.set_xlabel('CSF fraction')
+        ax_dm.set_xlim(0, 1)
+
+        def _fmt(value, spec='.2f'):
+            return 'n/a' if not np.isfinite(value) else format(value, spec)
+
+        title = (
+            f'Noise floor {_fmt(metrics["bs_noise_floor"], ".1f")}; '
+            f'gray matter control / floor {_fmt(metrics["bs_gm_signal_floor_ratio"], ".1f")} '
+            f'(delta-M retained {_fmt(metrics["bs_gm_deltam_retained"])}); '
+            f'{_fmt(metrics["bs_perc_voxels_near_noise_floor"], ".1f")}% of brain voxels '
+            f'below twice the floor.\nAlong CSF fraction: lowest control / floor '
+            f'{_fmt(metrics["bs_csf_profile_signal_floor_ratio_min"])}, lowest delta-M '
+            f'{_fmt(metrics["bs_csf_profile_deltam_min"])} (negative: label brighter than '
+            'control, as when the magnetization is inverted at readout).'
+        )
+        fig.suptitle(title, fontsize=12)
+        fig.tight_layout()
+
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.asl_file, suffix='_bsplot.svg', use_ext=False, newpath=runtime.cwd
+        )
+        fig.savefig(self._results['out_file'])
+        plt.close(fig)
+        return runtime

@@ -705,8 +705,12 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         basil=basil,
         lr_pvc=bool(lr_sources),
         anatomical_mask=config.workflow.skull_strip_asl == 'anatomical',
+        plot_background_suppression=(
+            processing_target == 'control' and bool(metadata.get('BackgroundSuppression'))
+        ),
         name='cbf_confounds_wf',
     )
+    cbf_confounds_wf.inputs.inputnode.aslcontext = run_data['aslcontext']
     if lr_sources:
         workflow.connect([
             (cbf_wf, cbf_confounds_wf, [('outputnode.pvc_qc', 'inputnode.pvc_qc')]),
