@@ -769,7 +769,8 @@ rather than estimated.
                 **basil_kwargs,
             ),
             name='basilcbf',
-            mem_gb=series_mem_gb,
+            # fabber peaked at 1.2 times the series estimate for multi-delay data
+            mem_gb=1.5 * series_mem_gb,
         )
 
         workflow.connect([
