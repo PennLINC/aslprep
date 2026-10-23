@@ -1,0 +1,28 @@
+<h2>Real data</h2>
+<p>Nine real multi-delay PCASL runs from the aslprep-zoo collection: an HCP-Aging-like 2D
+multiband run (43 pairs), three 3D GRASE runs with 12 pairs over five delays, four 3D GRASE
+runs with 9 pairs over four delays, and one 3D run with one pair at each of five delays. Each
+was motion-corrected with mcflirt, as ASLPrep does, and fit with ASLPrep's model in a
+<code>bet</code> brain mask. The model-free rules and the model-based detectors are compared
+here; the ablations ran only in simulation.</p>
+
+<h3>As acquired</h3>
+$obs_table
+<p>Without ground truth, these exclusions show what each method would do to real data. The last
+two columns are the changes that the hybrid detector's exclusions make, relative to using every
+pair: the RMS change in mean ΔM (as a percentage of the mean ΔM magnitude) and the median
+change in regional CBF.</p>
+$observed_note
+
+<h3>Injected artifacts</h3>
+<p>Artifacts of the same four kinds were injected into one pair, or into about 15% of the
+pairs, of each real run ($n_inj injected runs in total), and every method was applied.</p>
+$inj_table
+<p><em>Newly excluded clean pairs</em> counts clean pairs excluded after injection that the
+method kept on the run as acquired.</p>
+$out_table
+<p>Errors are against the run as acquired, fit with every pair. That reference contains each
+pair's own noise, so excluding any pair, even a corrupted one, moves the result away from it by
+that pair's noise. With few pairs per delay this can outweigh the artifact: the oracle, which
+excludes exactly the injected pairs, is then no better than no exclusion. Compare methods with
+the oracle as well as with no exclusion.</p>
