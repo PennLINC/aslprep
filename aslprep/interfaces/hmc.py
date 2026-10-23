@@ -13,8 +13,10 @@ import pandas as pd
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
+    OutputMultiObject,
     SimpleInterface,
     TraitedSpec,
+    isdefined,
     traits,
 )
 
@@ -205,6 +207,128 @@ class IdentityTransforms(SimpleInterface):
         ).to_filename(out_file, fmt='itk')
         self._results['out_file'] = out_file
         return runtime
+
+
+class _VolregSeriesInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc='Series (3D or 4D) to register.')
+    ref_file = File(
+        exists=True,
+        desc='Reference image, on the same grid as in_file. If not given, the middle volume '
+        'of in_file (MCFLIRT default).',
+    )
+
+
+class _VolregSeriesOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The series resampled onto the reference.')
+    mat_file = OutputMultiObject(
+        File(exists=True), desc='FSL matrices (volume to reference), one per volume, as MCFLIRT.'
+    )
+    par_file = File(
+        exists=True,
+        desc='Rotations (radians) and translations (mm) per volume, in the column order of '
+        "MCFLIRT's .par file.",
+    )
+
+
+class VolregSeries(SimpleInterface):
+    """Register every volume of a series to a reference with AFNI ``3dvolreg``.
+
+    ``3dvolreg`` fits each volume by least squares, the most precise cost between images of
+    one contrast. Its outputs are written as MCFLIRT writes them, so it can take MCFLIRT's place:
+    one FSL matrix per volume (``MAT_0000``, ...) and a ``.par`` file. The ``.par`` columns are
+    in MCFLIRT's order, but decomposed from the matrices about the reference's geometric centre,
+    not MCFLIRT's centre of gravity. They reach only the HMC workflow's ``movpar_file``; the
+    motion confounds are computed from the final transforms. The series and the reference must
+    share one grid, as MCFLIRT2ITK, downstream, assumes.
+    """
+
+    input_spec = _VolregSeriesInputSpec
+    output_spec = _VolregSeriesOutputSpec
+
+    def _run_interface(self, runtime):
+        from nitransforms.io.afni import AFNILinearTransformArray
+
+        img = nb.load(self.inputs.in_file)
+        data = np.asanyarray(img.dataobj, np.float32)
+        data = data[..., None] if data.ndim == 3 else data
+        series = os.path.join(runtime.cwd, 'series.nii.gz')
+        nb.Nifti1Image(data, img.affine, img.header).to_filename(series)
+        ref = self.inputs.ref_file if isdefined(self.inputs.ref_file) else None
+        if ref is None:
+            ref = os.path.join(runtime.cwd, 'middle.nii.gz')
+            nb.Nifti1Image(data[..., data.shape[-1] // 2], img.affine).to_filename(ref)
+        series_img, ref_img = nb.load(series), nb.load(ref)
+        same_grid = series_img.shape[:3] == ref_img.shape[:3] and np.allclose(
+            series_img.affine, ref_img.affine, atol=1e-3
+        )
+        if not same_grid:
+            raise ValueError(
+                'The series and the reference must share one grid (shape and affine): the FSL '
+                'matrices and motion parameters are written in that one frame'
+            )
+
+        out_file = os.path.join(runtime.cwd, 'volreg.nii.gz')
+        aff = os.path.join(runtime.cwd, 'volreg.aff12.1D')
+        cmd = ['3dvolreg', '-base', ref, '-prefix', out_file, '-1Dmatrix_save', aff, series]
+        subprocess.run(cmd, check=True, capture_output=True)
+        # Per volume, the RAS pull from a reference point to the volume point (AFNI deobliques
+        # implicitly; nitransforms reads its matrices in the plumb frames of the two headers).
+        pulls = AFNILinearTransformArray.from_filename(aff).to_ras(
+            moving=series_img, reference=ref_img
+        )
+        pulls = np.asarray(pulls).reshape(-1, 4, 4)
+
+        mat_dir = os.path.join(runtime.cwd, 'volreg.mat')
+        os.makedirs(mat_dir, exist_ok=True)
+        src_to_world, ref_to_world = _fsl_to_world(series_img), _fsl_to_world(ref_img)
+        centre = np.r_[(np.array(ref_img.shape[:3]) - 1) / 2 * ref_img.header.get_zooms()[:3], 1]
+        mat_files, params = [], []
+        for k, pull in enumerate(pulls):
+            mat = pull_to_fsl(pull, src_to_world, ref_to_world)
+            mat_files.append(os.path.join(mat_dir, f'MAT_{k:04d}'))
+            np.savetxt(mat_files[-1], mat, fmt='%.10f')
+            params.append(_fsl_params(mat, centre))
+        par_file = os.path.join(runtime.cwd, 'volreg.par')
+        np.savetxt(par_file, np.array(params), fmt='%.8f')
+        self._results['out_file'] = out_file
+        self._results['mat_file'] = mat_files
+        self._results['par_file'] = par_file
+        return runtime
+
+
+def _fsl_to_world(img):
+    """FSL scaled-voxel coordinates -> the image's world (RAS mm) coordinates."""
+    zooms = np.array(img.header.get_zooms()[:3], float)
+    scale = np.diag(np.r_[zooms, 1.0])
+    if np.linalg.det(img.affine[:3, :3]) > 0:  # FSL flips x for neurological storage
+        scale[0, 0] = -zooms[0]
+        scale[0, 3] = (img.shape[0] - 1) * zooms[0]
+    return img.affine @ np.linalg.inv(scale)
+
+
+def pull_to_fsl(pull, src_to_world, ref_to_world):
+    """A RAS pull (reference point -> volume point) as an FSL matrix (volume -> reference).
+
+    Parameters
+    ----------
+    pull : (4, 4) array
+        RAS matrix mapping a reference point to the corresponding volume point.
+    src_to_world, ref_to_world : (4, 4) array
+        FSL scaled-voxel to world matrices of the volume and the reference.
+    """
+    return np.linalg.inv(ref_to_world) @ np.linalg.inv(pull) @ src_to_world
+
+
+def _fsl_params(mat, centre):
+    """Rotations (radians, x y z) and translation at ``centre`` (mm) of an FSL matrix."""
+    r = mat[:3, :3]
+    rotations = [
+        np.arctan2(r[1, 2], r[2, 2]),
+        -np.arcsin(np.clip(r[0, 2], -1, 1)),
+        np.arctan2(r[0, 1], r[0, 0]),
+    ]
+    shift = (mat @ centre - centre)[:3]
+    return [*rotations, *shift]
 
 
 def _resample(volume, affine, pull, ref_img):

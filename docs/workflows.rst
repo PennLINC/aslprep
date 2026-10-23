@@ -286,7 +286,9 @@ Head-motion estimation
    )
 
 Using the previously estimated reference scan,
-FSL ``mcflirt`` is used to estimate head-motion.
+FSL ``mcflirt`` is used to estimate head-motion
+(AFNI ``3dvolreg`` and FSL ``flirt`` with the experimental ``--hmc-method typewise_volreg``;
+see below).
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labeling)`
 time-step.
@@ -298,14 +300,30 @@ for a more accurate estimation of head-motion.
 Each volume type (control, label, M0, ...) is registered to the reference separately.
 This leaves a small rigid offset between the corrected label and control volumes,
 which appears at the edges of the brain after subtraction.
-With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),
-*ASLPrep* removes it: for each post-labeling delay, the mean of the corrected label volumes is
+By default (``--hmc-method typewise_offset``), *ASLPrep* removes it:
+for each post-labeling delay, the mean of the corrected label volumes is
 registered rigidly to the mean of the corrected control volumes with AFNI ``3dvolreg``,
 and the correction is composed into the transforms of that delay's label volumes.
 Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
 use the estimate of the nearest other delay.
 The motion confounds are computed from the corrected transforms.
-The method is recorded in the transforms' sidecar (``HMCMethod``).
+``--hmc-method typewise`` skips this correction, as earlier versions of *ASLPrep* did.
+The method is recorded in the transforms' sidecar (``HMCMethod``):
+precomputed transforms recorded as ``typewise`` are re-estimated under the new default,
+and transforms without the record (from versions before it existed) are reused, with a note in
+the log.
+
+``--hmc-method typewise_volreg`` is **experimental**.
+It registers each volume type to a reference of its own contrast, by least squares:
+AFNI ``3dvolreg`` registers the type's volumes to their middle volume, FSL ``flirt``
+(six degrees of freedom, mutual information) aligns their mean to the ASL reference,
+and ``3dvolreg`` registers the type's volumes to that aligned mean.
+Because each type is aligned to the reference separately, the label offset correction above
+always follows; without it the types' alignments leave a larger offset than ``typewise`` does.
+On simulated data with known motion it leaves smaller label-control offsets and pose errors than
+``typewise_offset``; it has not yet been validated as widely on real data.
+The motion parameters it writes are decomposed from the transforms,
+so they differ slightly in convention from MCFLIRT's.
 
 Series of five volumes or fewer, and any series run with ``--force ge``, take the GE-specific path.
 If such a series has no label-control pairs (an M0 with delta-M or CBF images), head-motion

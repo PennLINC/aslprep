@@ -14,6 +14,16 @@ def init_asl_hmc_wf(
     (e.g., control, label, deltam, M0, CBF), and then stitches the resulting parameters
     back together according to the aslcontext file.
 
+    ``config.workflow.hmc_method`` selects the method:
+
+    - ``typewise``: MCFLIRT registers each volume type to the ASL reference.
+    - ``typewise_offset`` (default): as ``typewise``, then the offset left between the
+      corrected label and control volumes is removed (per post-labeling delay, the corrected
+      label mean is registered to the corrected control mean with ``3dvolreg``).
+    - ``typewise_volreg`` (**experimental**): each volume type is registered by ``3dvolreg``
+      (least squares) to its own mean, which FLIRT aligns to the ASL reference once, and the
+      label offset correction always follows.
+
     Workflow Graph
         .. workflow::
             :graph2use: orig
@@ -50,16 +60,19 @@ def init_asl_hmc_wf(
         Reference image to which ASL series is motion corrected
     metadata
         Metadata of ``asl_file``, reduced to its volumes (post-labeling delays and labeling
-        type); used only when ``config.workflow.hmc_method`` is ``typewise_offset``.
+        type); used by the label offset correction (``typewise_offset`` and
+        ``typewise_volreg``).
 
     Outputs
     -------
     xforms
         ITKTransform file aligning each volume to ``ref_image``. With ``--hmc-method
-        typewise_offset``, the label volumes' transforms also remove the offset between the
-        corrected labels and controls (:class:`~aslprep.interfaces.hmc.CorrectLabelOffset`).
+        typewise_offset`` (the default) or ``typewise_volreg``, the label volumes' transforms
+        also remove the offset between the corrected labels and controls
+        (:class:`~aslprep.interfaces.hmc.CorrectLabelOffset`).
     label_offset_report
-        JSON record of the estimated label offsets (only with ``typewise_offset``).
+        JSON record of the estimated label offsets (``typewise_offset`` and
+        ``typewise_volreg`` only).
     movpar_file
         MCFLIRT motion parameters, normalized to SPM format (X, Y, Z, Rx, Ry, Rz)
     rms_file
@@ -85,16 +98,33 @@ def init_asl_hmc_wf(
     from aslprep import config
     from aslprep.config import DEFAULT_MEMORY_MIN_GB
     from aslprep.interfaces.confounds import NormalizeMotionParams
-    from aslprep.interfaces.hmc import CorrectLabelOffset
+    from aslprep.interfaces.hmc import CorrectLabelOffset, VolregSeries
     from aslprep.interfaces.utility import (
         CombineMotionParameters,
+        MeanImage,
         PairwiseRMSDiff,
         SplitByVolumeType,
     )
 
+    hmc_method = config.workflow.hmc_method
     workflow = Workflow(name=name)
 
-    workflow.__desc__ = """\
+    if hmc_method == 'typewise_volreg':
+        workflow.__desc__ = """\
+Head-motion parameters were estimated for the ASL data separately for each of the volume types,
+in order to account for intensity differences between different contrasts,
+which, when motion corrected together, can conflate intensity differences with
+head motions [@wang2008empirical].
+The volumes of each type were registered rigidly to the type's middle volume with *AFNI*'s
+`3dvolreg` [@afni] and averaged; the mean was aligned to the ASL reference with *FSL*'s `flirt`
+(six degrees of freedom, mutual information) [@flirt], and the type's volumes were registered
+to that aligned mean with `3dvolreg`.
+Next, ASLPrep concatenated the motion parameters across volume types and
+re-calculated relative root mean-squared deviation.
+
+"""
+    else:
+        workflow.__desc__ = """\
 Head-motion parameters were estimated for the ASL data using *FSL*'s `mcflirt` [@mcflirt].
 Motion correction was performed separately for each of the volume types
 in order to account for intensity differences between different contrasts,
@@ -141,16 +171,51 @@ re-calculated relative root mean-squared deviation.
         ]),
     ])  # fmt:skip
 
-    mcflirt = pe.MapNode(
-        fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False, cost='mutualinfo'),
-        name='mcflirt',
-        mem_gb=mem_gb * 3,
-        iterfield=['in_file'],
-    )
-    workflow.connect([
-        (inputnode, mcflirt, [('raw_ref_image', 'ref_file')]),
-        (split_by_volume_type, mcflirt, [('out_files', 'in_file')]),
-    ])  # fmt:skip
+    if hmc_method == 'typewise_volreg':
+        # Experimental. Each volume type is registered, by least squares, to a reference of its
+        # own contrast: its volumes to their middle volume, then their mean, aligned once to the
+        # ASL reference by FLIRT (mutual information), and the volumes again to that aligned
+        # mean, so the transforms still map to the ASL reference (PennLINC/aslprep#767). The
+        # types' separate cross-contrast alignments leave an offset between labels and
+        # controls, so the label offset correction below always follows.
+        type_volreg = pe.MapNode(
+            VolregSeries(),
+            name='type_volreg',
+            mem_gb=mem_gb * 3,
+            iterfield=['in_file'],
+        )
+        type_mean = pe.MapNode(MeanImage(), name='type_mean', mem_gb=mem_gb, iterfield=['in_file'])
+        type_mean_to_ref = pe.MapNode(
+            fsl.FLIRT(dof=6, cost='mutualinfo', interp='spline'),
+            name='type_mean_to_ref',
+            mem_gb=DEFAULT_MEMORY_MIN_GB,
+            iterfield=['in_file'],
+        )
+        registration = pe.MapNode(
+            VolregSeries(),
+            name='volreg',
+            mem_gb=mem_gb * 3,
+            iterfield=['in_file', 'ref_file'],
+        )
+        workflow.connect([
+            (split_by_volume_type, type_volreg, [('out_files', 'in_file')]),
+            (type_volreg, type_mean, [('out_file', 'in_file')]),
+            (type_mean, type_mean_to_ref, [('out_file', 'in_file')]),
+            (inputnode, type_mean_to_ref, [('raw_ref_image', 'reference')]),
+            (split_by_volume_type, registration, [('out_files', 'in_file')]),
+            (type_mean_to_ref, registration, [('out_file', 'ref_file')]),
+        ])  # fmt:skip
+    else:
+        registration = pe.MapNode(
+            fsl.MCFLIRT(save_mats=True, save_plots=True, save_rms=False, cost='mutualinfo'),
+            name='mcflirt',
+            mem_gb=mem_gb * 3,
+            iterfield=['in_file'],
+        )
+        workflow.connect([
+            (inputnode, registration, [('raw_ref_image', 'ref_file')]),
+            (split_by_volume_type, registration, [('out_files', 'in_file')]),
+        ])  # fmt:skip
 
     listify_mat_files = pe.MapNode(
         niu.Function(
@@ -161,7 +226,7 @@ re-calculated relative root mean-squared deviation.
         name='listify_mat_files',
         iterfield=['value'],
     )
-    workflow.connect([(mcflirt, listify_mat_files, [('mat_file', 'value')])])
+    workflow.connect([(registration, listify_mat_files, [('mat_file', 'value')])])
 
     # Combine the motpars files, mat files, and rms files across the different MCFLIRTed files,
     # based on the aslcontext file.
@@ -172,7 +237,7 @@ re-calculated relative root mean-squared deviation.
     workflow.connect([
         (inputnode, combine_motpars, [('aslcontext', 'aslcontext')]),
         (split_by_volume_type, combine_motpars, [('volume_types', 'volume_types')]),
-        (mcflirt, combine_motpars, [('par_file', 'par_files')]),
+        (registration, combine_motpars, [('par_file', 'par_files')]),
         (listify_mat_files, combine_motpars, [('lst', 'mat_files')]),
     ])  # fmt:skip
 
@@ -195,7 +260,7 @@ re-calculated relative root mean-squared deviation.
         (combine_motpars, fsl2itk, [('mat_file_list', 'in_files')]),
     ])  # fmt:skip
 
-    if config.workflow.hmc_method == 'typewise_offset':
+    if hmc_method in ('typewise_offset', 'typewise_volreg'):
         workflow.__desc__ += """\
 The systematic offset that type-wise motion correction leaves between the corrected label and
 control volumes was then removed: for each post-labeling delay, the mean of the corrected label

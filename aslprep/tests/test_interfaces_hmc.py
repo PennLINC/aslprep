@@ -204,20 +204,158 @@ def test_magnitude_keeps_small_rotations():
     assert _magnitude(m, ref)['rotation_deg'] == pytest.approx(0.02, rel=0.05)
 
 
-def test_init_asl_hmc_wf_adds_label_offset_only_when_asked():
-    """The correction node exists only with --hmc-method typewise_offset."""
+def test_hmc_method_default_is_typewise_offset():
+    """The label offset correction runs by default."""
+    from aslprep import config
+    from aslprep.tests.tests import reset_config
+
+    reset_config()
+    assert config.workflow.hmc_method == 'typewise_offset'
+
+
+@pytest.mark.parametrize(
+    ('method', 'present', 'absent'),
+    [
+        ('typewise', {'mcflirt'}, {'correct_label_offset', 'volreg', 'type_volreg'}),
+        ('typewise_offset', {'mcflirt', 'correct_label_offset'}, {'volreg', 'type_volreg'}),
+        (
+            'typewise_volreg',
+            {'type_volreg', 'type_mean', 'type_mean_to_ref', 'volreg', 'correct_label_offset'},
+            {'mcflirt'},
+        ),
+    ],
+)
+def test_init_asl_hmc_wf_nodes_by_method(method, present, absent):
+    """Each --hmc-method builds its own registration, and the offset correction where it applies.
+
+    ``typewise_volreg`` aligns every volume type to the reference separately, so the label
+    offset correction is part of the method, not an option.
+    """
     from aslprep import config
     from aslprep.tests.tests import mock_config
     from aslprep.workflows.asl.hmc import init_asl_hmc_wf
 
     with mock_config():
-        config.workflow.hmc_method = 'typewise'
-        wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
-        assert 'correct_label_offset' not in wf.list_node_names()
-        config.workflow.hmc_method = 'typewise_offset'
-        wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
-        assert 'correct_label_offset' in wf.list_node_names()
-        config.workflow.hmc_method = 'typewise'
+        config.workflow.hmc_method = method
+        try:
+            wf = init_asl_hmc_wf(mem_gb=1, omp_nthreads=1)
+        finally:
+            config.workflow.hmc_method = 'typewise_offset'
+        names = set(wf.list_node_names())
+        assert present <= names
+        assert not absent & names
+        registration_desc = wf.__desc__.split('Next, ASLPrep')[0]
+        assert ('3dvolreg' in registration_desc) == (method == 'typewise_volreg')
+
+
+@pytest.mark.parametrize(
+    'affine',
+    [
+        np.diag([2.0, 2.5, 3.0, 1.0]),  # RAS
+        np.diag([-2.0, 2.5, 3.0, 1.0]),  # LAS (radiological)
+        np.array(
+            [
+                [1.9, -0.6, 0.1, -40.0],
+                [0.6, 1.9, 0.2, -52.0],
+                [-0.1, -0.2, 3.0, -30.0],
+                [0, 0, 0, 1],
+            ]
+        ),  # oblique
+    ],
+)
+def test_pull_to_fsl_round_trips_through_nitransforms(tmp_path, affine):
+    """FSL matrices from pull_to_fsl read back (as MCFLIRT2ITK reads them) to the same pull."""
+    import nitransforms as nt
+
+    from aslprep.interfaces.hmc import _fsl_to_world, pull_to_fsl
+
+    src = nb.Nifti1Image(np.zeros((30, 32, 20), np.float32), affine)
+    ref = nb.Nifti1Image(np.zeros((30, 32, 20), np.float32), affine)
+    centre = (affine @ np.r_[14.5, 15.5, 9.5, 1])[:3]
+    pull = _pose(4.0, (1.2, -0.7, 0.4), centre)
+    mat = tmp_path / 'MAT_0000'
+    np.savetxt(mat, pull_to_fsl(pull, _fsl_to_world(src), _fsl_to_world(ref)))
+    read = nt.linear.load(str(mat), fmt='fsl', reference=ref, moving=src).matrix
+    np.testing.assert_allclose(read, pull, atol=1e-6)
+
+
+@needs_afni
+def test_volreg_series_recovers_a_known_shift(tmp_path):
+    """3dvolreg's matrices, converted as MCFLIRT2ITK converts MCFLIRT's, recover the motion."""
+    import nitransforms as nt
+
+    from aslprep.interfaces.hmc import VolregSeries
+
+    shape, affine = (40, 44, 30), np.diag([3.0, 3.0, 3.0, 1.0])
+    static = _phantom(shape, affine)
+    shifts = [(0.0, 0.0, 0.0), (0.8, 0.0, 0.0), (0.0, -0.6, 0.4)]
+    series = tmp_path / 'series.nii.gz'
+    nb.Nifti1Image(
+        np.stack([_phantom(shape, affine, shift_mm=s) for s in shifts], -1), affine
+    ).to_filename(series)
+    ref = tmp_path / 'ref.nii.gz'
+    nb.Nifti1Image(static, affine).to_filename(ref)
+    res = VolregSeries(in_file=str(series), ref_file=str(ref)).run(cwd=str(tmp_path))
+    assert len(res.outputs.mat_file) == 3
+    assert np.loadtxt(res.outputs.par_file).shape == (3, 6)
+    ref_img = nb.load(ref)
+    for mat, shift in zip(res.outputs.mat_file, shifts, strict=True):
+        pull = nt.linear.load(mat, fmt='fsl', reference=ref_img, moving=nb.load(series)).matrix
+        # The content moved by +shift, so the reference point y is found at y + shift.
+        np.testing.assert_allclose(pull[:3, 3], shift, atol=0.1)
+        np.testing.assert_allclose(pull[:3, :3], np.eye(3), atol=0.01)
+
+
+@needs_afni
+def test_volreg_series_defaults_to_the_middle_volume(tmp_path):
+    """Without a reference, the middle volume is the target, as with MCFLIRT."""
+    from aslprep.interfaces.hmc import VolregSeries
+
+    shape, affine = (40, 44, 30), np.diag([3.0, 3.0, 3.0, 1.0])
+    vols = [_phantom(shape, affine, shift_mm=(s, 0.0, 0.0)) for s in (-0.6, 0.0, 0.0, 0.6, 0.9)]
+    series = tmp_path / 'series.nii.gz'
+    nb.Nifti1Image(np.stack(vols, -1), affine).to_filename(series)
+    res = VolregSeries(in_file=str(series)).run(cwd=str(tmp_path))
+    np.testing.assert_allclose(np.loadtxt(res.outputs.mat_file[2]), np.eye(4), atol=0.01)
+    params = np.loadtxt(res.outputs.par_file)
+    assert np.abs(params[4, 3:]).max() == pytest.approx(0.9, abs=0.1)
+
+
+@needs_afni
+def test_volreg_series_single_volume(tmp_path):
+    """A volume type with one volume (e.g. one M0) gives one matrix and one row of parameters."""
+    from niworkflows.utils.connections import listify
+
+    from aslprep.interfaces.hmc import VolregSeries
+
+    shape, affine = (40, 44, 30), np.diag([3.0, 3.0, 3.0, 1.0])
+    one = tmp_path / 'm0.nii.gz'
+    nb.Nifti1Image(_phantom(shape, affine, shift_mm=(0.5, 0.0, 0.0)), affine).to_filename(one)
+    ref = tmp_path / 'ref.nii.gz'
+    nb.Nifti1Image(_phantom(shape, affine), affine).to_filename(ref)
+    res = VolregSeries(in_file=str(one), ref_file=str(ref)).run(cwd=str(tmp_path))
+    # One file comes back as a plain path, as MCFLIRT's mat_file does (the workflow listifies it).
+    mats = listify(res.outputs.mat_file)
+    assert len(mats) == 1
+    assert np.loadtxt(mats[0]).shape == (4, 4)
+    assert np.loadtxt(res.outputs.par_file, ndmin=2).shape == (1, 6)
+
+
+@pytest.mark.parametrize(
+    'ref_affine',
+    [np.diag([2.0, 2.0, 2.0, 1.0]), np.diag([-3.0, 3.0, 3.0, 1.0])],
+)
+def test_volreg_series_rejects_another_grid(tmp_path, ref_affine):
+    """A reference with the same shape but other voxel sizes or orientation is refused."""
+    from aslprep.interfaces.hmc import VolregSeries
+
+    shape, affine = (20, 22, 16), np.diag([3.0, 3.0, 3.0, 1.0])
+    series = tmp_path / 'series.nii.gz'
+    nb.Nifti1Image(np.ones((*shape, 2), np.float32), affine).to_filename(series)
+    ref = tmp_path / 'ref.nii.gz'
+    nb.Nifti1Image(np.ones(shape, np.float32), ref_affine).to_filename(ref)
+    with pytest.raises(ValueError, match='share one grid'):
+        VolregSeries(in_file=str(series), ref_file=str(ref)).run(cwd=str(tmp_path))
 
 
 def test_identity_transforms(tmp_path):
