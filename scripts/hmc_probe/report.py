@@ -1827,6 +1827,171 @@ the GE images' background noise is structured, which the simulation does not rep
 </section>"""
 
 
+MD_ARMS = {
+    'md-typewise': ('typewise', '#7f7f7f'),
+    'md-before': ('typewise_offset, before the fix', '#d9822b'),
+    'md-after': ('typewise_offset, after the fix', '#2b6cb0'),
+}
+MD_SERIES = ['pcasl_multipld', 'pasl_multipld', 'rc_pasl_multipld', 'mo_pasl_drift',
+             'mo_paslrep_withinpairs', 'mo_pasl_pldconfounded']  # fmt:skip
+
+
+def _md_fixture_dir(root, name):
+    for base in (root / 'pldbs' / 'aslscan', root / 'motion-fixtures' / 'aslscan',
+                 root / 'fixtures' / 'aslscan'):  # fmt:skip
+        if (base / name).exists():
+            return base / name
+    return None
+
+
+def _power_fd(params):
+    """Power's framewise displacement from (n, 6) translations (mm) and rotations (radians)."""
+    d = np.abs(np.diff(params, axis=0))
+    return np.r_[0.0, d[:, :3].sum(1) + 50.0 * d[:, 3:].sum(1)]
+
+
+def _pull_params(m, centre):
+    """Translation (mm) and rotations (radians) of a pull, about ``centre``."""
+    shift = np.eye(4)
+    shift[:3, 3] = centre
+    c = np.linalg.inv(shift) @ m @ shift
+    r = c[:3, :3]
+    rot = [np.arctan2(r[2, 1], r[2, 2]), np.arcsin(-np.clip(r[2, 0], -1, 1)),
+           np.arctan2(r[1, 0], r[0, 0])]  # fmt:skip
+    return np.r_[c[:3, 3], rot]
+
+
+def _md_series(root, name):
+    """PLD and FD per acquired label/control volume: truth and each arm."""
+    import nibabel as nb
+    from harness import load_itk_series
+
+    fx = _md_fixture_dir(root, name)
+    perf = fx / 'sub-01' / 'perf'
+    side = json.loads(next(perf.glob('*_asl.json')).read_text())
+    ctx = pd.read_table(next(perf.glob('*_aslcontext.tsv')))['volume_type'].tolist()
+    pld = np.atleast_1d(np.asarray(side.get('PostLabelingDelay', 0.0), float))
+    pld = np.repeat(pld, len(ctx)) if pld.size == 1 else pld
+    keep = [i for i, t in enumerate(ctx) if t in ('control', 'label')]
+    out = {'pld': pld[keep], 'type': [ctx[i] for i in keep]}
+    gt = next(perf.glob('ground-truth/*motion*.tsv'), None)
+    if gt is not None:
+        t = pd.read_table(gt)
+        cols = ['trans_x', 'trans_y', 'trans_z', 'rot_x', 'rot_y', 'rot_z']
+        tp = t[cols].to_numpy(float)
+        tp = tp[keep] if len(tp) == len(ctx) else tp
+        out['truth'] = _power_fd(tp) if len(tp) == len(keep) else None
+    else:
+        out['truth'] = np.zeros(len(keep))
+    for arm in MD_ARMS:
+        d = root / 'fixture-scores' / arm / name
+        if not (d / 'hmc_xfms.txt').exists():
+            continue
+        h = load_itk_series(d / 'hmc_xfms.txt')
+        idx = json.loads((d / 'hmc_indices.json').read_text())
+        ref = nb.load(d / 'aslref.nii.gz')
+        centre = (ref.affine @ np.r_[(np.array(ref.shape[:3]) - 1) / 2, 1])[:3]
+        pos = {v: k for k, v in enumerate(idx)}
+        params = np.array([_pull_params(h[pos[i]], centre) for i in keep])
+        out[arm] = _power_fd(params)
+    return out
+
+
+def section_delay_fix(root, df, fig):
+    """The label offset step's delay rule, before and after borrowing from the longest delay."""
+    import base64
+    import io
+
+    import matplotlib as mpl
+
+    mpl.use('Agg')
+    import matplotlib.pyplot as plt
+
+    if not (root / 'fixture-scores' / 'md-after').exists():
+        return ''
+    names = [n for n in MD_SERIES if (root / 'fixture-scores' / 'md-after' / n).exists()]
+    figs = []
+    for name in names:
+        s = _md_series(root, name)
+        x = np.arange(1, len(s['pld']) + 1)
+        f, (a1, a2) = plt.subplots(2, 1, figsize=(9, 3.6), sharex=True,
+                                   gridspec_kw={'height_ratios': [1, 2.2]})  # fmt:skip
+        a1.step(x, s['pld'], where='mid', color='black', lw=1.2)
+        a1.set_ylabel('PLD (s)')
+        if s.get('truth') is not None:
+            a2.plot(x, s['truth'], color='black', lw=1.0, ls=':', label='true motion')
+        for arm, (label, color) in MD_ARMS.items():
+            if arm in s:
+                a2.plot(x, s[arm], color=color, lw=1.2, label=label)
+        a2.set_ylabel('FD (mm)')
+        a2.set_xlabel('volume (control and label, in acquisition order)')
+        a2.legend(fontsize=7, frameon=False, ncol=4, loc='upper left')
+        a1.set_title(name, fontsize=9, loc='left')
+        for a in (a1, a2):
+            a.spines[['top', 'right']].set_visible(False)
+            a.tick_params(labelsize=7)
+        f.tight_layout()
+        buf = io.BytesIO()
+        f.savefig(buf, format='png', dpi=110)
+        plt.close(f)
+        figs.append(
+            '<img alt="PLD and framewise displacement for '
+            + esc(name)
+            + '" style="max-width:100%" src="data:image/png;base64,'
+            + base64.b64encode(buf.getvalue()).decode()
+            + '">'
+        )
+    # Read directly: load_scores leaves out the held-out fixtures, which belong in this table.
+    recs = []
+    for arm in MD_ARMS:
+        for f in (root / 'fixture-scores' / arm).glob('*/score.json'):
+            s = json.loads(f.read_text())
+            recs.append({'label': arm, 'fixture': f.parent.name,
+                         **{k: _get(s, METRICS[k]) for k in ('dm_edge', 'pair_max')}})  # fmt:skip
+    sub = pd.DataFrame(recs)
+    piv = sub.pivot_table(index='fixture', columns='label', values='dm_edge')
+    pair = sub.pivot_table(index='fixture', columns='label', values='pair_max')
+    rows = [
+        [f'<code>{esc(n)}</code>']
+        + [fmt(piv.at[n, a], 3) if a in piv and n in piv.index else '&ndash;' for a in MD_ARMS]
+        + [fmt(pair.at[n, a], 3) if a in pair and n in pair.index else '&ndash;' for a in MD_ARMS]
+        for n in piv.index
+    ]
+    table = plain_table(
+        ['Fixture'] + [f'Edge &Delta;M, {esc(v[0])}' for v in MD_ARMS.values()]
+        + [f'Pair offset (mm), {esc(v[0])}' for v in MD_ARMS.values()],
+        rows, tuple(range(1, 7)),
+    )  # fmt:skip
+    better = int((piv['md-after'] < 0.9 * piv['md-before']).sum())
+    worse = int((piv['md-after'] > 1.1 * piv['md-before']).sum())
+    vs_typewise = int((piv['md-after'] > 1.1 * piv['md-typewise']).sum())
+    return f"""
+<section id="delayfix"><h2>The offset step's delay rule</h2>
+<p>The offset step registers the corrected label mean to the corrected control mean at each
+delay. At delays shorter than the arterial transit time the labels still hold arterial signal,
+and the registration partly fits it. The first version let delays under 0.5 s (0.8 s for PASL)
+borrow the nearest other delay's estimate, but transit times run to a second or more, so on
+<code>pcasl_multipld</code> (transit 0.7 s in grey matter, 1.0 s in white matter) the 0.5 s
+labels produced a 0.066&deg; estimate, fifteen times the other delays', and the 0.25 s labels
+borrowed it. The fix estimates the offset from the longest delay only and gives it to every
+other delay.</p>
+{''.join(figure(img, 'PLD (top) and framewise displacement (bottom, Power, from the transforms) per control and label volume.', fig + k) for k, img in enumerate(figs))}
+{table}
+<p class="note">Edge delta-M error (0&ndash;3 mm shell, relative to GM) and the largest
+label-control pair offset, per multi-delay fixture. Fixtures ending <code>_ho</code> and
+<code>_ho2</code> are the held-out sets.</p>
+<p>After the fix the edge error is lower than before on {better} of {len(piv)} fixtures and
+higher on {worse} (by more than 10%); it is more than 10% above <code>typewise</code> on
+{vs_typewise}. The fix is not kept. In these series the delays are acquired one after another,
+so each delay's estimate also carries the residual misregistration of its own pairs, at the
+pose the head had then; the longest delay's estimate, applied to every other delay, moves their
+labels by the wrong amount (on <code>mo_pasl_withinpairs</code> the edge error goes from 0.21
+to 4.05, against 0.89 for <code>typewise</code>). Per-delay estimation is needed; what the
+short delays need is a rule for when their own estimate is not to be trusted. A single offset
+from the later delays (C9-late) failed the held-out PASL fixtures in the same way.</p>
+</section>"""
+
+
 def real_volreg(root):
     """The two best 3dvolreg arms on the real panel, judged as C9-auto was."""
     import re
@@ -2268,6 +2433,7 @@ def build(root):
     c6 = section_c6(root, df, fig + 1)
     task7 = section_task7(root)
     reference = section_reference(root, df, fig + 2)
+    delay_fix = section_delay_fix(root, df, fig + 3)
 
     piv = df.pivot_table(index='fixture', columns='label', values='dm_edge')
     med = piv.median()
@@ -2384,10 +2550,10 @@ alternative does better, tested on simulated data with known truth and on the as
 <a href="#noise">Noise and cost</a><a href="#blur">Blur bias</a><a href="#screen">Candidate screen</a>
 <a href="#zigzag">Zig-zag regression</a><a href="#engines">Engines and short list</a>
 <a href="#consumers">Reference consumers</a><a href="#real">Real data</a><a href="#coreg">Perfusion coregistration</a>
-<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#task7">Full pipeline</a><a href="#reference">Reference type and #767</a><a href="#next">Next steps</a></nav>
+<a href="#c5">Saturation recovery</a><a href="#c6">Joint model (C6)</a><a href="#task7">Full pipeline</a><a href="#reference">Reference type and #767</a><a href="#delayfix">Offset delay rule</a><a href="#next">Next steps</a></nav>
 </header>
 <section id="summary"><h2>Findings so far</h2>{summary}</section>
-{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}{task7}{reference}
+{noise}{blur}{screen}{zig}{engines}{policy}{consumers}{real}{coreg}{c5}{c6}{task7}{reference}{delay_fix}
 <section id="next">
 <h2>Caveats and next steps</h2>
 <ul>
