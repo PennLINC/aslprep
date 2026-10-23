@@ -68,9 +68,10 @@ def init_asl_hmc_wf(
     -------
     xforms
         ITKTransform file aligning each volume to ``ref_image``. With ``--hmc-method
-        typewise_offset`` (the default) or ``typewise_volreg``, the label volumes' transforms
-        also remove the offset between the corrected labels and controls
-        (:class:`~aslprep.interfaces.hmc.CorrectLabelOffset`).
+        typewise_offset`` (the default) or ``typewise_volreg``, the transforms of label volumes
+        at delays of at least 1 s (0.8 s for PASL) that also have control volumes remove the
+        offset between the corrected labels and controls
+        (:class:`~aslprep.interfaces.hmc.CorrectLabelOffset`); other labels are unchanged.
     label_offset_report
         JSON record of the estimated label offsets (``typewise_offset`` and
         ``typewise_volreg`` only).

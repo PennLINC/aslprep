@@ -98,7 +98,7 @@ class CorrectLabelOffset(SimpleInterface):
     controls, which shows up at the edges of the brain after subtraction. For each delay at or
     above :data:`ARTERIAL_DELAY`, the mean of the corrected label volumes is registered rigidly
     to the mean of the corrected control volumes (AFNI ``3dvolreg``; at those delays the two
-    images differ only by the perfusion signal), and the correction is composed into the
+    images should differ mainly by the perfusion signal), and the correction is composed into the
     transforms of that delay's label volumes. Labels at shorter delays, which may still hold
     arterial signal, keep their transforms (:func:`plan_label_offset_groups`), as do control,
     M0 and derived volumes. Series without both labels and controls pass through unchanged.

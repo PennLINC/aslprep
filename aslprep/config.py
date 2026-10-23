@@ -582,7 +582,8 @@ class workflow(_Config):
     hmc_method = 'typewise_offset'
     """Head-motion correction method: ``typewise`` (MCFLIRT per volume type),
     ``typewise_offset`` (the default: the same, then the offset it leaves between the corrected
-    label and control volumes is removed; :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`),
+    label and control volumes is removed at delays of at least 1 s, 0.8 s for PASL;
+    :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`),
     or ``typewise_volreg`` (experimental: 3dvolreg per volume type to the type's own mean,
     aligned to the reference by FLIRT, then the same offset removal)."""
     fs_no_resume = None

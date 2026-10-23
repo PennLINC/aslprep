@@ -314,8 +314,9 @@ differences between the types are not read as motion:
    the mean of the corrected label volumes is registered rigidly to the mean of the corrected
    control volumes with AFNI ``3dvolreg``,
    and the correction is composed into the transforms of that delay's label volumes.
-   The two means differ only by the perfusion signal, so what the registration finds is the
-   offset.
+   At those delays the two means should differ mainly by the perfusion signal, so what the
+   registration finds is mostly the offset; the cutoff is a conservative rule, not a guarantee
+   that no arterial signal is left.
    Labels at shorter delays are not corrected and keep the ``typewise`` transforms:
    before the arterial transit time (which can exceed a second) the labels still hold arterial
    signal, bright vessels that the control images lack, and registering the two means would

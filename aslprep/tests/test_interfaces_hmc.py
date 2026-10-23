@@ -55,6 +55,25 @@ def test_plan_label_offset_groups_all_short_and_no_pairs():
     assert skipped == []
 
 
+@pytest.mark.parametrize(
+    ('asl_type', 'delays', 'corrected'),
+    [
+        ('PCASL', [0.99, 1.0], [1.0]),  # the cutoff itself is corrected
+        ('PASL', [0.79, 0.8], [0.8]),
+        ('pasl', [0.79, 0.8], [0.8]),  # labeling type matched case-insensitively
+        (None, [0.99, 1.0], [1.0]),  # missing or unknown types use the PCASL cutoff
+        ('CASL', [0.99, 1.0], [1.0]),
+    ],
+)
+def test_plan_label_offset_groups_cutoff_boundaries(asl_type, delays, corrected):
+    """Delays at the cutoff are corrected; just below it they are not."""
+    types = ['label', 'control'] * len(delays)
+    plds = [d for d in delays for _ in range(2)]
+    estimated, skipped = plan_label_offset_groups(types, plds, asl_type)
+    assert sorted(estimated) == corrected
+    assert skipped == [d for d in delays if d not in corrected]
+
+
 def _phantom(shape, affine, shift_mm=(0.0, 0.0, 0.0)):
     """A smooth analytic head-like image, sampled with its content displaced by ``shift_mm``."""
     ijk = np.indices(shape).reshape(3, -1)
@@ -126,6 +145,40 @@ def test_correct_label_offset_recovers_a_known_shift(tmp_path):
     before = np.abs(label - 0.99 * control)[inner].mean()
     after = np.abs(fixed - 0.99 * control)[inner].mean()
     assert after < 0.3 * before
+
+
+@needs_afni
+def test_correct_label_offset_leaves_short_delays_alone(tmp_path):
+    """Labels below the cutoff keep their transforms; labels above it are corrected.
+
+    Both delays have labels displaced by 0.6 mm; only the 1.5 s delay is corrected, and the
+    report records the 0.5 s delay as not corrected.
+    """
+    import nitransforms as nt
+
+    shape, affine = (40, 44, 30), np.diag([3.0, 3.0, 3.0, 1.0])
+    control = _phantom(shape, affine)
+    label = _phantom(shape, affine, shift_mm=(0.6, 0.0, 0.0)) - 0.01 * control
+    types = ['label', 'control'] * 8
+    vols = [label if t == 'label' else control for t in types]
+    asl, ctx, ref, xfm = _write_series(tmp_path, vols, types, affine)
+    plds = [0.5] * 8 + [1.5] * 8
+    res = CorrectLabelOffset(
+        asl_file=str(asl),
+        aslcontext=str(ctx),
+        metadata={'PostLabelingDelay': plds, 'ArterialSpinLabelingType': 'PCASL'},
+        ref_file=str(ref),
+        xforms=str(xfm),
+    ).run(cwd=str(tmp_path))
+    record = json.loads(open(res.outputs.out_report).read())
+    assert record['delays']['0.5'] == {'corrected': False}
+    assert record['delays']['1.5']['translation_mm'] == pytest.approx(0.6, abs=0.1)
+    out = np.asarray(nt.linear.load(res.outputs.out_file, fmt='itk').matrix).reshape(-1, 4, 4)
+    for i, (t, p) in enumerate(zip(types, plds, strict=True)):
+        if t == 'control' or p < 1.0:
+            np.testing.assert_allclose(out[i], np.eye(4), atol=1e-6)
+        else:
+            assert not np.allclose(out[i], np.eye(4), atol=1e-3)
 
 
 @needs_afni
