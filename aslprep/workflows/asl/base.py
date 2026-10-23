@@ -31,6 +31,7 @@ from aslprep.workflows.asl.apply import (
     init_asl_volumetric_resample_wf,
 )
 from aslprep.workflows.asl.cbf import (
+    basil_pvc_enabled,
     init_cbf_wf,
     init_load_atlases_wf,
     init_parcellate_cbf_wf,
@@ -637,7 +638,9 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             ]),
         ])  # fmt:skip
 
-    if lr_sources:
+    # The partial volume maps are written whenever a correction uses them: BASIL's, too.
+    basil_pvc = basil_pvc_enabled(basil=basil, processing_target=processing_target)
+    if lr_sources or basil_pvc:
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
@@ -651,7 +654,8 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         workflow.connect([
             (cbf_wf, ds_pvc_native_wf, [
                 (f'outputnode.{field}', f'inputnode.{field}')
-                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata']
+                + (['pvc_metadata'] if lr_sources else [])
                 + lr_native
             ]),
         ])  # fmt:skip

@@ -537,7 +537,8 @@ any spatial references.""",
         help=(
             "FSL's CBF computation with spatial regularization and partial volume correction. "
             'BASIL partial volume correction always runs with --basil (except in sloppy mode), '
-            'independently of --pvc-method.'
+            'independently of --pvc-method, using the same tissue maps as --pvc-method '
+            '(see --asl-effective-resolution).'
         ),
     )
     g_conf.add_argument(
@@ -564,7 +565,8 @@ any spatial references.""",
         metavar='{nominal,auto} | FWHM FWHM FWHM',
         help=(
             'How blurry the ASL images are, used only to build the tissue maps for '
-            '--pvc-method. ASL readouts blur each voxel into its neighbours (3D GRASE and '
+            '--pvc-method and BASIL partial volume correction. '
+            'ASL readouts blur each voxel into its neighbours (3D GRASE and '
             '3D spiral readouts mostly along the slice direction), so the gray and white '
             'matter fractions can be blurred to match. '
             "'nominal' (default): no blur beyond the voxel itself, the safest choice. "
