@@ -12,44 +12,47 @@ from aslprep.interfaces.hmc import CorrectLabelOffset, _resample, plan_label_off
 needs_afni = pytest.mark.skipif(shutil.which('3dvolreg') is None, reason='AFNI 3dvolreg not found')
 
 
-def test_plan_label_offset_groups_pcasl_borrows_early_delays():
-    """A PCASL delay under 0.5 s takes the estimate of the nearest other delay in time."""
+def test_plan_label_offset_groups_skips_short_pcasl_delays():
+    """PCASL delays under 1 s are not corrected; longer ones use their own estimate.
+
+    A delay of 0.5 s still holds arterial signal when the transit time is 0.7 s or more.
+    """
     types = ['label', 'control'] * 6
-    plds = [0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 1.5, 1.5]
-    estimated, borrowed = plan_label_offset_groups(types, plds, 'PCASL')
-    assert sorted(estimated) == [1.0, 1.5]
-    assert estimated[1.0] == ([4, 6], [5, 7])
-    assert borrowed == {0.25: ([0, 2], 1.0)}
+    plds = [0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 0.5, 0.5, 1.5, 1.5, 1.5, 1.5]
+    estimated, skipped = plan_label_offset_groups(types, plds, 'PCASL')
+    assert estimated == {1.5: ([8, 10], [9, 11])}
+    assert skipped == [0.25, 0.5]
 
 
 def test_plan_label_offset_groups_pasl_keeps_its_delays():
-    """PASL inversion times at or above 0.8 s are each estimated from their own pair."""
-    types = ['label', 'control'] * 3
-    plds = [0.9, 0.9, 1.8, 1.8, 2.7, 2.7]
-    estimated, borrowed = plan_label_offset_groups(types, plds, 'PASL')
+    """PASL inversion times at or above 0.8 s are each corrected with their own estimate."""
+    types = ['label', 'control'] * 4
+    plds = [0.6, 0.6, 0.9, 0.9, 1.8, 1.8, 2.7, 2.7]
+    estimated, skipped = plan_label_offset_groups(types, plds, 'PASL')
     assert sorted(estimated) == [0.9, 1.8, 2.7]
-    assert borrowed == {}
+    assert skipped == [0.6]
 
 
-def test_plan_label_offset_groups_late_delay_without_controls_is_left_alone():
-    """Only early delays borrow: a later delay with labels but no controls is not corrected."""
+def test_plan_label_offset_groups_delay_without_controls_is_skipped():
+    """A delay with labels but no controls has nothing to estimate from, and is left alone."""
     types = ['label', 'control', 'label', 'control', 'label', 'label']
     plds = [1.0, 1.0, 1.0, 1.0, 2.0, 2.0]
-    estimated, borrowed = plan_label_offset_groups(types, plds, 'PCASL')
+    estimated, skipped = plan_label_offset_groups(types, plds, 'PCASL')
     assert sorted(estimated) == [1.0]
-    assert borrowed == {}
+    assert skipped == [2.0]
 
 
-def test_plan_label_offset_groups_all_early_and_no_pairs():
-    """When every delay is early each is estimated; without labels nothing is."""
-    estimated, borrowed = plan_label_offset_groups(
+def test_plan_label_offset_groups_all_short_and_no_pairs():
+    """With every delay short nothing is corrected (the type-wise result); without labels,
+    nothing either."""
+    estimated, skipped = plan_label_offset_groups(
         ['label', 'control'] * 2, [0.2, 0.2, 0.3, 0.3], 'PCASL'
     )
-    assert sorted(estimated) == [0.2, 0.3]
-    assert borrowed == {}
-    estimated, borrowed = plan_label_offset_groups(['deltam'] * 3, [1.8] * 3, 'PCASL')
     assert estimated == {}
-    assert borrowed == {}
+    assert skipped == [0.2, 0.3]
+    estimated, skipped = plan_label_offset_groups(['deltam'] * 3, [1.8] * 3, 'PCASL')
+    assert estimated == {}
+    assert skipped == []
 
 
 def _phantom(shape, affine, shift_mm=(0.0, 0.0, 0.0)):

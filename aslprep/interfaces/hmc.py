@@ -20,13 +20,22 @@ from nipype.interfaces.base import (
     traits,
 )
 
-#: Labels at shorter delays than these (seconds) still hold arterial signal, so their mean
-#: differs from the control mean in structure and biases an offset estimated from them.
-ARTERIAL_DELAY = {'PASL': 0.8, 'default': 0.5}
+#: Delays (seconds; inversion times for PASL) below which labels may still hold arterial signal.
+#: At those delays the label mean differs from the control mean by bright vessels as well as
+#: perfusion, and registering one to the other reads the vessels as an offset of the head, so
+#: their labels are not corrected. Generous on purpose: transit times reach a second or more,
+#: and a delay wrongly left uncorrected only keeps the type-wise transforms.
+ARTERIAL_DELAY = {'PASL': 0.8, 'default': 1.0}
 
 
 def plan_label_offset_groups(volume_types, plds, asl_type):
-    """Group label volumes by delay, and say which delays borrow another delay's estimate.
+    """Group label volumes by delay, and say which delays are corrected.
+
+    Each delay at or above :data:`ARTERIAL_DELAY` is corrected with the offset estimated from
+    its own label and control volumes. Delays below it are not corrected: their labels keep the
+    type-wise transforms. Each delay's own estimate is needed because, in a series that acquires
+    the delays one after another, it also carries the residual misregistration of that delay's
+    pairs; an estimate borrowed from another delay moves the labels by the wrong amount.
 
     Parameters
     ----------
@@ -41,10 +50,9 @@ def plan_label_offset_groups(volume_types, plds, asl_type):
     -------
     estimated : dict
         Delay -> (label indices, control indices), for the delays whose offset is estimated from
-        their own label and control volumes.
-    borrowed : dict
-        Delay -> (label indices, source delay): delays whose labels still hold arterial signal
-        take the estimate of the estimated delay nearest in acquisition order.
+        their own label and control volumes and applied to their labels.
+    skipped : list of float
+        Delays with labels that are not corrected (below the cutoff, or without controls).
     """
     volume_types = list(volume_types)
     plds = [float(p) for p in plds]
@@ -62,20 +70,9 @@ def plan_label_offset_groups(volume_types, plds, asl_type):
             if t == 'control' and p == d
         ]
         groups[d] = (labels, controls)
-    early = {d for d in groups if d < cut}
-    if early >= set(groups):
-        early = set()  # every delay is early: each is estimated from its own volumes
-    estimated = {d: g for d, g in groups.items() if d not in early and g[0] and g[1]}
-    borrowed = {}
-    # Only the early delays borrow; a later delay without controls keeps its transforms.
-    for d in sorted(early):
-        labels = groups[d][0]
-        if not estimated or not labels:
-            continue
-        at = float(np.mean(labels))
-        source = min(estimated, key=lambda e: abs(float(np.mean(estimated[e][0])) - at))
-        borrowed[d] = (labels, source)
-    return estimated, borrowed
+    estimated = {d: g for d, g in groups.items() if d >= cut and g[0] and g[1]}
+    skipped = sorted(d for d, g in groups.items() if g[0] and d not in estimated)
+    return estimated, skipped
 
 
 class _CorrectLabelOffsetInputSpec(BaseInterfaceInputSpec):
@@ -98,13 +95,13 @@ class CorrectLabelOffset(SimpleInterface):
 
     Volume-type-wise motion correction registers label and control volumes to the same
     reference separately, and leaves a small rigid offset between the corrected labels and
-    controls, which shows up at the edges of the brain after subtraction. For each delay, the
-    mean of the corrected label volumes is registered rigidly to the mean of the corrected control
-    volumes (AFNI ``3dvolreg``; the two images differ only by the perfusion signal), and the
-    correction is composed into the transforms of every label volume of that delay. Delays whose
-    labels still hold arterial signal take the estimate of the nearest other delay. Control,
-    M0 and derived volumes keep their transforms. Series without both labels and controls pass
-    through unchanged.
+    controls, which shows up at the edges of the brain after subtraction. For each delay at or
+    above :data:`ARTERIAL_DELAY`, the mean of the corrected label volumes is registered rigidly
+    to the mean of the corrected control volumes (AFNI ``3dvolreg``; at those delays the two
+    images differ only by the perfusion signal), and the correction is composed into the
+    transforms of that delay's label volumes. Labels at shorter delays, which may still hold
+    arterial signal, keep their transforms (:func:`plan_label_offset_groups`), as do control,
+    M0 and derived volumes. Series without both labels and controls pass through unchanged.
     """
 
     input_spec = _CorrectLabelOffsetInputSpec
@@ -132,7 +129,7 @@ class CorrectLabelOffset(SimpleInterface):
         pulls = np.asarray(xfms.matrix).reshape(-1, 4, 4)  # reference point -> volume point
         if len(pulls) != n_vols:
             raise ValueError(f'{len(pulls)} transforms for {n_vols} volumes')
-        estimated, borrowed = plan_label_offset_groups(volume_types, plds, asl_type)
+        estimated, skipped = plan_label_offset_groups(volume_types, plds, asl_type)
         new = pulls.copy()
         record = {'asl_type': str(asl_type), 'delays': {}}
         corrections = {}
@@ -162,11 +159,9 @@ class CorrectLabelOffset(SimpleInterface):
                 'n_controls': len(controls),
                 **_magnitude(corrections[d], ref_img),
             }
-        for d, (labels, source) in borrowed.items():
-            corrections[d] = corrections[source]
-            record['delays'][f'{d:g}'] = {'n_labels': len(labels), 'borrowed_from': f'{source:g}'}
-        groups = {d: g[0] for d, g in estimated.items()} | {d: b[0] for d, b in borrowed.items()}
-        for d, labels in groups.items():
+        for d in skipped:
+            record['delays'][f'{d:g}'] = {'corrected': False}
+        for d, (labels, _) in estimated.items():
             for i in labels:
                 # The corrected label shows at y what the label mean shows at P y.
                 new[i] = pulls[i] @ corrections[d]

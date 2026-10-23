@@ -18,8 +18,9 @@ def init_asl_hmc_wf(
 
     - ``typewise``: MCFLIRT registers each volume type to the ASL reference.
     - ``typewise_offset`` (default): as ``typewise``, then the offset left between the
-      corrected label and control volumes is removed (per post-labeling delay, the corrected
-      label mean is registered to the corrected control mean with ``3dvolreg``).
+      corrected label and control volumes is removed (per post-labeling delay of at least 1 s,
+      or inversion time of at least 0.8 s for PASL, the corrected label mean is registered to
+      the corrected control mean with ``3dvolreg``; shorter delays are not corrected).
     - ``typewise_volreg`` (**experimental**): each volume type is registered by ``3dvolreg``
       (least squares) to its own mean, which FLIRT aligns to the ASL reference once, and the
       label offset correction always follows.
@@ -263,10 +264,11 @@ re-calculated relative root mean-squared deviation.
     if hmc_method in ('typewise_offset', 'typewise_volreg'):
         workflow.__desc__ += """\
 The systematic offset that type-wise motion correction leaves between the corrected label and
-control volumes was then removed: for each post-labeling delay, the mean of the corrected label
-volumes was registered rigidly to the mean of the corrected control volumes with *AFNI*'s
-`3dvolreg`, and that correction was composed into the transforms of the delay's label volumes
-(delays shorter than 0.5 s, or 0.8 s for PASL, used the estimate of the nearest other delay).
+control volumes was then removed: for each post-labeling delay of at least 1.0 s (inversion
+time of at least 0.8 s for PASL), the mean of the corrected label volumes was registered rigidly
+to the mean of the corrected control volumes with *AFNI*'s `3dvolreg` [@afni], and that
+correction was composed into the transforms of the delay's label volumes. Labels at shorter
+delays, which may still hold arterial signal, were not corrected.
 
 """
         correct_label_offset = pe.Node(

@@ -519,9 +519,11 @@ any spatial references.""",
             'Head-motion correction method. "typewise" registers each volume type separately to '
             'the reference with MCFLIRT. "typewise_offset" (default) does the same, then removes '
             'the systematic offset between the corrected label and control volumes: for each '
-            'post-labeling delay, the mean corrected label image is registered rigidly to the '
-            "mean corrected control image, and the correction is composed into the label volumes' "
-            'transforms. "typewise_volreg" (experimental) registers each volume type with AFNI '
+            'post-labeling delay of at least 1 s (inversion time of at least 0.8 s for PASL), '
+            'the mean corrected label image is registered rigidly to the mean corrected control '
+            "image, and the correction is composed into the label volumes' transforms; labels "
+            'at shorter delays, which may still hold arterial signal, are not corrected. '
+            '"typewise_volreg" (experimental) registers each volume type with AFNI '
             "3dvolreg to the type's own mean, which FLIRT aligns to the reference, and then "
             'removes the label offset as "typewise_offset" does.'
         ),
