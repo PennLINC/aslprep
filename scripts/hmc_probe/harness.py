@@ -119,11 +119,12 @@ def _collect(out_dir, aslref, xforms, aslcontext, asl_file):
     return out_dir
 
 
-def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None):
+def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None, hmc_method=None):
     """Production reference building and HMC, built from ASLPrep's own workflows.
 
     ``reference`` overrides production's choice of reference volume type (e.g. ``control`` to
-    use the control mean even when the run has an M0).
+    use the control mean even when the run has an M0). ``hmc_method`` sets ASLPrep's
+    ``--hmc-method`` (``typewise_offset`` runs the code's own label offset correction).
     """
     from nipype.interfaces import utility as niu
     from nipype.pipeline import engine as pe
@@ -136,6 +137,8 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None):
     from aslprep.workflows.asl.reference import init_raw_aslref_wf
 
     config.workflow.smooth_kernel = smooth_kernel
+    if hmc_method:
+        config.workflow.hmc_method = hmc_method
     metadata = inputs['metadata']
     n_vols = _n_volumes(inputs['asl_file'])
     # aslprep/workflows/asl/base.py: the short-series ("GE") path.
@@ -196,6 +199,8 @@ def run_c0(inputs, work, smooth_kernel=5.0, force_ge=None, reference=None):
         (hmc_wf, sink, [('outputnode.xforms', 'xforms')]),
         (reduce, sink, [('aslcontext', 'aslcontext'), ('asl_file', 'asl_file')]),
     ])  # fmt:skip
+    if hmc_method:  # only code with --hmc-method has the metadata input
+        wf.connect([(reduce, hmc_wf, [('metadata', 'inputnode.metadata')])])
     wf.run()
     full = _context(inputs['aslcontext'])
     keep = {'control': ('control', 'label', 'm0scan'), 'deltam': ('deltam', 'm0scan')}.get(
