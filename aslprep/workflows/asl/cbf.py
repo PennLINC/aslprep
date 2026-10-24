@@ -38,7 +38,7 @@ from aslprep.utils.calibration import (
     resolve_calibration,
 )
 from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
-from aslprep.utils.misc import estimate_series_mem_gb
+from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -570,7 +570,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
     # Nodes that load the ASL series, or a CBF time series of the same size, run in workers,
     # so the scheduler needs their memory to pack them.
-    series_mem_gb = estimate_series_mem_gb(name_source)
+    series_mem_gb = estimate_asl_mem_usage(name_source)[1]['resampled']
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,

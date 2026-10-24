@@ -62,12 +62,19 @@ def _prefix(subid):
     return subid if subid.startswith('sub-') else f'sub-{subid}'
 
 
-def estimate_asl_mem_usage(asl_fname: str) -> tuple[int, dict]:
-    """Estimate ASL memory usage."""
+def estimate_asl_mem_usage(asl_fname: str) -> tuple[int | None, dict]:
+    """Estimate ASL memory usage.
+
+    If the series cannot be read (as with the placeholder files in tests), the number of
+    volumes is None and the estimates are those of a series whose ``resampled`` estimate is 1 GB.
+    """
     import nibabel as nb
     import numpy as np
 
-    img = nb.load(asl_fname)
+    try:
+        img = nb.load(asl_fname)
+    except Exception:  # noqa: BLE001 - the series may be a placeholder, as in tests
+        return None, {'filesize': 0.25, 'resampled': 1.0, 'largemem': 1.25}
     nvox = int(np.prod(img.shape, dtype='u8'))
     # Assume tools will coerce to 8-byte floats to be safe
     asl_size_gb = 8 * nvox / (1024**3)
@@ -79,20 +86,6 @@ def estimate_asl_mem_usage(asl_fname: str) -> tuple[int, dict]:
     }
 
     return asl_tlen, mem_gb
-
-
-def estimate_series_mem_gb(asl_fname: str, default: float = 1.0) -> float:
-    """Memory for a node that loads the ASL series or a time series of the same size, in GB.
-
-    This is the ``resampled`` estimate from :func:`estimate_asl_mem_usage`, with at least
-    0.2 GB. If the series cannot be read (as with the placeholder files in tests),
-    ``default`` is returned.
-    """
-    try:
-        _, mem_gb = estimate_asl_mem_usage(asl_fname)
-    except Exception:  # noqa: BLE001 - the series may be a placeholder, as in tests
-        return default
-    return max(mem_gb['resampled'], 0.2)
 
 
 def list_to_str(lst):
