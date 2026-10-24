@@ -939,3 +939,224 @@ class ComputeCBFQC(SimpleInterface):
             json.dump(qc_metadata, fobj, indent=4, sort_keys=True)
 
         return runtime
+
+
+def _pair_qc_metadata():
+    """Column descriptions for the observation-level QC table."""
+    from aslprep.utils import pair_qc as pq
+
+    return {
+        'observation': {
+            'Description': (
+                'Index of the observation in the delta-M (or CBF) series, in the order ASLPrep '
+                'computes it: the k-th control volume minus the k-th label volume, or the k-th '
+                'precomputed delta-M or CBF volume. The same order as the SCORE outlier index.'
+            ),
+        },
+        'observation_type': {
+            'Description': "'control-label', 'deltam' or 'cbf'.",
+        },
+        'control_volume': {
+            'Description': (
+                'Index of the control volume in the preprocessed ASL series (and row of the '
+                'confounds file). n/a for precomputed delta-M or CBF volumes.'
+            ),
+        },
+        'label_volume': {
+            'Description': (
+                'Index of the label volume in the preprocessed ASL series. '
+                'n/a for precomputed delta-M or CBF volumes.'
+            ),
+        },
+        'volume': {
+            'Description': (
+                'Index of a precomputed delta-M or CBF volume in the preprocessed ASL series. '
+                'n/a for control-label pairs.'
+            ),
+        },
+        'post_labeling_delay': {
+            'Description': 'Post-labeling delay (inversion time for PASL) of the observation.',
+            'Units': 's',
+        },
+        'labeling_duration': {
+            'Description': 'Labeling duration of the observation (PCASL and CASL only).',
+            'Units': 's',
+        },
+        'n_same_delay': {
+            'Description': (
+                'Number of observations with the same delay (and labeling duration). The '
+                'voxelwise median and MAD are computed over these observations.'
+            ),
+        },
+        'deviant_fraction': {
+            'Description': (
+                'Fraction of brain-mask voxels whose value lies more than '
+                f'{pq.Z_OUTLIER} robust standard deviations (1.4826 x MAD) from the voxelwise '
+                'median over the observations with the same delay. n/a when fewer than '
+                f'{pq.MIN_OBSERVATIONS} observations share the delay.'
+            ),
+        },
+        'deviant_fraction_z1p5': {
+            'Description': (
+                'The same fraction at 1.5 robust standard deviations, the threshold of '
+                'Harteveld et al. (2022), who rejected subtraction images with more than 20% '
+                'of the region of interest beyond 1.5 SD of the voxelwise mean.'
+            ),
+        },
+        'max_slice_deviant_fraction': {
+            'Description': (
+                f'Largest deviant_fraction (at {pq.Z_OUTLIER} robust SD) over slice groups '
+                '(slices with the same SliceTiming; each slice for 3D readouts) with at least '
+                f'{pq.MIN_SLICE_VOXELS} brain-mask voxels. Large values with a small '
+                'deviant_fraction point to an artifact confined to a few slices, such as '
+                'movement during a 2D readout.'
+            ),
+        },
+        'mean_deltam_z': {
+            'Description': (
+                'Signed robust z-score of the brain-mean delta-M (or CBF) of the observation '
+                'among the observations with the same delay. Catches shifts of the whole image, '
+                'such as labeling failures, that move few voxels past the voxelwise threshold.'
+            ),
+        },
+        'framewise_displacement': {
+            'Description': (
+                'Largest framewise displacement of the observation volumes, from the confounds '
+                'file.'
+            ),
+            'Units': 'mm',
+        },
+        'outlier': {
+            'Description': (
+                f'True if deviant_fraction exceeds {pq.FRACTION_OUTLIER}. Advisory only: no '
+                'observation is excluded from any ASLPrep output because of this column.'
+            ),
+        },
+    }
+
+
+class _ComputePairQCInputSpec(BaseInterfaceInputSpec):
+    deltam = File(
+        exists=True,
+        mandatory=True,
+        desc='Delta-M (or precomputed CBF) series, one volume per observation.',
+    )
+    asl_mask = File(exists=True, mandatory=True, desc='Brain mask in the space of deltam.')
+    aslcontext = File(
+        exists=True,
+        mandatory=True,
+        desc='aslcontext of the preprocessed ASL series that deltam was computed from.',
+    )
+    metadata = traits.Dict(
+        mandatory=True,
+        desc='Metadata of deltam, with volume-wise fields reduced to the observations.',
+    )
+    confounds_file = File(
+        exists=True,
+        mandatory=False,
+        desc='Confounds file of the preprocessed ASL series, for framewise displacement.',
+    )
+
+
+class _ComputePairQCOutputSpec(TraitedSpec):
+    qc_file = File(exists=True, desc='Observation-level QC table.')
+    qc_metadata = traits.Dict(desc='Column descriptions for qc_file.')
+
+
+class ComputePairQC(SimpleInterface):
+    """Measure how much each delta-M observation deviates from those at the same delay.
+
+    See :mod:`aslprep.utils.pair_qc`. The table is for review only; it excludes nothing.
+    """
+
+    input_spec = _ComputePairQCInputSpec
+    output_spec = _ComputePairQCOutputSpec
+
+    def _run_interface(self, runtime):
+        from aslprep.utils import pair_qc as pq
+
+        img = nb.load(self.inputs.deltam)
+        data = np.asanyarray(img.dataobj, dtype=np.float32)
+        if data.ndim == 3:
+            data = data[..., None]
+        mask = np.asanyarray(nb.load(self.inputs.asl_mask).dataobj) > 0
+        if mask.shape != data.shape[:3]:
+            raise ValueError(f'Mask shape {mask.shape} != delta-M shape {data.shape[:3]}')
+        n_obs = data.shape[3]
+
+        volume_types = pd.read_table(self.inputs.aslcontext)['volume_type']
+        obs_type, volumes = pq.observation_volumes(volume_types)
+        if len(volumes) != n_obs:
+            raise ValueError(
+                f'{n_obs} delta-M volumes, but the aslcontext implies {len(volumes)} observations'
+            )
+
+        metadata = self.inputs.metadata
+
+        def per_observation(field):
+            value = metadata.get(field)
+            if value is None:
+                return None
+            value = np.atleast_1d(np.asarray(value, dtype=float))
+            if value.size == 1:
+                return np.repeat(value, n_obs)
+            if value.size != n_obs:
+                raise ValueError(f'{field} has {value.size} values for {n_obs} observations')
+            return value
+
+        delays = per_observation('PostLabelingDelay')
+        if delays is None:
+            delays = np.zeros(n_obs)
+        durations = per_observation('LabelingDuration')
+        groups = pq.delay_groups(delays, durations)
+
+        slice_timing = metadata.get('SliceTiming')
+        if metadata.get('MRAcquisitionType') != '2D':
+            slice_timing = None
+        slice_of_voxel = pq.slice_groups(slice_timing, mask.shape[2])[np.nonzero(mask)[2]]
+
+        measures = pq.observation_measures(data[mask], groups, slice_of_voxel)
+
+        paired = obs_type == 'control-label'
+        table = pd.DataFrame(
+            {
+                'observation': np.arange(n_obs),
+                'observation_type': obs_type,
+                'control_volume': [v[0] if paired else None for v in volumes],
+                'label_volume': [v[1] if paired else None for v in volumes],
+                'volume': [None if paired else v[0] for v in volumes],
+                'post_labeling_delay': delays,
+                'labeling_duration': durations if durations is not None else np.nan,
+            }
+        )
+        table = pd.concat([table, measures], axis=1)
+
+        fd = np.full(n_obs, np.nan)
+        if isdefined(self.inputs.confounds_file):
+            confounds = pd.read_table(self.inputs.confounds_file)
+            if 'framewise_displacement' in confounds.columns:
+                fd_volumes = confounds['framewise_displacement'].to_numpy(dtype=float)
+                # The first volume has no displacement (n/a); a pair takes its other volume's
+                fd = np.array(
+                    [
+                        np.nan
+                        if np.all(np.isnan(fd_volumes[list(v)]))
+                        else np.nanmax(fd_volumes[list(v)])
+                        for v in volumes
+                    ]
+                )
+        table.insert(table.columns.get_loc('outlier'), 'framewise_displacement', fd)
+
+        # Integer columns that hold n/a must not be written as floats
+        for column in ('control_volume', 'label_volume', 'volume'):
+            table[column] = table[column].astype('Int64')
+
+        self._results['qc_file'] = fname_presuffix(
+            self.inputs.deltam,
+            suffix='_pairqc.tsv',
+            newpath=runtime.cwd,
+            use_ext=False,
+        )
+        table.to_csv(self._results['qc_file'], sep='\t', index=False, na_rep='n/a')
+        self._results['qc_metadata'] = _pair_qc_metadata()
+        return runtime

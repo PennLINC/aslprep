@@ -886,6 +886,47 @@ In that case ``coreg_dice``, which compares the brain mask used with the anatomi
 is close to 1 whenever the anatomical mask was used, so it does not show the failure.
 
 
+.. _pair_qc:
+
+**************************
+Pair-Level Quality Control
+**************************
+
+*ASLPrep* also writes a table with one row for each delta-M observation (each control-label pair,
+or each precomputed delta-M or CBF volume)::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>_desc-pairqc_timeseries.tsv
+         <source_entities>_desc-pairqc_timeseries.json
+
+Rows follow the order in which *ASLPrep* computes delta-M: the k-th control volume minus the k-th
+label volume. ``control_volume`` and ``label_volume`` give the volumes' indices in the preprocessed
+ASL series, which are also rows of the confounds file.
+
+Each observation is compared with the other observations at the same delay (and labeling duration).
+``deviant_fraction`` is the fraction of brain-mask voxels whose value lies more than 3.5 robust
+standard deviations (1.4826 times the median absolute deviation) from that voxel's median over
+those observations, and ``outlier`` is true when that fraction exceeds 5%.
+This adapts the rejection rule of :footcite:t:`harteveld2022perfusion`, who discarded subtraction
+images with more than 20% of a region of interest beyond 1.5 standard deviations of the voxelwise
+mean; ``deviant_fraction_z1p5`` reports the fraction at their 1.5 threshold.
+Median and MAD replace mean and standard deviation because several corrupted pairs inflate the
+mean and standard deviation that each pair is compared against.
+
+Three more columns help interpret a flag:
+``max_slice_deviant_fraction`` is the largest fraction in any one slice group
+(slices with the same ``SliceTiming``), which is high for an artifact confined to a few slices;
+``mean_deltam_z`` is the robust z-score of the brain-mean delta-M among the same-delay
+observations, which catches shifts of the whole image, such as labeling failures;
+and ``framewise_displacement`` is the larger displacement of the observation's two volumes.
+
+The measures are n/a for delays with fewer than four observations, where the median and MAD are
+not stable.
+The table is for review only: *ASLPrep* does not exclude any observation because of it.
+The JSON sidecar describes every column.
+
+
 *****************************
 Parcellated Perfusion Results
 *****************************
