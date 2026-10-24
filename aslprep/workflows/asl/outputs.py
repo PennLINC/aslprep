@@ -12,6 +12,7 @@ from aslprep.data import load as load_data
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 from aslprep.interfaces.pvc import DivideByWeight
+from aslprep.utils.misc import estimate_asl_mem_usage
 
 BASE_INPUT_FIELDS = yaml.safe_load(load_data.readable('base_input_fields.yml').read_text())
 """Derivative entities and sidecar metadata of each output, from
@@ -666,6 +667,10 @@ def init_ds_asl_native_wf(
         ]),
     ])  # fmt:skip
 
+    # Compressing a time series can take seconds, which would block nipype's scheduler,
+    # so the CBF outputs are written in workers.
+    series_mem_gb = estimate_asl_mem_usage(source_file)[1]['resampled']
+
     datasinks = []
     # Write out CBF and ATT maps in aslref space
     for cbf_name in cbf_4d + cbf_3d:
@@ -681,8 +686,7 @@ def init_ds_asl_native_wf(
                 **fields,
             ),
             name=f'ds_{cbf_name}',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb if cbf_name in cbf_4d else config.DEFAULT_MEMORY_MIN_GB,
         )
         datasinks.append(ds_cbf)
         workflow.connect([
@@ -725,7 +729,7 @@ def init_ds_asl_native_wf(
                 dismiss_entities=('echo',),
             ),
             name='ds_asl',
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb,
         )
         workflow.connect([
             (inputnode, ds_asl, [
@@ -1068,6 +1072,10 @@ def init_ds_volumes_wf(
         ]),
     ])  # fmt:skip
 
+    # Compressing a time series takes seconds, which would block nipype's scheduler,
+    # so the ASL and CBF outputs are written in workers. So are the ANTs resamplings.
+    series_mem_gb = estimate_asl_mem_usage(source_file)[1]['resampled']
+
     if asl_output:
         # ASL is pre-resampled
         ds_asl = pe.Node(
@@ -1080,8 +1088,7 @@ def init_ds_volumes_wf(
                 dismiss_entities=('echo',),
             ),
             name='ds_asl',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb,
         )
         workflow.connect([
             (sources, ds_asl, [('out', 'Sources')]),
@@ -1103,8 +1110,7 @@ def init_ds_volumes_wf(
             args='-v',
         ),
         name='resample_ref',
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        mem_gb=0.5,
     )
     resample_mask = pe.Node(
         ApplyTransforms(interpolation='GenericLabel', args='-v'),
@@ -1173,8 +1179,7 @@ def init_ds_volumes_wf(
                 **fields,
             ),
             name=f'ds_{cbf_name}',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb if cbf_name in cbf_4d else config.DEFAULT_MEMORY_MIN_GB,
         )
         resamplers.append(resample_cbf)
         datasinks.append(ds_cbf)
@@ -1193,8 +1198,7 @@ def init_ds_volumes_wf(
                 args='-v',
             ),
             name=f'warp_{att_name}_to_std',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=0.5,
         )
 
         ds_att = pe.Node(
