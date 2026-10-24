@@ -171,6 +171,9 @@ def init_cbf_wf(
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
         The post-labeling delays used for quantification.
+    deltam, deltam_metadata
+        The delta-M series (control minus label, or the precomputed delta-M or CBF volumes)
+        and its metadata, with volume-wise fields reduced to its volumes.
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -464,6 +467,9 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'abat_upper',  # Only calculated for multi-delay data
                 'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
+                # The delta-M (or precomputed CBF) series and its metadata, for pair-level QC
+                'deltam',
+                'deltam_metadata',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',
                 'mean_cbf_score',
@@ -615,6 +621,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         compute_cbf.inputs.calibration = calibration
 
     workflow.connect([
+        (extract_deltam, outputnode, [
+            ('out_file', 'deltam'),
+            ('metadata', 'deltam_metadata'),
+        ]),
         (extract_deltam, compute_cbf, [
             ('out_file', 'deltam'),
             ('m0_file', 'm0_file'),
