@@ -1,6 +1,24 @@
 # Plan: joint multicontrast coregistration probe
 
-Branch: `coreg-multicontrast-eval`. **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
+Branch: `coreg-multicontrast-eval`. **Resumed (2026-10-26)** on `main` at `072ee0f`, which makes `typewise_offset` the default
+motion correction (#773). Pinned image: `pennlinc/aslprep@sha256:7b34cc50...` (the `unstable`
+tag built from `072ee0f` itself, so no source is mounted). What changed on resuming:
+
+- The HMC probe was archived the same day: its data (`/home/tsalo/hmc-probe`: fixtures, baseline
+  runs, the prepared coregistration directories, adapted copies, panel manifest) and its
+  environment were deleted. Its code is vendored into this branch as `scripts/hmc_probe` (from
+  `origin/worktree-hmc-probe` at `f590451`), with one edit: `run_panel.IMAGE` pinned to the
+  digest above instead of the moving `unstable` tag.
+- With no baseline left to reuse, Task 0's sample comparison is moot: every panel exemplar (31
+  runnable subjects; `ds000240` and `ds007908` excluded as in the HMC probe) and every extension
+  subject (91) is run fresh on the pinned image (`jobs_panel.tsv`, `jobs_extension.tsv`;
+  adaptations rebuilt with `adapt_panel.py` into `/home/tsalo/coreg-mc/adapted`).
+- The probe's fixtures are regenerated with aslscan built at `main`'s pinned revisions
+  (`/home/tsalo/aslscan-build`). The fixture runs and the coregistration work directories are
+  remade by `run_fixtures.py` and `run_ants.py` (which calls `coreg_experiment.run_fixture`).
+- The split and manifest kept from 2026-10-22 still hold (they depend on the inputs only).
+
+**Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
 so better motion correction gives more useful inputs. Done before the pause: the panel extension
 (91 subjects curated in `/home/tsalo/coreg-mc/panel-ext`, validated), the split
@@ -11,7 +29,7 @@ Stopped and deleted: the first Task 0 runs (four extension subjects and the pane
 that carries the new motion correction (and an image whose dependencies match it), check whether
 the split and the extension still hold, then rerun Task 0 from the panel sample.
 
-Status: revision 4, modelled on the HMC probe
+Status: revision 5 (resume notes above), modelled on the HMC probe
 (`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`), after one Codex
 adversarial review (log at the end).
 Issues: #672 (scope), #186 (motivating failure), #343 (closed as a duplicate of the same idea).
