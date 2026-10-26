@@ -178,95 +178,71 @@ sections:
       The maps plot cerebral blood flow (CBF) for basic CBF.
       The unit is mL/100 g/min.
     subtitle: CBF
-  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the basic output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: Mean CBF by Tissue Type
   - subtitle: Arterial Transit Time
     bids: {datatype: figures, desc: brain, suffix: att, extension: [.svg]}
     caption: |
       The map plots arterial transit time (ATT) estimated by the basic model.
-      The unit is seconds.
-  - subtitle: ATT by Tissue Type
-    bids: {datatype: figures, desc: attByTissueType, suffix: att, extension: [.svg]}
-    caption: |
-      The map plots the distribution of arterial transit time values for the basic output,
-      separated by tissue type.
       The unit is seconds.
   - subtitle: Arterial Bolus Arrival Time
     bids: {datatype: figures, desc: brain, suffix: abat, extension: [.svg]}
     caption: |
       The map plots arterial bolus arrival time (aBAT) estimated by the basic model.
       The unit is seconds.
-  - subtitle: aBAT by Tissue Type
-    bids: {datatype: figures, desc: abatByTissueType, suffix: abat, extension: [.svg]}
-    caption: |
-      The map plots the distribution of arterial bolus arrival time (aBAT) values for the basic output,
-      separated by tissue type.
-      The unit is seconds.
   - subtitle: Arterial Blood Volume
     bids: {datatype: figures, desc: brain, suffix: abv, extension: [.svg]}
     caption: |
       The map plots arterial blood volume (aBV) estimated by the basic model.
       The unit is fraction.
-  - subtitle: aBV by Tissue Type
-    bids: {datatype: figures, desc: abvByTissueType, suffix: abv, extension: [.svg]}
+  - bids: {datatype: figures, desc: multiPLDByTissueType, suffix: asl, extension: [.svg]}
     caption: |
-      The map plots the distribution of arterial blood volume (aBV) values for the basic output,
-      separated by tissue type.
-      The unit is fraction.
+      Distributions of arterial transit time (ATT), arterial bolus arrival time (aBAT) and
+      arterial blood volume (aBV) by tissue type, one panel per parameter.
+      Each panel has one row per map of that parameter: the basic model and, when it was run,
+      BASIL (ATT and aBV only).
+      Within each row, the gray matter, white matter and CSF densities each integrate to one,
+      and the dotted lines mark their medians.
+      Voxels with a value of exactly zero are left out, and each panel's x-axis is clipped to the
+      0.5th-99.5th percentiles of its values.
+      The units are seconds for ATT and aBAT, and fraction for aBV.
+    subtitle: Multi-delay parameters by Tissue Type
   - bids: {datatype: figures, desc: score, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF.
       The unit is mL/100 g/min.
     subtitle: SCORE CBF
-  - bids: {datatype: figures, desc: scoreByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the SCORE output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: SCORE CBF by Tissue Type
   - bids: {datatype: figures, desc: scrub, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCRUB-corrected CBF.
       The unit is mL/100 g/min.
     subtitle: SCRUB CBF
-  - bids: {datatype: figures, desc: scrubByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the SCRUB output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: SCRUB CBF by Tissue Type
   - bids: {datatype: figures, desc: basil, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF.
       The unit is mL/100 g/min.
     subtitle: BASIL CBF
-  - bids: {datatype: figures, desc: basilByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the BASIL output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: BASIL CBF by Tissue Type
   - bids: {datatype: figures, desc: basilGM, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for gray matter partial volume-corrected CBF.
       The unit is mL/100 g/min.
     subtitle: BASIL GM-PVC CBF
-  - bids: {datatype: figures, desc: basilGMByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the
-      BASIL gray matter partial volume-corrected output, separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: BASIL GM-PVC CBF by Tissue Type
   - bids: {datatype: figures, desc: lrGM, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot gray matter cerebral blood flow (CBF) after partial volume correction by
       local linear regression. Voxels where it was not estimated are zero.
       The unit is mL/100 g/min.
     subtitle: Local-regression GM-PVC CBF
+  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf, extension: [.svg]}
+    caption: |
+      Distributions of cerebral blood flow (CBF) by tissue type for every CBF output of this run,
+      one row each: basic CBF and, when they were produced, SCORE, SCRUB, BASIL, and the
+      gray matter partial volume-corrected (GM-PVC) maps from BASIL and local regression (LR).
+      Within each row, the gray matter, white matter and CSF densities each integrate to one,
+      so tissues with few voxels are as visible as those with many,
+      and the dotted lines mark their medians.
+      Voxels with a value of exactly zero (where GM-PVC CBF was not estimated) are left out.
+      The x-axis is clipped to the 0.5th-99.5th percentiles of all values shown.
+      The unit is mL/100 g/min.
+    subtitle: CBF by Tissue Type
   - bids: {datatype: figures, desc: lr, suffix: pvc, extension: [.svg]}
     caption: |
       Local-regression partial volume correction diagnostics: the gray matter fraction at the
