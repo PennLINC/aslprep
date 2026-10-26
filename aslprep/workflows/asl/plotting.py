@@ -11,12 +11,14 @@ from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import DerivativesDataSink
 from aslprep.interfaces.confounds import GatherCBFConfounds
 from aslprep.interfaces.plotting import (
+    ATTStatusPlot,
     CBFByTissueTypePlot,
     CBFSummaryPlot,
     PVCDiagnosticsPlot,
 )
 from aslprep.interfaces.reports import CBFSummary
 from aslprep.utils.misc import _select_last_in_list
+from aslprep.utils.pvc import get_slice_axis
 from aslprep.workflows.asl.confounds import init_carpetplot_wf
 
 
@@ -74,7 +76,7 @@ def init_cbf_reporting_wf(
     mean_cbf, cbf_ts, cifti_cbf_ts
         Mean CBF, volume-wise CBF (single-delay data) and its CIFTI version (with CIFTI
         outputs).
-    att, abat, abv, abv_decayed
+    att, abat, abv, abv_decayed, earliest_delay, att_status
         Multi-delay outputs (with ``is_multi_pld``).
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE/SCRUB outputs (with ``scorescrub``).
@@ -121,6 +123,8 @@ def init_cbf_reporting_wf(
                 'abat',
                 'abv',
                 'abv_decayed',  # unused
+                'earliest_delay',
+                'att_status',
                 # SCORE/SCRUB outputs
                 'cbf_ts_score',  # unused
                 'mean_cbf_score',
@@ -341,6 +345,30 @@ def init_cbf_reporting_wf(
                 mem_gb=config.DEFAULT_MEMORY_MIN_GB,
             )
             workflow.connect([(img_by_tt_plot, ds_report_img_by_tt, [('out_file', 'in_file')])])
+
+        att_status_plot = pe.Node(
+            ATTStatusPlot(slice_axis=get_slice_axis(metadata)),
+            name='att_status_plot',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (inputnode, att_status_plot, [
+                ('att', 'att'),
+                ('earliest_delay', 'earliest_delay'),
+                ('att_status', 'att_status'),
+                ('aslref', 'ref_vol'),
+                ('asl_mask', 'mask'),
+            ]),
+            (warp_t1w_dseg_to_aslref, att_status_plot, [('output_image', 'seg_file')]),
+        ])  # fmt:skip
+
+        ds_report_att_status = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='status', suffix='att'),
+            name='ds_report_att_status',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([(att_status_plot, ds_report_att_status, [('out_file', 'in_file')])])
 
     if scorescrub:
         score_summary = pe.Node(

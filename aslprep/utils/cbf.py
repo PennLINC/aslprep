@@ -1225,44 +1225,16 @@ def _fit_gkm_chunk(
             c_hi=cbf_max,
         )
 
-    # The range of ATTs that fit as well as the estimate, with aBAT in the same interval.
-    # The first-pass grid brackets each end of the range, and bisection then locates it.
+    # The range of ATTs that fit as well as the estimate, with aBAT in the same interval
     tied_loss = (loss + tol)[:, None]
     best_arterial = all_arterial[rows, abat_idx][:, None, :]
     best_abv_cap = all_abv_cap[rows, abat_idx][:, None]
-    grid_att = edges[:, :-1, None] + (edges[:, 1:] - edges[:, :-1])[:, :, None] * grid
-    grid_att = grid_att.reshape(n_voxels, -1)
-    n_points = grid_att.shape[1]
-    points = xp.arange(n_points)
-    tied = solve_at(grid_att, best_arterial, best_abv_cap)[2] <= tied_loss
-    # The grid points on either side of the estimate
-    below = xp.maximum((grid_att <= att[:, None]).sum(axis=1) - 1, 0)
-    above = xp.minimum((grid_att < att[:, None]).sum(axis=1), n_points - 1)
-    # The nearest grid points beyond the estimate that fit worse, if there are any
-    worse_below = xp.where(~tied & (points <= below[:, None]), points, -1).max(axis=1)
-    worse_above = xp.where(~tied & (points >= above[:, None]), points, n_points).min(axis=1)
-    inside = xp.stack(
-        [
-            xp.where(tied[rows, below], grid_att[rows, worse_below + 1], att),
-            xp.where(tied[rows, above], grid_att[rows, worse_above - 1], att),
-        ],
-        axis=1,
+    att_lower, att_upper = _att_range(
+        att,
+        edges,
+        lambda points: solve_at(points, best_arterial, best_abv_cap)[2] <= tied_loss,
+        xp,
     )
-    outside = xp.stack(
-        [
-            grid_att[rows, xp.maximum(worse_below, 0)],
-            grid_att[rows, xp.minimum(worse_above, n_points - 1)],
-        ],
-        axis=1,
-    )
-    for _ in range(MULTIPLD_BOUND_STEPS):
-        middle = (inside + outside) / 2
-        is_tied = solve_at(middle, best_arterial, best_abv_cap)[2] <= tied_loss
-        inside = xp.where(is_tied, middle, inside)
-        outside = xp.where(is_tied, outside, middle)
-
-    att_lower = xp.minimum(inside[:, 0], att)
-    att_upper = xp.maximum(inside[:, 1], att)
 
     # The run of aBAT intervals that fit as well as the estimate, with ATT fixed at the estimate
     _, all_abv, all_loss = solve_at(att[:, None], all_arterial, all_abv_cap)
@@ -1297,7 +1269,138 @@ def _fit_gkm_chunk(
         abv = xp.minimum(abv * xp.exp((abat - abat_mid[rows, abat_idx]) / t1blood), abv_max)
 
     abat_upper = xp.maximum(all_upper[rows, last], abat)
-    return cbf, att, abat, abv, att_lower, att_upper, edges[rows, first], abat_upper
+    # The loss omits the constant y.y
+    sse = xp.maximum(loss + xp.sum(y * y, axis=1), 0)
+    return cbf, att, abat, abv, att_lower, att_upper, edges[rows, first], abat_upper, sse
+
+
+def _att_range(att, edges, fits, xp):
+    """Find the run of ATTs around each estimate that fit well enough.
+
+    Parameters
+    ----------
+    att : array of shape (n_voxels,)
+        The ATT estimates, which must fit well enough.
+    edges : array of shape (n_voxels, n_edges)
+        The edges from :func:`_delay_edges`.
+    fits : callable
+        Takes ATTs of shape (n_voxels, n) and returns a boolean array of the same shape,
+        which is True where they fit well enough.
+    xp : module
+        The array library.
+
+    Returns
+    -------
+    lower, upper : arrays of shape (n_voxels,)
+        The ends of the run. A grid with :data:`MULTIPLD_ATT_GRID_SIZE` points in each interval
+        between edges brackets each end, and :data:`MULTIPLD_BOUND_STEPS` bisection steps then
+        locate it. The run can skip over a part that fits worse but is narrower than a grid step.
+    """
+    n_voxels = att.shape[0]
+    rows = xp.arange(n_voxels)
+    grid = xp.linspace(0, 1, MULTIPLD_ATT_GRID_SIZE)
+    grid_att = edges[:, :-1, None] + (edges[:, 1:] - edges[:, :-1])[:, :, None] * grid
+    grid_att = grid_att.reshape(n_voxels, -1)
+    n_points = grid_att.shape[1]
+    points = xp.arange(n_points)
+    good = fits(grid_att)
+    # The grid points on either side of the estimate
+    below = xp.maximum((grid_att <= att[:, None]).sum(axis=1) - 1, 0)
+    above = xp.minimum((grid_att < att[:, None]).sum(axis=1), n_points - 1)
+    # The nearest grid points beyond the estimate that fit worse, if there are any
+    worse_below = xp.where(~good & (points <= below[:, None]), points, -1).max(axis=1)
+    worse_above = xp.where(~good & (points >= above[:, None]), points, n_points).min(axis=1)
+    inside = xp.stack(
+        [
+            xp.where(good[rows, below], grid_att[rows, worse_below + 1], att),
+            xp.where(good[rows, above], grid_att[rows, worse_above - 1], att),
+        ],
+        axis=1,
+    )
+    outside = xp.stack(
+        [
+            grid_att[rows, xp.maximum(worse_below, 0)],
+            grid_att[rows, xp.minimum(worse_above, n_points - 1)],
+        ],
+        axis=1,
+    )
+    for _ in range(MULTIPLD_BOUND_STEPS):
+        middle = (inside + outside) / 2
+        is_good = fits(middle)
+        inside = xp.where(is_good, middle, inside)
+        outside = xp.where(is_good, outside, middle)
+
+    return xp.minimum(inside[:, 0], att), xp.maximum(inside[:, 1], att)
+
+
+def _att_interval_chunk(
+    y,
+    plds,
+    bolus,
+    weights,
+    is_casl,
+    labeleff,
+    t1blood,
+    xp,
+    att,
+    max_loss,
+    cbf_max=None,
+    abv_max=None,
+):
+    """Find the range of ATTs whose profile loss is at most ``max_loss``, for a chunk of voxels.
+
+    The profile loss of an ATT is the smallest sum of squared errors over CBF, aBV, and aBAT,
+    with aBAT at the midpoint of each of its intervals (see :func:`_fit_gkm_chunk`).
+    The inputs are as for :func:`_fit_gkm_chunk`, plus the ATT estimates (``att``)
+    and the largest acceptable sum of squared errors (``max_loss``), both of shape (n_voxels,).
+    """
+    basis_kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': xp}
+    tol = 1e-12 * xp.sum(y * y, axis=1) + 1e-30
+    edges = _delay_edges(plds, bolus, is_casl, xp)
+    abat_mid = (edges[:, :-1] + edges[:, 1:]) / 2
+    # Arterial terms of shape (voxels, 1, aBATs, delays)
+    arterial = (
+        _gkm_arterial_basis(
+            abat_mid[:, :, None],
+            plds[:, None, :],
+            bolus[:, None, :] if is_casl else bolus,
+            **basis_kwargs,
+        )[:, None]
+        * weights
+    )
+    abv_max = MULTIPLD_BOUNDS[3][1] if abv_max is None else abv_max
+    if is_casl:
+        abv_cap = abv_max * xp.exp((abat_mid - edges[:, :-1]) / t1blood)
+    else:
+        abv_cap = xp.full(abat_mid.shape, abv_max)
+
+    ya = xp.sum(y[:, None, None, :] * arterial, axis=-1)
+    aa = xp.sum(arterial * arterial, axis=-1)
+    # The loss omits the constant y.y
+    max_loss = (max_loss - xp.sum(y * y, axis=1) + tol)[:, None]
+
+    def fits(att_points):
+        tissue = _gkm_tissue_basis(
+            att_points[..., None],
+            plds[:, None, :],
+            bolus[:, None, :] if is_casl else bolus,
+            **basis_kwargs,
+        )
+        tissue = (tissue * weights)[:, :, None, :]
+        _, _, loss = _solve_box_lsq(
+            yt=xp.sum(y[:, None, None, :] * tissue, axis=-1),
+            ya=ya,
+            tt=xp.sum(tissue * tissue, axis=-1),
+            aa=aa,
+            ta=xp.sum(tissue * arterial, axis=-1),
+            tol=tol[:, None, None],
+            xp=xp,
+            v_hi=abv_cap[:, None, :],
+            c_hi=cbf_max,
+        )
+        return loss.min(axis=-1) <= max_loss
+
+    return _att_range(att, edges, fits, xp)
 
 
 def _to_numpy(arr):
@@ -1368,6 +1471,7 @@ def fit_deltam_multipld(
     n_jobs=1,
     cbf_max=None,
     abv_max=None,
+    att_interval=False,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
@@ -1418,6 +1522,14 @@ def fit_deltam_multipld(
         Upper bound on aBV. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
         Partial volume correction raises it, for the same reason: unmixing assigns a voxel's
         arterial signal to its tissue fraction, which can be well below one.
+    att_interval : :obj:`bool`, optional
+        Also find the noise-aware ATT interval (``att_lower_ci`` and ``att_upper_ci`` in
+        ``bounds``): the ATTs whose profile sum of squared errors, minimized over CBF, aBV,
+        and aBAT, exceeds the fit's by at most the :data:`ATT_INTERVAL_LEVEL` quantile of a
+        chi-squared variable with one degree of freedom, times the noise variance.
+        The noise variance is pooled across the voxels with positive CBF
+        (see :func:`pooled_noise_variance`), so this assumes that they share one noise level
+        in delta-M. Partial volume correction, which fits tissue curves, does not use it.
 
     Returns
     -------
@@ -1438,6 +1550,9 @@ def fit_deltam_multipld(
         with keys ``att_lower``, ``att_upper``, ``abat_lower``, and ``abat_upper``.
         The ATT range is found with aBAT kept in its interval, and the aBAT range with ATT fixed
         at its estimate. CBF and aBV are free in both.
+        With ``att_interval``, ``att_lower_ci`` and ``att_upper_ci`` hold the noise-aware
+        interval, which is NaN in voxels that were not fit. If the noise level cannot be
+        estimated, it equals the ATT range.
 
     Notes
     -----
@@ -1557,11 +1672,20 @@ def fit_deltam_multipld(
         elements_per_voxel = n_intervals**2 * MULTIPLD_ATT_GRID_SIZE
         chunk_size = max(1, MULTIPLD_GPU_CHUNK_ELEMENTS // elements_per_voxel)
 
-    estimates = np.full((8, n_voxels), np.nan)
+    estimates = np.full((9, n_voxels), np.nan)
     valid_idx = np.flatnonzero(valid)
     chunks = [
         valid_idx[start : start + chunk_size] for start in range(0, valid_idx.size, chunk_size)
     ]
+
+    def run_chunks(func):
+        if n_jobs > 1 and len(chunks) > 1:
+            with ThreadPoolExecutor(max_workers=n_jobs) as executor:
+                # Consume the iterator so that exceptions raised in the threads propagate.
+                list(executor.map(func, chunks))
+        else:
+            for chunk in chunks:
+                func(chunk)
 
     def fit_chunk(chunk):
         chunk_estimates = _fit_gkm_chunk(
@@ -1579,13 +1703,7 @@ def fit_deltam_multipld(
         # Chunks hold different voxels, so threads never write to the same elements.
         estimates[:, chunk] = [_to_numpy(estimate) for estimate in chunk_estimates]
 
-    if n_jobs > 1 and len(chunks) > 1:
-        with ThreadPoolExecutor(max_workers=n_jobs) as executor:
-            # Consume the iterator so that exceptions raised in the threads propagate.
-            list(executor.map(fit_chunk, chunks))
-    else:
-        for chunk in chunks:
-            fit_chunk(chunk)
+    run_chunks(fit_chunk)
 
     failures = ~valid
     fail_count = int(failures.sum())
@@ -1597,9 +1715,142 @@ def fit_deltam_multipld(
             'with non-positive M0 or non-finite data.'
         )
 
-    cbf, att, abat, abv, *bounds = estimates
+    cbf, att, abat, abv, *bounds, sse = estimates
     bounds = dict(zip(('att_lower', 'att_upper', 'abat_lower', 'abat_upper'), bounds, strict=True))
+    if not att_interval:
+        return cbf, att, abat, abv, failures, bounds
+
+    # The residual sum of squares over every volume, in the units of delta-M: the scatter of
+    # each volume around the mean of its delay, plus the misfit of those means.
+    within = np.zeros(n_voxels)
+    for i_delay in range(counts.size):
+        delay_volumes = deltam_arr[:, delay_idx == i_delay]
+        within += np.sum((delay_volumes - mean_deltam[:, i_delay, None]) ** 2, axis=1)
+
+    rss = np.where(valid, within + sse * np.where(valid, m0_a, 0) ** 2, np.nan)
+    noise_var = pooled_noise_variance(
+        rss[valid & (cbf > 0)],
+        n_volumes - MULTIPLD_N_PARAMETERS,
+    )
+    bounds['att_lower_ci'] = bounds['att_lower'].copy()
+    bounds['att_upper_ci'] = bounds['att_upper'].copy()
+    if noise_var is None:
+        config.loggers.workflow.warning(
+            'The noise level of the delta-M data could not be estimated, so the ATT interval '
+            'only spans the ATTs that fit as well as the estimate.'
+        )
+        return cbf, att, abat, abv, failures, bounds
+
+    config.loggers.workflow.info(
+        f'Pooled delta-M noise standard deviation: {np.sqrt(noise_var):.4g} '
+        '(in the units of the delta-M data)'
+    )
+    # The interval is the set of ATTs whose profile sum of squares exceeds the minimum by at most
+    # the chi-squared quantile of one degree of freedom times the noise variance (in units of y).
+    delta = chi2.ppf(ATT_INTERVAL_LEVEL, 1) * noise_var / np.where(valid, m0_a, 1) ** 2
+    max_loss = sse + delta
+
+    def interval_chunk(chunk):
+        interval = _att_interval_chunk(
+            y=xp.asarray(y[chunk]),
+            plds=xp.asarray(unique_plds[chunk]),
+            bolus=bolus,
+            weights=weights,
+            is_casl=is_casl,
+            labeleff=labeleff,
+            t1blood=t1blood,
+            xp=xp,
+            att=xp.asarray(att[chunk]),
+            max_loss=xp.asarray(max_loss[chunk]),
+            cbf_max=cbf_max,
+            abv_max=abv_max,
+        )
+        bounds['att_lower_ci'][chunk], bounds['att_upper_ci'][chunk] = (
+            _to_numpy(end) for end in interval
+        )
+
+    run_chunks(interval_chunk)
     return cbf, att, abat, abv, failures, bounds
+
+
+#: Number of fitted parameters (CBF, ATT, aBAT, and aBV) in the multi-delay model,
+#: subtracted from the number of volumes to give the residual degrees of freedom.
+MULTIPLD_N_PARAMETERS = 4
+
+#: Coverage of the noise-aware ATT interval.
+ATT_INTERVAL_LEVEL = 0.95
+
+
+def pooled_noise_variance(rss, df):
+    """Estimate the noise variance shared by a set of voxels from their residuals.
+
+    Parameters
+    ----------
+    rss : :obj:`numpy.ndarray`
+        The residual sum of squares of each voxel's fit.
+    df : :obj:`int`
+        The residual degrees of freedom of each fit.
+
+    Returns
+    -------
+    :obj:`float` or None
+        The median of ``rss / df`` across voxels, divided by the median of a chi-squared
+        variable with ``df`` degrees of freedom over ``df``, which makes it unbiased for
+        Gaussian noise. The median ignores voxels that the model does not describe,
+        such as those with large vessels. None if ``df`` is not positive or there are no voxels.
+    """
+    rss = rss[np.isfinite(rss)]
+    if df < 1 or rss.size == 0:
+        return None
+
+    return float(np.median(rss / df) * df / chi2.ppf(0.5, df))
+
+
+#: Widest ATT interval, in seconds, for which ATT counts as located.
+ATT_LOCATED_WIDTH = 0.5
+
+#: Values of the ATT status map (see :func:`att_status`).
+ATT_STATUS = {
+    'not_fitted': 0,
+    'located': 1,
+    'bounded_above': 2,
+    'no_tissue_signal': 3,
+    'wide_range': 4,
+}
+
+
+def att_status(cbf, att_lower, att_upper, failures, width=ATT_LOCATED_WIDTH):
+    """Classify how well the multi-delay fit located ATT in each voxel.
+
+    Parameters
+    ----------
+    cbf : :obj:`numpy.ndarray` of shape (n_voxels,)
+        CBF from :func:`fit_deltam_multipld`.
+    att_lower, att_upper : :obj:`numpy.ndarray` of shape (n_voxels,)
+        An ATT interval from :func:`fit_deltam_multipld`: the noise-aware interval
+        (``att_lower_ci`` and ``att_upper_ci``), or the range of equally good ATTs.
+    failures : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Voxels that could not be fit, from :func:`fit_deltam_multipld`.
+    width : :obj:`float`, optional
+        Widest interval, in seconds, for which ATT counts as located.
+
+    Returns
+    -------
+    :obj:`numpy.ndarray` of shape (n_voxels,) and dtype uint8
+        The :data:`ATT_STATUS` value of each voxel, checked in this order:
+        0 where the voxel was not fit; 3 where CBF is zero, so ATT has no effect on the model;
+        2 where the interval reaches the lower ATT bound, which happens when the labeled blood
+        may all have arrived before the earliest delay; 1 where the interval is at most
+        ``width`` wide; and 4 for any other interval.
+    """
+    lower_limit = MULTIPLD_BOUNDS[1][0]
+    status = np.full(cbf.shape, ATT_STATUS['wide_range'], dtype=np.uint8)
+    status[(att_upper - att_lower) <= width] = ATT_STATUS['located']
+    # The bisection locates the bounds to well under a microsecond.
+    status[att_lower <= lower_limit + 1e-6] = ATT_STATUS['bounded_above']
+    status[~(cbf > 0)] = ATT_STATUS['no_tissue_signal']
+    status[failures] = ATT_STATUS['not_fitted']
+    return status
 
 
 def slice_shifted_delays(delays, metadata, ref_img):

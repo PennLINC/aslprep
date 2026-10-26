@@ -524,6 +524,134 @@ def test_fit_deltam_multipld_unidentifiable_att():
     # Without arterial signal, aBAT is not constrained at all
     np.testing.assert_allclose(bounds['abat_lower'], 0, atol=1e-9)
     np.testing.assert_allclose(bounds['abat_upper'], cbf.MULTIPLD_BOUNDS[2][1], atol=1e-9)
+    status = cbf.att_status(fit_cbf, bounds['att_lower'], bounds['att_upper'], failures)
+    assert np.all(status == cbf.ATT_STATUS['bounded_above'])
+
+
+def test_att_status():
+    """Each voxel gets the first status that applies, in the documented order."""
+    fit_cbf = np.array([50.0, 50.0, 50.0, 0.0, 50.0, 0.0])
+    att_lower = np.array([1.0, 0.0, 0.8, 0.0, 1.0, 0.0])
+    att_upper = np.array([1.4, 0.9, 1.4, 5.0, 1.0, 0.0])
+    failures = np.array([False, False, False, False, True, True])
+    status = cbf.att_status(fit_cbf, att_lower, att_upper, failures, width=0.5)
+    assert status.dtype == np.uint8
+    expected = ['located', 'bounded_above', 'wide_range', 'no_tissue_signal'] + ['not_fitted'] * 2
+    np.testing.assert_array_equal(status, [cbf.ATT_STATUS[name] for name in expected])
+
+    # An interval that reaches zero only bounds ATT above, however narrow it is
+    status = cbf.att_status(np.array([50.0]), np.zeros(1), np.full(1, 0.03), np.zeros(1, bool))
+    assert status[0] == cbf.ATT_STATUS['bounded_above']
+
+    # Non-finite CBF has no tissue signal to locate ATT with
+    status = cbf.att_status(np.array([np.nan]), np.ones(1), np.ones(1), np.zeros(1, bool))
+    assert status[0] == cbf.ATT_STATUS['no_tissue_signal']
+
+
+def test_pooled_noise_variance():
+    """The pooled variance is unbiased for Gaussian residuals, and ignores outlying voxels."""
+    rng = np.random.default_rng(0)
+    df = 5
+    rss = 4.0 * rng.chisquare(df, 20000)
+    rss[:2000] *= 100  # voxels the model does not describe
+    np.testing.assert_allclose(cbf.pooled_noise_variance(rss, df), 4.0, rtol=0.15)
+    assert cbf.pooled_noise_variance(rss, 0) is None
+    assert cbf.pooled_noise_variance(np.array([np.nan]), df) is None
+
+
+def _simulate_repeats(rng, params, plds, n_repeats, noise_sd):
+    """Simulate PCASL delta-M with several noisy volumes per delay."""
+    n_voxels = params.shape[0]
+    plds = np.repeat(np.tile(plds, (n_voxels, 1)), n_repeats, axis=1)
+    m0 = np.full(n_voxels, 1000.0)
+    deltam = _simulate_multipld(True, plds, 1.8, params, m0)
+    return deltam + rng.normal(0, noise_sd, deltam.shape), plds, m0
+
+
+def test_fit_deltam_multipld_att_interval_noise_free():
+    """Without noise, the interval contains the ties, and collapses where ATT is located."""
+    rng = np.random.default_rng(7)
+    n_voxels = 20
+    params = np.column_stack(
+        [
+            rng.uniform(20, 90, n_voxels),
+            np.concatenate([rng.uniform(0.05, 0.4, 10), rng.uniform(1.1, 1.9, 10)]),
+            np.full(n_voxels, 1.0),
+            np.zeros(n_voxels),
+        ]
+    )
+    deltam, plds, m0 = _simulate_repeats(rng, params, [0.5, 1.0, 1.5, 2.0, 2.5], 2, 0)
+    fit_cbf, fit_att, _, _, failures, bounds = cbf.fit_deltam_multipld(
+        deltam_arr=deltam,
+        scaled_m0data=m0,
+        plds=plds,
+        labeleff=0.7,
+        t1blood=1.65,
+        partition_coefficient=0.9,
+        is_casl=True,
+        tau=1.8,
+        att_interval=True,
+    )
+    # The interval also lets aBAT move between intervals, where the arterial term can absorb
+    # part of the tissue signal, so it can be wider than the ties with aBAT held in place.
+    assert np.all(bounds['att_lower_ci'] <= bounds['att_lower'] + 1e-6)
+    assert np.all(bounds['att_upper'] <= bounds['att_upper_ci'] + 1e-6)
+    assert np.all(bounds['att_lower_ci'] <= params[:, 1] + 1e-5)
+    assert np.all(params[:, 1] <= bounds['att_upper_ci'] + 1e-5)
+    assert np.all((bounds['att_lower_ci'] <= fit_att) & (fit_att <= bounds['att_upper_ci']))
+    # ATTs shorter than the first delay are only bounded above
+    status = cbf.att_status(fit_cbf, bounds['att_lower_ci'], bounds['att_upper_ci'], failures)
+    assert np.all(status[:10] == cbf.ATT_STATUS['bounded_above'])
+
+
+def test_fit_deltam_multipld_att_interval_noise():
+    """With noise, the interval still flags ATTs shorter than the first delay, and covers ATT.
+
+    Noise breaks the exact ties, so the range of equally good ATTs collapses onto a spurious
+    value just above the first delay in many of the voxels whose blood arrived before it.
+    """
+    rng = np.random.default_rng(11)
+    n_voxels = 200
+    early = np.arange(n_voxels) < n_voxels // 2
+    params = np.column_stack(
+        [
+            np.full(n_voxels, 60.0),
+            np.where(early, 0.4, 1.4),
+            np.full(n_voxels, 1.0),
+            np.zeros(n_voxels),
+        ]
+    )
+    plds = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25]
+    clean, _, _ = _simulate_repeats(rng, params, plds, 4, 0)
+    noise_sd = 0.02 * np.abs(clean).max()
+    deltam, voxel_plds, m0 = _simulate_repeats(rng, params, plds, 4, noise_sd)
+    fit_cbf, _, _, _, failures, bounds = cbf.fit_deltam_multipld(
+        deltam_arr=deltam,
+        scaled_m0data=m0,
+        plds=voxel_plds,
+        labeleff=0.7,
+        t1blood=1.65,
+        partition_coefficient=0.9,
+        is_casl=True,
+        tau=1.8,
+        att_interval=True,
+    )
+    # The exact-tie ranges miss many of the early voxels...
+    tie_flagged = bounds['att_lower'][early] <= 1e-6
+    # ...but the interval reaches zero in nearly all of them.
+    ci_flagged = bounds['att_lower_ci'][early] <= 1e-6
+    assert ci_flagged.mean() > 0.9
+    assert ci_flagged.mean() > tie_flagged.mean()
+
+    # The interval covers the true ATT in about 95% of the late voxels, and locates it.
+    true_att = params[~early, 1]
+    covered = (bounds['att_lower_ci'][~early] <= true_att) & (
+        true_att <= bounds['att_upper_ci'][~early]
+    )
+    assert covered.mean() > 0.85
+    status = cbf.att_status(fit_cbf, bounds['att_lower_ci'], bounds['att_upper_ci'], failures)
+    assert np.mean(status[~early] == cbf.ATT_STATUS['located']) > 0.85
+    assert np.mean(status[early] == cbf.ATT_STATUS['located']) < 0.1
 
 
 def test_fit_deltam_multipld_att_bounds():
@@ -545,7 +673,7 @@ def test_fit_deltam_multipld_att_bounds():
     )
     m0 = rng.uniform(500, 1500, n_voxels)
     deltam = _simulate_multipld(True, plds, 1.8, params, m0)
-    _, fit_att, _, _, _, bounds = cbf.fit_deltam_multipld(
+    fit_cbf, fit_att, _, _, failures, bounds = cbf.fit_deltam_multipld(
         deltam_arr=deltam,
         scaled_m0data=m0,
         plds=plds,
@@ -563,6 +691,8 @@ def test_fit_deltam_multipld_att_bounds():
     assert located.any()
     assert not located.all()
     np.testing.assert_allclose(fit_att[located], params[located, 1], atol=1e-4)
+    status = cbf.att_status(fit_cbf, bounds['att_lower'], bounds['att_upper'], failures)
+    assert np.all(status[located] == cbf.ATT_STATUS['located'])
 
 
 def test_fit_deltam_multipld_no_signal():
@@ -675,7 +805,7 @@ def test_fit_gkm_chunk_abat_bounds_stop_at_abv_bound():
     y = np.array([[0.054, 0.052]])
     plds = np.array([[0.5, 1.0]])
     bolus = np.array([[1.8, 1.8]])
-    cbf_, att, abat, abv, _, _, abat_lower, abat_upper = cbf._fit_gkm_chunk(
+    cbf_, att, abat, abv, _, _, abat_lower, abat_upper, fit_sse = cbf._fit_gkm_chunk(
         y, plds, bolus, np.ones((1, 2)), **kwargs
     )
     assert abat_lower[0] <= abat[0] <= abat_upper[0] < 2.3
@@ -687,6 +817,7 @@ def test_fit_gkm_chunk_abat_bounds_stop_at_abv_bound():
 
     # Every aBAT in the bounds fits as well as the estimate, with aBV within its bound
     best = sse(abat[0], abv[0])
+    np.testing.assert_allclose(fit_sse[0], best, atol=1e-15)
     for fraction in (0.01, 0.5, 0.99):
         other = abat_lower[0] + fraction * (abat_upper[0] - abat_lower[0])
         other_abv = abv[0] * np.exp((other - abat[0]) / 1.65)

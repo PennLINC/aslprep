@@ -37,7 +37,12 @@ from aslprep.utils.calibration import (
     calibration_value,
     resolve_calibration,
 )
-from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
+from aslprep.utils.cbf import (
+    ATT_INTERVAL_LEVEL,
+    ATT_LOCATED_WIDTH,
+    REFERENCE_HAEMATOCRIT,
+    T1BLOOD_BY_FIELD_STRENGTH,
+)
 from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
@@ -168,6 +173,12 @@ def init_cbf_wf(
         (multi-delay data only).
     att_lower, att_upper, abat_lower, abat_upper
         The ranges of ATT and aBAT that fit as well as the estimates (multi-delay data only).
+    att_lower_ci, att_upper_ci
+        The noise-aware ATT interval (multi-delay data only).
+    att_status
+        How well the fit located ATT in each voxel (multi-delay data only).
+    earliest_delay
+        Each voxel's earliest delay, including slice timing (multi-delay data only).
     abv_decayed
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
@@ -335,7 +346,16 @@ Where a range of ATT values fit equally well
 (for example, when ATT was shorter than every delay),
 ATT was reported as a single value from that range.
 The lower and upper bounds of the ATT and aBAT values that fit equally well were also calculated,
-and are written out with the native-space outputs.{abv_str}{
+and are written out with the native-space outputs.
+Because noise makes ATTs that the data cannot distinguish fit slightly differently,
+a {100 * ATT_INTERVAL_LEVEL:g}% profile-likelihood interval for ATT was also calculated:
+the ATTs whose sum of squared errors, minimized over CBF, aBV, and aBAT,
+exceeded the minimum by at most the {100 * ATT_INTERVAL_LEVEL:g}th percentile of a
+chi-squared distribution with one degree of freedom times the noise variance.
+The noise variance was pooled across voxels with positive CBF, as the median of each voxel's
+residual variance over all volumes, scaled to be unbiased for Gaussian noise.
+ATT was considered located where this interval excluded zero
+and was at most {ATT_LOCATED_WIDTH:g} s wide.{abv_str}{
             ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
         }
 """
@@ -463,6 +483,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'att_upper',  # Only calculated for multi-delay data
                 'abat_lower',  # Only calculated for multi-delay data
                 'abat_upper',  # Only calculated for multi-delay data
+                'att_lower_ci',  # Only calculated for multi-delay data
+                'att_upper_ci',  # Only calculated for multi-delay data
+                'att_status',  # Only calculated for multi-delay data
+                'earliest_delay',  # Only calculated for multi-delay data
                 'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
@@ -633,6 +657,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             ('att_upper', 'att_upper'),
             ('abat_lower', 'abat_lower'),
             ('abat_upper', 'abat_upper'),
+            ('att_lower_ci', 'att_lower_ci'),
+            ('att_upper_ci', 'att_upper_ci'),
+            ('att_status', 'att_status'),
+            ('earliest_delay', 'earliest_delay'),
             ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip

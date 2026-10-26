@@ -34,6 +34,7 @@ from aslprep.utils.calibration import (
 from aslprep.utils.cbf import (
     _getcbfscore,
     _scrubcbf,
+    att_status,
     fit_deltam_multipld,
     get_array_module,
     multipld_bolus,
@@ -416,6 +417,38 @@ class _ComputeCBFOutputSpec(TraitedSpec):
             'Only generated for multi-delay data.'
         ),
     )
+    att_lower_ci = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Lower end of the noise-aware arterial transit time interval, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    att_upper_ci = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Upper end of the noise-aware arterial transit time interval, in seconds. '
+            'Only generated for multi-delay data.'
+        ),
+    )
+    att_status = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'How well the fit located the arterial transit time, from the noise-aware interval '
+            '(see aslprep.utils.cbf.ATT_STATUS). Only generated for multi-delay data.'
+        ),
+    )
+    earliest_delay = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Earliest delay of each voxel, including its slice-timing offset: the PLD for '
+            '(P)CASL, or TI - TI1 for PASL. Only generated for multi-delay data.'
+        ),
+    )
     abv_decayed = traits.Either(
         File(exists=True),
         None,
@@ -625,6 +658,7 @@ class ComputeCBF(SimpleInterface):
                 ti1=ti1,  # defined for PASL
                 xp=get_array_module(self.inputs.use_gpu),
                 n_jobs=self.inputs.num_threads,
+                att_interval=True,
             )
 
             mean_cbf_img = masker.inverse_transform(cbf)
@@ -660,6 +694,30 @@ class ComputeCBF(SimpleInterface):
                     newpath=runtime.cwd,
                 )
                 masker.inverse_transform(bound).to_filename(self._results[name])
+
+            # The earliest ATT at which the tissue signal no longer depends on ATT
+            earliest = np.min(plds, axis=1) if is_casl else np.min(plds, axis=1) - ti1
+            self._results['earliest_delay'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_earliest_delay',
+                newpath=runtime.cwd,
+            )
+            masker.inverse_transform(np.maximum(earliest, 0)).to_filename(
+                self._results['earliest_delay']
+            )
+
+            status = att_status(cbf, bounds['att_lower_ci'], bounds['att_upper_ci'], failures)
+            # The masker returns floats, but the status is categorical
+            status_img = masker.inverse_transform(status)
+            status_img = nb.Nifti1Image(
+                np.asarray(status_img.dataobj).astype(np.uint8), status_img.affine
+            )
+            self._results['att_status'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_attstatus',
+                newpath=runtime.cwd,
+            )
+            status_img.to_filename(self._results['att_status'])
 
             # For (P)CASL, the data only determine the product of aBV and the decay of the
             # label over aBAT. For PASL, the arterial signal does not depend on aBAT.

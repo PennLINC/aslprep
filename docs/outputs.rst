@@ -364,12 +364,24 @@ CBF Outputs::
          <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-delay data only)
          <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-delay data only)
          <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-delay data only)
+         <source_entities>_desc-<ciLower|ciUpper>_att.nii.gz  # 95% interval for the arterial transit time (multi-delay data only)
+         <source_entities>_attstatus.nii.gz  # where the arterial transit time was located (multi-delay data only)
          <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-delay (P)CASL data only)
 
 For multi-delay data, the model cannot always locate the arterial transit time
 or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
 the range of values that fit equally well.
 The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
+Those ranges only describe exact ties, which noise breaks, so the ``desc-ciLower`` and
+``desc-ciUpper`` maps also give a 95% interval for ATT that accounts for noise.
+The ``attstatus`` map classifies each voxel from that interval
+(0: not fitted; 1: ATT located, with an interval at most 0.5 s wide that does not reach 0 s;
+2: ATT only bounded above, because the labeled blood may all have arrived before the earliest
+delay; 3: no tissue signal, so ATT has no effect; 4: an interval wider than 0.5 s),
+and its levels are described in its JSON sidecar.
+Restrict any analysis of the ``att`` map to voxels with status 1.
+The report shows the status by slice and the fraction of gray and white matter in which ATT was
+located.
 These maps are only written in the ASL run's native space,
 which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--output-spaces``,
 because the ranges change abruptly between neighboring voxels and slices,

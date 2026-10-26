@@ -10,7 +10,7 @@ from nipype.interfaces.base import isdefined
 from traits.api import TraitError
 
 from aslprep.interfaces import cbf
-from aslprep.utils.cbf import ROBUST_TUNING_CONSTANTS
+from aslprep.utils.cbf import ATT_STATUS, ROBUST_TUNING_CONSTANTS
 
 
 def test_scoreandscrubcbf_wavelet_function():
@@ -377,6 +377,10 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert mean_cbf_img.ndim == 3
         assert os.path.isfile(results.outputs.att_lower)
         assert os.path.isfile(results.outputs.abat_upper)
+        status_img = nb.load(results.outputs.att_status)
+        assert status_img.get_data_dtype() == np.uint8
+        assert status_img.shape == mean_cbf_img.shape
+        assert set(np.unique(status_img.dataobj)) <= set(ATT_STATUS.values())
         # The PASL arterial signal does not depend on aBAT
         assert results.outputs.abv_decayed is None
 
@@ -636,6 +640,13 @@ def test_computecbf_calibration_outputs_multipld(tmp_path):
     np.testing.assert_array_equal(quant_valid, expected)
     np.testing.assert_allclose(m0_calib[1:], 1000.0)
     assert np.all(m0_calib[0] == 0)
+
+    # Voxels without M0 could not be fit, and have their own ATT status
+    status_img = nb.load(results.outputs.att_status)
+    assert status_img.get_data_dtype() == np.uint8
+    status = np.asarray(status_img.dataobj)
+    np.testing.assert_array_equal(status == ATT_STATUS['not_fitted'], m0_calib == 0)
+    assert set(np.unique(status)) <= set(ATT_STATUS.values())
 
 
 def test_compare_slicetiming(datasets, tmp_path_factory):
