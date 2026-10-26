@@ -292,10 +292,43 @@ sections:
     subtitle: Local-regression GM-PVC CBF
   - bids: {datatype: figures, desc: lr, suffix: pvc, extension: [.svg]}
     caption: |
-      Local-regression partial volume correction diagnostics: the gray matter fraction at the
-      acquisition's effective resolution, the fit status of each voxel, the noise amplification
-      of the gray matter estimate, and the distributions of uncorrected and corrected CBF where
-      gray matter CBF was estimated.
+      Local-regression partial volume correction diagnostics, for the axial slice of the ASL
+      reference with the most brain voxels.<br>
+      <b>Title:</b> the effective resolution the tissue maps were blurred to (and how it was
+      chosen), and the share of brain voxels with each fit status.
+      In good data, most brain voxels have a two-tissue fit.
+      The second line, when present, summarizes the apparent CSF CBF from a quality-control fit
+      that includes CSF as a third tissue. CSF is not perfused, so its median should be close
+      to zero; a median or interquartile range that is a sizable fraction of gray matter CBF
+      suggests that the tissue maps do not match the ASL data (misregistration, segmentation
+      errors or a wrong effective resolution), or macrovascular signal.<br>
+      <b>Gray matter fraction:</b> the gray matter partial volume map used in the regression,
+      at the effective resolution.
+      It should look like a smoothed cortical ribbon and deep gray matter, and line up with the
+      brain outline in the fit status panel. A shifted or misshapen map points to registration
+      or segmentation errors, which bias every corrected value.<br>
+      <b>Fit status:</b> which tissues were estimated in each voxel.
+      Good data show "GM + WM" over most of the brain, "GM only" or "WM only" where the other
+      tissue contributes less than 5% to the estimate, and few "none" (not identifiable)
+      voxels, mostly at the edge of the brain or in CSF.
+      Large "none" regions inside the brain mean that the gray and white matter maps there are
+      too similar, or too sparse, to separate the two tissues.<br>
+      <b>GM noise amplification:</b> the factor that scales the residual noise of each fit into
+      the standard error of its gray matter estimate (unitless; the color scale is clipped at
+      the 99th percentile). A kernel of pure gray matter with <em>n</em> voxels gives
+      1/&radic;<em>n</em>, or 0.2 for the default 5 &times; 5 &times; 1 kernel.
+      Expect low values where gray matter is plentiful, and higher values where it is sparse,
+      as in deep white matter, or where the gray and white matter fractions vary together.
+      Gray matter CBF is least reliable where this map is bright.<br>
+      <b>Where GM CBF was estimated:</b> histograms of the uncorrected CBF and of gray matter
+      CBF after correction, over the voxels with a gray matter estimate.
+      The correction removes the contribution of the less perfused white matter, so the
+      corrected distribution should sit to the right of the uncorrected one, within a plausible
+      range for gray matter. The uncorrected histogram may have a lower mode from voxels that
+      are mostly white matter.
+      A corrected distribution that is not shifted, is much wider than the uncorrected one, or
+      has many extreme values suggests that the correction is unreliable in these data.
+      The unit is mL/100 g/min.
     subtitle: Local-regression PVC diagnostics
 
 - name: About
