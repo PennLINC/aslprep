@@ -140,9 +140,9 @@ class CorrectLabelOffset(SimpleInterface):
             for name, sel in (('label', labels), ('control', controls)):
                 moved = [_resample(data[..., i], img.affine, pulls[i], ref_img) for i in sel]
                 means[name] = os.path.join(runtime.cwd, f'{name}_mean_{d:g}.nii.gz')
-                nb.Nifti1Image(np.mean(moved, axis=0), ref_img.affine, ref_img.header).to_filename(
-                    means[name]
-                )
+                mean_img = nb.Nifti1Image(np.mean(moved, axis=0), ref_img.affine, ref_img.header)
+                mean_img.to_filename(means[name])
+
             aff = os.path.join(runtime.cwd, f'offset_{d:g}.aff12.1D')
             prefix = os.path.join(runtime.cwd, f'offset_{d:g}.nii.gz')
             cmd = ['3dvolreg', '-base', means['control'], '-prefix', prefix]
@@ -151,7 +151,8 @@ class CorrectLabelOffset(SimpleInterface):
             # Pull from a control-mean point to the label-mean point (AFNI deobliques implicitly;
             # nitransforms reads its matrices in the plumb frames of the two headers).
             pull = AFNILinearTransformArray.from_filename(aff).to_ras(
-                moving=nb.load(means['label']), reference=nb.load(means['control'])
+                moving=nb.load(means['label']),
+                reference=nb.load(means['control']),
             )
             corrections[d] = np.asarray(pull).reshape(-1, 4, 4)[0]
             record['delays'][f'{d:g}'] = {
@@ -159,8 +160,10 @@ class CorrectLabelOffset(SimpleInterface):
                 'n_controls': len(controls),
                 **_magnitude(corrections[d], ref_img),
             }
+
         for d in skipped:
             record['delays'][f'{d:g}'] = {'corrected': False}
+
         for d, (labels, _) in estimated.items():
             for i in labels:
                 # The corrected label shows at y what the label mean shows at P y.
@@ -208,20 +211,25 @@ class _VolregSeriesInputSpec(BaseInterfaceInputSpec):
     in_file = File(exists=True, mandatory=True, desc='Series (3D or 4D) to register.')
     ref_file = File(
         exists=True,
-        desc='Reference image, on the same grid as in_file. If not given, the middle volume '
-        'of in_file (MCFLIRT default).',
+        desc=(
+            'Reference image, on the same grid as in_file. If not given, the middle volume '
+            'of in_file (MCFLIRT default).'
+        ),
     )
 
 
 class _VolregSeriesOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='The series resampled onto the reference.')
     mat_file = OutputMultiObject(
-        File(exists=True), desc='FSL matrices (volume to reference), one per volume, as MCFLIRT.'
+        File(exists=True),
+        desc='FSL matrices (volume to reference), one per volume, as MCFLIRT.',
     )
     par_file = File(
         exists=True,
-        desc='Rotations (radians) and translations (mm) per volume, in the column order of '
-        "MCFLIRT's .par file.",
+        desc=(
+            'Rotations (radians) and translations (mm) per volume, in the column order of '
+            "MCFLIRT's .par file."
+        ),
     )
 
 
@@ -252,10 +260,10 @@ class VolregSeries(SimpleInterface):
         if ref is None:
             ref = os.path.join(runtime.cwd, 'middle.nii.gz')
             nb.Nifti1Image(data[..., data.shape[-1] // 2], img.affine).to_filename(ref)
+
         series_img, ref_img = nb.load(series), nb.load(ref)
-        same_grid = series_img.shape[:3] == ref_img.shape[:3] and np.allclose(
-            series_img.affine, ref_img.affine, atol=1e-3
-        )
+        same_shape = series_img.shape[:3] == ref_img.shape[:3]
+        same_grid = same_shape and np.allclose(series_img.affine, ref_img.affine, atol=1e-3)
         if not same_grid:
             raise ValueError(
                 'The series and the reference must share one grid (shape and affine): the FSL '
@@ -269,7 +277,8 @@ class VolregSeries(SimpleInterface):
         # Per volume, the RAS pull from a reference point to the volume point (AFNI deobliques
         # implicitly; nitransforms reads its matrices in the plumb frames of the two headers).
         pulls = AFNILinearTransformArray.from_filename(aff).to_ras(
-            moving=series_img, reference=ref_img
+            moving=series_img,
+            reference=ref_img,
         )
         pulls = np.asarray(pulls).reshape(-1, 4, 4)
 

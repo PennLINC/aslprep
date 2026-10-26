@@ -46,7 +46,9 @@ def test_plan_label_offset_groups_all_short_and_no_pairs():
     """With every delay short nothing is corrected (the type-wise result); without labels,
     nothing either."""
     estimated, skipped = plan_label_offset_groups(
-        ['label', 'control'] * 2, [0.2, 0.2, 0.3, 0.3], 'PCASL'
+        ['label', 'control'] * 2,
+        [0.2, 0.2, 0.3, 0.3],
+        'PCASL',
     )
     assert estimated == {}
     assert skipped == [0.2, 0.3]
@@ -346,9 +348,8 @@ def test_volreg_series_recovers_a_known_shift(tmp_path):
     static = _phantom(shape, affine)
     shifts = [(0.0, 0.0, 0.0), (0.8, 0.0, 0.0), (0.0, -0.6, 0.4)]
     series = tmp_path / 'series.nii.gz'
-    nb.Nifti1Image(
-        np.stack([_phantom(shape, affine, shift_mm=s) for s in shifts], -1), affine
-    ).to_filename(series)
+    moved = np.stack([_phantom(shape, affine, shift_mm=s) for s in shifts], -1)
+    nb.Nifti1Image(moved, affine).to_filename(series)
     ref = tmp_path / 'ref.nii.gz'
     nb.Nifti1Image(static, affine).to_filename(ref)
     res = VolregSeries(in_file=str(series), ref_file=str(ref)).run(cwd=str(tmp_path))
