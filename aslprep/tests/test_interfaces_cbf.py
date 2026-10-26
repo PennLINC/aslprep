@@ -843,6 +843,48 @@ def test_basilcbf_posterior_sd(tmp_path, monkeypatch, pvc, multi_delay):
     assert isdefined(out.att_sd_basil) is multi_delay
 
 
+@pytest.mark.parametrize('infer_art', [True, False])
+def test_basilcbf_abv_fraction(tmp_path, monkeypatch, infer_art):
+    """BASILCBF reports oxford_asl's aCBV, a percentage, as a fraction."""
+    shape = (4, 4, 4)
+    acbv_percent = np.linspace(0, 3, np.prod(shape), dtype=np.float32).reshape(shape)
+
+    # What oxford_asl would write: aCBV only when it infers the arterial component.
+    canned = tmp_path / 'canned'
+    (canned / 'native_space').mkdir(parents=True)
+    _save_img(np.ones(shape, np.float32), str(canned / 'native_space'), 'perfusion_calib.nii.gz')
+    if infer_art:
+        _save_img(acbv_percent, str(canned / 'native_space'), 'aCBV_calib.nii.gz')
+
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(f'#!/bin/sh\ncp -r {canned}/native_space .\n')
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+    out = (
+        cbf.BASILCBF(
+            deltam=_save_img(np.ones(shape, dtype=np.float32), str(tmp_path), 'deltam.nii.gz'),
+            mask=_save_img(np.ones(shape, dtype=np.uint8), str(tmp_path), 'mask.nii.gz'),
+            m0_scale=1,
+            tis=[1.5, 2.0, 2.5],
+            bolus=1.8,
+            pcasl=True,
+        )
+        .run(cwd=str(work_dir))
+        .outputs
+    )
+
+    assert isdefined(out.abv_basil) is infer_art
+    if infer_art:
+        img = nb.load(out.abv_basil)
+        assert img.get_data_dtype() == np.float32
+        np.testing.assert_allclose(img.get_fdata(), acbv_percent / 100, rtol=1e-6)
+
+
 @pytest.mark.parametrize(
     ('direction', 'tis'),
     [('k', [3.6]), ('k-', [2.05, 2.55, 3.05]), ('j', [3.6]), ('i-', [2.05, 2.55])],
