@@ -1214,6 +1214,15 @@ def _variance_to_sd(variance_file, mask_file, out_file):
     out_img.to_filename(out_file)
 
 
+def _percent_to_fraction(in_file, out_file):
+    """Write a BASIL map given as a percentage (e.g., aCBV) as a fraction."""
+    img = nb.load(in_file)
+    fraction = (np.asanyarray(img.dataobj, dtype=np.float64) / 100).astype(np.float32)
+    out_img = nb.Nifti1Image(fraction, img.affine, img.header)
+    out_img.set_data_dtype(np.float32)
+    out_img.to_filename(out_file)
+
+
 class BASILCBF(FSLCommand):
     """Apply Bayesian Inference for Arterial Spin Labeling (BASIL).
 
@@ -1257,6 +1266,12 @@ class BASILCBF(FSLCommand):
                     os.path.join(runtime.cwd, f'{output}.nii.gz'),
                 )
 
+        # oxford_asl writes the calibrated aCBV as a percentage of the voxel,
+        # but ASLPrep reports arterial blood volume as a fraction.
+        acbv_file = os.path.join(runtime.cwd, 'native_space', 'aCBV_calib.nii.gz')
+        if os.path.isfile(acbv_file):
+            _percent_to_fraction(acbv_file, os.path.join(runtime.cwd, 'abv_basil.nii.gz'))
+
         return runtime
 
     def _gen_outfilename(self, suffix):
@@ -1287,7 +1302,8 @@ class BASILCBF(FSLCommand):
         if os.path.isfile(att_basil):
             outputs['att_basil'] = att_basil
 
-        abv_basil = os.path.abspath('native_space/aCBV_calib.nii.gz')
+        # aCBV converted from a percentage to a fraction
+        abv_basil = os.path.abspath('abv_basil.nii.gz')
         if os.path.isfile(abv_basil):
             outputs['abv_basil'] = abv_basil
 
