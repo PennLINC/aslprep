@@ -33,6 +33,10 @@ tag built from `072ee0f` itself, so no source is mounted). What changed on resum
   first batch (fixtures, the four timing runs, the start of the panel) lacked it, was stopped and
   deleted, and everything was rerun with the flag (`run_aslprep.py`, and `--extra` for the
   fixtures). Run times above were measured without it; the time series adds resampling steps.
+  Kept at the maintainer's decision (2026-10-26) over using the native CBF map as the only
+  perfusion image: the series is what the HMC probe's D3 levels (P-robust, P-winsor), its
+  eligibility statistic and its multi-delay pair selection need, so R2 stays the probe's design.
+  Fixture run times with the series: 5.3-6.9 min (5.4-6.8 without).
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
