@@ -28,6 +28,11 @@ tag built from `072ee0f` itself, so no source is mounted). What changed on resum
 - Timing: four extension subjects (one each from `ds007116`, `ds003823`, `ds004146`,
   `ds008020`) took 56-60 min each, four at a time, with 220-270 MB of outputs each, inside the
   proposal's estimate; the remaining 118 subjects (about 30 h) followed.
+- Every run needs `--output-timeseries`: since #751 ASLPrep writes the native preprocessed
+  series (`desc-preproc_asl`), from which the perfusion images are built, only on request. The
+  first batch (fixtures, the four timing runs, the start of the panel) lacked it, was stopped and
+  deleted, and everything was rerun with the flag (`run_aslprep.py`, and `--extra` for the
+  fixtures). Run times above were measured without it; the time series adds resampling steps.
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,

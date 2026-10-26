@@ -87,6 +87,9 @@ def run_job(job, args):
         '--mem',
         str(args.mem_mb),
         '--notrack',
+        # The arms build their perfusion images from the native preprocessed series, which
+        # ASLPrep writes only on request since #751.
+        '--output-timeseries',
         *extra,
     ]
     start = time.time()
