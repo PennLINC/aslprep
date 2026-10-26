@@ -17,6 +17,17 @@ tag built from `072ee0f` itself, so no source is mounted). What changed on resum
   (`/home/tsalo/aslscan-build`). The fixture runs and the coregistration work directories are
   remade by `run_fixtures.py` and `run_ants.py` (which calls `coreg_experiment.run_fixture`).
 - The split and manifest kept from 2026-10-22 still hold (they depend on the inputs only).
+- Fixtures regenerated in `/home/tsalo/coreg-mc/fixtures/aslscan` (all eight `rc_*` and
+  `st_*`). Two needed changes for the pinned aslscan (`bf58c8c`): the vessel phantom's arterial
+  ATT map is now written as `att_arterial.nii.gz` (the HMC probe's build read `aatt.nii.gz`;
+  phantom digest tag `rev4`), and `st_spiral` drops `spiral_reconstruction = "gridding"`, which
+  no committed aslscan revision supports (the HMC probe's build must have carried local
+  changes), so it has no gridding haze. `check_stress.py`: vessel delta-M 11.2 times grey
+  matter's; the no-perfusion territory at 0 (mirror 23.8); spiral signal outside the head
+  1.3-1.6 % of inside. The real spiral family carries the haze; this fixture no longer does.
+- Timing: four extension subjects (one each from `ds007116`, `ds003823`, `ds004146`,
+  `ds008020`) took 56-60 min each, four at a time, with 220-270 MB of outputs each, inside the
+  proposal's estimate; the remaining 118 subjects (about 30 h) followed.
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,

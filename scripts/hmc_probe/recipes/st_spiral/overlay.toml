@@ -13,9 +13,9 @@ interleaves = 2
 spiral_readout_time = 4.0
 dwell_time = 1.0e-6
 refocusing_flip_angle = 180.0
-# Scanner-style reconstruction: gridding with turns at Nyquist leaves part of the object's
-# signal as a haze over the field of view (aslscan README, "Stack of spirals: reconstruction").
-spiral_reconstruction = "gridding"
+# The HMC probe set spiral_reconstruction = "gridding" here, from an aslscan build that no
+# committed aslscan revision matches; the coregistration probe's pinned aslscan (bf58c8c) has no
+# such setting, so this fixture uses aslscan's default spiral reconstruction (no gridding haze).
 radial_oversampling = 1.0
 
 [background_suppression]

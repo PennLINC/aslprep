@@ -105,7 +105,8 @@ def _phantom_digest(name):
         mods = {k: v for k, v in spec.items() if k != 'base'}
         if 'vessels' in spec:
             # Revision 2: arteries confined to the tissue labels (aslscan refuses background blood).
-            mods['vessel_profile'] = [VESSEL_ABV_PEAK, VESSEL_AATT_S, 'rev3']
+            # rev4: the arterial ATT map is written as att_arterial.nii.gz.
+            mods['vessel_profile'] = [VESSEL_ABV_PEAK, VESSEL_AATT_S, 'rev4']
         text = json.dumps({'base': _phantom_digest(spec['base']), 'mods': mods})
         return hashlib.sha256(text.encode()).hexdigest()
     return _orig_phantom_digest(name)
@@ -153,7 +154,9 @@ def _build_phantom(name, data_dir):
         # aslscan refuses blood in background voxels: keep the arteries inside the tissue labels.
         abv[np.asanyarray(img.dataobj).ravel() == 0] = 0.0
         aatt = np.full(len(xyz), VESSEL_AATT_S, np.float32)
-        for fname, data, units in (('abv', abv, 'fraction'), ('aatt', aatt, 's')):
+        # aslscan reads the arterial ATT map as att_arterial.nii.gz (the coregistration probe's
+        # pinned aslscan, bf58c8c; the HMC probe's build read aatt.nii.gz).
+        for fname, data, units in (('abv', abv, 'fraction'), ('att_arterial', aatt, 's')):
             nb.Nifti1Image(data.reshape(img.shape), img.affine).to_filename(
                 out / f'{fname}.nii.gz'
             )
