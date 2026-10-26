@@ -2,7 +2,7 @@
 
 Written for ASLPrep (integration tier). F8. The F3 Siemens-style 3D GRASE PCASL protocol (four ky segments, each read after its own labeling, four suppression pulses) with 6 pairs, a separate M0 at TR 6 s, head motion between volumes and between the segments of a volume, delta-M SNR 10 per pair, and anatomical derivatives under a known rigid offset (-2, 3, 1.5 mm; -3, 2, 4 degrees).
 
-Derived from the pcasl1pld_grase recipe.
+Derived from the pcasl1pld_grase recipe, since replaced by its multi-delay version, pcasl_multipld_grase.
 
 Changes:
 

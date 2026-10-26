@@ -270,7 +270,7 @@ markers = [
     "aslscan: truth-scored integration test on an aslscan fixture (all of them)",
     "aslscan_pcasl1pld: truth-scored integration test (F1, single-delay 2D PCASL)",
     "aslscan_pcasl1pld_ge3d: truth-scored integration test (F2, GE-style 3D spiral PCASL)",
-    "aslscan_pcasl1pld_grase: truth-scored integration test (F3, 3D GRASE PCASL)",
+    "aslscan_pcasl_multipld_grase: truth-scored integration test (F3, 3D GRASE multi-delay PCASL)",
     "aslscan_pasl1pld: truth-scored integration test (F4, single-delay 2D PASL)",
     "aslscan_pcasl_multipld: truth-scored integration test (F5, multi-delay 2D PCASL)",
     "aslscan_pasl_multipld: truth-scored integration test (F6, multi-delay 2D PASL)",

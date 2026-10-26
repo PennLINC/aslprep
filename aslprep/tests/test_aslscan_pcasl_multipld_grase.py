@@ -1,23 +1,23 @@
-"""F3: Siemens-style 3D GRASE PCASL with a short-TR separate M0 (spec Section 5).
+"""F3: Siemens-style 3D GRASE multi-delay PCASL with a short-TR separate M0 (spec Section 5).
 
-Replaces examples_pcasl_singlepld_siemens: 3D single-delay PCASL, the M0 TR < 5 s correction,
-the M0 stored divided by 10 (``--m0_scale=10``), four suppression pulses with
-LabelingEfficiency in the sidecar, BASIL, MNI output and atlases.
+3D multi-delay PCASL (PLDs 0.5-4.0 s), the M0 TR < 5 s correction, the M0 stored divided by
+10 (``--m0_scale=10``), four suppression pulses with LabelingEfficiency in the sidecar, BASIL,
+MNI output and atlases. Without slice-timing offsets, the delays locate ATT (issue #742).
 """
 
 import pytest
 
 from aslprep.tests.aslscan_cli import run_recipe, scored_items, shared_items
 
-RECIPE = 'pcasl1pld_grase'
-pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pcasl1pld_grase]
+RECIPE = 'pcasl_multipld_grase'
+pytestmark = [pytest.mark.aslscan, pytest.mark.aslscan_pcasl_multipld_grase]
 
 
 @pytest.fixture(scope='module')
 def f3_run(data_dir, output_dir, working_dir):
     return run_recipe(
         RECIPE,
-        'aslscan_pcasl1pld_grase',
+        'aslscan_pcasl_multipld_grase',
         data_dir,
         output_dir,
         working_dir,
@@ -31,10 +31,16 @@ def f3_run(data_dir, output_dir, working_dir):
 globals().update(
     shared_items(
         'f3_run',
+        multi_delay=True,
         report_only=[
             ('desc-basil', 'GM', 'median'),
             ('native', 'tier_a', 'p95_abs_dev'),
             ('native', 'tier_a', 'edge', 'median'),
+            ('native', 'tier_a_quant', 'p95_abs_dev_multi'),
+            ('native', 'tier_b_att', 'GM', 'median_abs_error'),
+            ('native', 'tier_b_att', 'WM', 'median_abs_error'),
+            ('native', 'tier_a_quant', 'abat_median_abs_diff'),
+            ('native', 'tier_a_quant', 'abv_median_abs_diff'),
         ],
     )
 )
