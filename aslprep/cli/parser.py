@@ -409,15 +409,19 @@ def _build_parser():
     g_conf.add_argument(
         '--skull-strip-asl',
         action='store',
-        choices=['synthstrip', 'legacy'],
+        choices=['synthstrip', 'legacy', 'anatomical'],
         default='synthstrip',
         help=(
             'Brain extraction method for the ASL reference image. '
             "'synthstrip' (default): FreeSurfer's SynthStrip. "
             "'legacy': the method ASLPrep used before SynthStrip, the intersection of masks "
             "from FSL's BET and AFNI's 3dAutomask. "
-            'Neither method works best on all ASL data, so inspect the brain masks and try '
-            'the other method if they are poor. '
+            "'anatomical': the anatomical brain mask, resampled to the ASL reference through "
+            'the ASL-to-anatomical coregistration. It is only as good as the coregistration, '
+            'so it is checked against the SynthStrip mask, which is used instead when the two '
+            'disagree in a way that indicates a failed coregistration. '
+            'No method works best on all ASL data, so inspect the brain masks and try '
+            'another method if they are poor. '
             'This option does not affect the brain extraction of the anatomical images.'
         ),
     )
@@ -509,15 +513,20 @@ any spatial references.""",
         '--hmc-method',
         '--hmc_method',
         action='store',
-        default='typewise',
-        choices=['typewise', 'typewise_offset'],
+        default='typewise_offset',
+        choices=['typewise', 'typewise_offset', 'typewise_volreg'],
         help=(
-            'Head-motion correction method. "typewise" (default) registers each volume type '
-            'separately to the reference with MCFLIRT. "typewise_offset" (experimental) does the '
-            'same, then removes the systematic offset between the corrected label and control '
-            'volumes: for each post-labeling delay, the mean corrected label image is registered '
-            'rigidly to the mean corrected control image, and the correction is composed into '
-            "the label volumes' transforms."
+            'Head-motion correction method. "typewise" registers each volume type separately to '
+            'the reference with MCFLIRT. "typewise_offset" (default) does the same, then removes '
+            'the systematic offset between the corrected label and control volumes: for each '
+            'post-labeling delay of at least 1 s (inversion time of at least 0.8 s for PASL), '
+            'the mean corrected label image is registered rigidly to the mean corrected control '
+            "image, and the correction is composed into the label volumes' transforms; labels "
+            'at shorter delays, which may still hold arterial signal, are not corrected. '
+            '"typewise_volreg" (experimental) registers each volume type with AFNI '
+            "3dvolreg to the type's own mean, which FLIRT aligns to the reference, and then "
+            'removes the label offset as "typewise_offset" does; it is not suited to '
+            'multi-delay PCASL with background suppression.'
         ),
     )
     g_conf.add_argument(
@@ -533,7 +542,8 @@ any spatial references.""",
         help=(
             "FSL's CBF computation with spatial regularization and partial volume correction. "
             'BASIL partial volume correction always runs with --basil (except in sloppy mode), '
-            'independently of --pvc-method.'
+            'independently of --pvc-method, using the same tissue maps as --pvc-method '
+            '(see --asl-effective-resolution).'
         ),
     )
     g_conf.add_argument(
@@ -560,7 +570,8 @@ any spatial references.""",
         metavar='{nominal,auto} | FWHM FWHM FWHM',
         help=(
             'How blurry the ASL images are, used only to build the tissue maps for '
-            '--pvc-method. ASL readouts blur each voxel into its neighbours (3D GRASE and '
+            '--pvc-method and BASIL partial volume correction. '
+            'ASL readouts blur each voxel into its neighbours (3D GRASE and '
             '3D spiral readouts mostly along the slice direction), so the gray and white '
             'matter fractions can be blurred to match. '
             "'nominal' (default): no blur beyond the voxel itself, the safest choice. "

@@ -89,6 +89,50 @@ def test_init_cbf_wf_lr_pvc_boilerplate_paragraph(tmp_path):
         assert desc.index('Partial volume correction was additionally performed') > pv_start
 
 
+@pytest.mark.parametrize('scorescrub', [False, True])
+def test_init_cbf_wf_basil_uses_pv_maps(tmp_path, scorescrub):
+    """BASIL gets the voxel-averaged PV maps, without LR PVC (gh-740).
+
+    The point-sampled tissue probability maps remain only for SCORE/SCRUB.
+    """
+    reset_config()
+    with mock_config():
+        wf = _build_cbf_wf(tmp_path, pvc_method='none', basil=True, scorescrub=scorescrub)
+        to_basil = {
+            dst_field: (src, src_field)
+            for src, src_field, _, dst_field in _edges(wf, dst_name='basilcbf')
+        }
+        to_output = {
+            dst_field: src for src, _, dst, dst_field in _edges(wf, dst_name='outputnode')
+        }
+        assert wf.get_node('lr_pvc_wf') is None
+        assert to_basil['gm_tpm'] == ('asl_pv_wf', 'outputnode.gm_pv')
+        assert to_basil['wm_tpm'] == ('asl_pv_wf', 'outputnode.wm_pv')
+        assert to_output['gm_pv'] == 'asl_pv_wf'
+        assert to_output['pv_metadata'] == 'asl_pv_wf'
+        assert 'pvc_metadata' not in to_output
+        tpm_nodes = {'gm_tfm', 'wm_tfm', 'csf_tfm'}
+        assert (tpm_nodes <= set(wf.list_node_names())) is scorescrub
+        if scorescrub:
+            to_score = {src for src, _, _, _ in _edges(wf, dst_name='score_and_scrub_cbf')}
+            assert tpm_nodes <= to_score
+        desc = wf.visit_desc()
+        assert 'BASIL was given the gray and white matter partial volume maps' in desc
+        assert desc.index('BASIL computes CBF') < desc.index(
+            'Gray matter, white matter and CSF partial volume maps'
+        )
+
+
+def test_init_cbf_wf_basil_sloppy_no_pv_maps(tmp_path):
+    """In sloppy mode BASIL skips PVC, so without LR PVC no PV maps are built."""
+    reset_config()
+    with mock_config():
+        config.execution.sloppy = True
+        wf = _build_cbf_wf(tmp_path, pvc_method='none', basil=True)
+        assert wf.get_node('asl_pv_wf') is None
+        assert 'gm_pv' not in wf.get_node('outputnode').outputs.copyable_trait_names()
+
+
 def test_init_cbf_wf_no_pvc(tmp_path):
     """Without --pvc-method, no PVC nodes or outputs are added."""
     reset_config()
@@ -403,12 +447,15 @@ def test_init_asl_wf_lr_pvc_multidelay(tmp_path, monkeypatch):
         wf._create_flat_graph()
 
 
-def _init_asl_wf(pvc_method, level='full', output_spaces='asl T1w MNI152NLin2009cAsym'):
+def _init_asl_wf(
+    pvc_method, level='full', output_spaces='asl T1w MNI152NLin2009cAsym', basil=False
+):
     from aslprep.workflows.asl.base import init_asl_wf
 
     config.workflow.level = level
     config.workflow.cifti_output = False
     config.workflow.pvc_method = pvc_method
+    config.workflow.basil = basil
     config.execution.output_spaces = output_spaces
     config.init_spaces()
     asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
@@ -446,6 +493,19 @@ def test_init_asl_wf_default_has_no_pvc():
         assert not [n for n in names if '_lr' in n]
         assert 'Resampling' in wf.__postdesc__
         assert 'normalized by the resampled mask' not in wf.__postdesc__
+
+
+def test_init_asl_wf_basil_writes_pv_maps():
+    """With BASIL alone, the PV maps BASIL used are written, and nothing from LR PVC."""
+    reset_config()
+    with mock_config():
+        wf = _init_asl_wf('none', basil=True)
+        names = wf.list_node_names()
+        assert 'cbf_wf.asl_pv_wf.pv_maps' in names
+        assert {'ds_pvc_native_wf.ds_gm_pv', 'ds_pvc_native_wf.ds_csf_pv'} <= set(names)
+        assert not [n for n in names if 'lr_pvc' in n or '_lr' in n]
+        assert 'normalized by the resampled mask' not in wf.__postdesc__
+        wf._create_flat_graph()
 
 
 def test_init_asl_wf_lr_pvc():

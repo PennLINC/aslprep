@@ -313,7 +313,9 @@ def init_skullstrip_aslref_wf(name='skullstrip_aslref_wf'):
     This is used for references that are already final, such as a distortion-corrected
     or precomputed reference.
     The method follows ``--skull-strip-asl``:
-    SynthStrip (:func:`init_synthstrip_aslref_wf` without N4) for ``synthstrip``,
+    SynthStrip (:func:`init_synthstrip_aslref_wf` without N4) for ``synthstrip``
+    and ``anatomical`` (which checks the anatomical mask against it,
+    see :func:`init_anat_aslmask_wf`),
     and niworkflows' :func:`~niworkflows.func.util.init_skullstrip_bold_wf`
     (BET and ``3dAutomask``) for ``legacy``, as *ASLPrep* did before SynthStrip.
 
@@ -338,6 +340,105 @@ def init_skullstrip_aslref_wf(name='skullstrip_aslref_wf'):
         return init_skullstrip_bold_wf(name=name)
 
     return init_synthstrip_aslref_wf(disable_n4=True, name=name)
+
+
+def init_anat_aslmask_wf(name='anat_aslmask_wf'):
+    """Take the ASL brain mask from the anatomical brain mask, checked against SynthStrip's.
+
+    This is used when ``--skull-strip-asl anatomical`` is selected.
+    The anatomical brain mask is resampled to the ASL reference through the inverse of the
+    coregistration transform.
+    The coregistration does not use the ASL brain mask, so there is no cycle.
+
+    The anatomical mask is only as good as the coregistration, so it is checked against the
+    SynthStrip mask of the ASL reference (:class:`~aslprep.interfaces.reference.GuardAnatomicalMask`):
+    when the two disagree (Dice below 0.9) and SynthStrip's mask has at least 95% of the
+    anatomical mask's volume, the coregistration has most likely failed, and the SynthStrip mask
+    is used instead.
+    The Dice coefficient, the volume ratio and which mask was used are added to the
+    quality-control measures.
+
+    Workflow Graph
+        .. workflow::
+            :graph2use: orig
+            :simple_form: yes
+
+            from aslprep.tests.tests import mock_config
+            from aslprep.workflows.asl.reference import init_anat_aslmask_wf
+
+            with mock_config():
+                wf = init_anat_aslmask_wf()
+
+    Parameters
+    ----------
+    name : str
+        Name of workflow (default: ``anat_aslmask_wf``)
+
+    Inputs
+    ------
+    aslref
+        ASL reference image (the coregistration reference)
+    asl_mask
+        SynthStrip brain mask of ``aslref``
+    t1w_mask
+        Anatomical brain mask
+    aslref2anat_xfm
+        Transform from ``aslref`` to the anatomical space
+
+    Outputs
+    -------
+    mask_file
+        The brain mask to use for ``aslref``
+    mask_metadata
+        Sidecar metadata of ``mask_file``, recording which mask was used
+    qc
+        Quality-control measures of the check
+    """
+    from aslprep.interfaces.ants import ApplyTransforms
+    from aslprep.interfaces.reference import GuardAnatomicalMask
+
+    workflow = Workflow(name=name)
+    workflow.__desc__ = """\
+The brain mask of the ASL reference was then taken from the anatomical brain mask, resampled
+into the space of the ASL reference with the inverse of the ASL-to-anatomical transform.
+Because this mask depends on the coregistration, it was checked against the SynthStrip mask:
+where the two masks disagreed (Dice coefficient below 0.9) and the SynthStrip mask was not the
+smaller one (at least 95% of the anatomical mask's volume), which indicates a failed
+coregistration, the SynthStrip mask was used instead.
+"""
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(fields=['aslref', 'asl_mask', 't1w_mask', 'aslref2anat_xfm']),
+        name='inputnode',
+    )
+    outputnode = pe.Node(
+        niu.IdentityInterface(fields=['mask_file', 'mask_metadata', 'qc']),
+        name='outputnode',
+    )
+
+    anat_mask_to_aslref = pe.Node(
+        ApplyTransforms(interpolation='GenericLabel', invert_transform_flags=[True], args='-v'),
+        name='anat_mask_to_aslref',
+        mem_gb=0.1,
+    )
+    guard = pe.Node(GuardAnatomicalMask(), name='guard')
+
+    workflow.connect([
+        (inputnode, anat_mask_to_aslref, [
+            ('t1w_mask', 'input_image'),
+            ('aslref', 'reference_image'),
+            ('aslref2anat_xfm', 'transforms'),
+        ]),
+        (anat_mask_to_aslref, guard, [('output_image', 'anat_mask')]),
+        (inputnode, guard, [('asl_mask', 'asl_mask')]),
+        (guard, outputnode, [
+            ('out_mask', 'mask_file'),
+            ('metadata', 'mask_metadata'),
+            ('qc', 'qc'),
+        ]),
+    ])  # fmt:skip
+
+    return workflow
 
 
 def init_enhance_and_skullstrip_asl_wf(

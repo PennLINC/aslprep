@@ -928,23 +928,19 @@ class ScoreAndScrubCBF(SimpleInterface):
             newpath=runtime.cwd,
             use_ext=False,
         )
-        samplecbf = nb.load(self.inputs.mask)
-
-        nb.Nifti1Image(
-            dataobj=cbf_scorets,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results['cbf_ts_score'])
-        nb.Nifti1Image(
-            dataobj=mean_cbf_score,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results['mean_cbf_score'])
-        nb.Nifti1Image(
-            dataobj=cbfscrub,
-            affine=samplecbf.affine,
-            header=samplecbf.header,
-        ).to_filename(self._results['mean_cbf_scrub'])
+        # nibabel writes an image in its header's data type, and the mask is uint8,
+        # so the CBF maps get a float32 copy of the mask's header.
+        mask_img = nb.load(self.inputs.mask)
+        header = mask_img.header.copy()
+        header.set_data_dtype(np.float32)
+        for out_name, data in (
+            ('cbf_ts_score', cbf_scorets),
+            ('mean_cbf_score', mean_cbf_score),
+            ('mean_cbf_scrub', cbfscrub),
+        ):
+            nb.Nifti1Image(data.astype(np.float32), mask_img.affine, header).to_filename(
+                self._results[out_name]
+            )
 
         score_outlier_df = pd.DataFrame(columns=['score_outlier_index'], data=index_score)
         score_outlier_df.to_csv(self._results['score_outlier_index'], sep='\t', index=False)

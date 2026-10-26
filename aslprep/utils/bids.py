@@ -405,7 +405,11 @@ def _sidecar(path):
     return path.with_suffix('.json')
 
 
-def merge_functional_derivatives(caches, hmc_method='typewise', skull_strip_asl='synthstrip'):
+def merge_functional_derivatives(
+    caches,
+    hmc_method='typewise_offset',
+    skull_strip_asl='synthstrip',
+):
     """Merge the caches of several derivatives datasets into one set of products to reuse.
 
     Each dataset's ``collect_derivatives`` cache has a ``transforms`` entry, even when empty, so

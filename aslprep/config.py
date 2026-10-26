@@ -579,10 +579,13 @@ class workflow(_Config):
     field (``.nii``/``.nii.gz``) for gradient nonlinearity correction."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
-    hmc_method = 'typewise'
-    """Head-motion correction method: ``typewise`` (MCFLIRT per volume type) or
-    ``typewise_offset`` (experimental: the same, then the offset it leaves between the corrected
-    label and control volumes is removed; :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`)."""
+    hmc_method = 'typewise_offset'
+    """Head-motion correction method: ``typewise`` (MCFLIRT per volume type),
+    ``typewise_offset`` (the default: the same, then the offset it leaves between the corrected
+    label and control volumes is removed at delays of at least 1 s, 0.8 s for PASL;
+    :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`),
+    or ``typewise_volreg`` (experimental: 3dvolreg per volume type to the type's own mean,
+    aligned to the reference by FLIRT, then the same offset removal)."""
     fs_no_resume = None
     """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
@@ -604,8 +607,9 @@ class workflow(_Config):
     run_reconall = True
     """Run FreeSurfer's surface reconstruction."""
     skull_strip_asl = 'synthstrip'
-    """Brain extraction method for the ASL reference image: ``synthstrip`` (default) or
-    ``legacy`` (BET and ``3dAutomask``)."""
+    """Brain extraction method for the ASL reference image: ``synthstrip`` (default),
+    ``legacy`` (BET and ``3dAutomask``) or ``anatomical`` (the anatomical brain mask through
+    the coregistration, checked against SynthStrip's)."""
     skull_strip_fixed_seed = False
     """Fix a seed for skull-stripping."""
     skull_strip_template = 'OASIS30ANTs'

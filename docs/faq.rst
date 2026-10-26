@@ -99,6 +99,10 @@ which does not work well on all ASL data.
 To use the method *ASLPrep* used before SynthStrip (FSL's BET combined with AFNI's
 ``3dAutomask``), run *ASLPrep* again with ``--skull-strip-asl legacy``.
 This method has worked better on some datasets, such as HCP-Aging.
+You can also take the ASL brain mask from the anatomical brain mask with
+``--skull-strip-asl anatomical``.
+That mask is accurate when the ASL-to-anatomical coregistration is,
+so check the coregistration figure in the report as well as the mask.
 See :ref:`asl_skullstrip` for how each method works.
 
 If your data use prescan normalization, ``--disable-n4`` may also help,

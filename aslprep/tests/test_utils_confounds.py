@@ -404,3 +404,48 @@ def test_cbf_qc_interface_pvc_columns(tmp_path, with_pvc):
         else:
             assert key not in qc_df.columns
             assert key not in metadata
+
+
+@pytest.mark.parametrize('with_check', [True, False])
+def test_cbf_qc_interface_anat_mask_columns(tmp_path, with_check):
+    """The anatomical mask's check is added to the QC file only with --skull-strip-asl anatomical."""
+    from aslprep.interfaces.confounds import ComputeCBFQC
+    from aslprep.interfaces.reference import ANAT_MASK_QC_METADATA
+
+    shape = (10, 10, 10)
+    tpm = np.zeros(shape, dtype=np.float32)
+    tpm[2:8, 2:8, 2:8] = 0.9
+    mask = np.ones(shape, dtype=np.uint8)
+    confounds_file = os.path.join(str(tmp_path), 'confounds.tsv')
+    pd.DataFrame({'framewise_displacement': [0.1, 0.2], 'rmsd': [0.05, 0.06]}).to_csv(
+        confounds_file, sep='\t', index=False
+    )
+    skullstrip_qc = {
+        'anat_mask_synthstrip_dice': 0.95,
+        'anat_mask_synthstrip_volume_ratio': 0.97,
+        'anat_mask_used': 1,
+    }
+    kwargs = {'skullstrip_qc': skullstrip_qc} if with_check else {}
+    results = ComputeCBFQC(
+        name_source=_save_img(np.zeros(shape, dtype=np.float32), tmp_path, 'sub-01_asl.nii.gz'),
+        mean_cbf=_save_img(np.full(shape, 50.0, dtype=np.float32), tmp_path, 'mean_cbf.nii.gz'),
+        gm_tpm=_save_img(tpm, tmp_path, 'gm.nii.gz'),
+        wm_tpm=_save_img(np.zeros(shape, dtype=np.float32), tmp_path, 'wm.nii.gz'),
+        csf_tpm=_save_img(np.zeros(shape, dtype=np.float32), tmp_path, 'csf.nii.gz'),
+        asl_mask=_save_img(mask, tmp_path, 'asl_mask.nii.gz'),
+        t1w_mask=_save_img(mask, tmp_path, 't1w_mask.nii.gz'),
+        confounds_file=confounds_file,
+        **kwargs,
+    ).run(cwd=str(tmp_path))
+
+    qc_df = pd.read_csv(results.outputs.qc_file, sep='\t')
+    with open(results.outputs.qc_metadata) as f:
+        metadata = json.load(f)
+    assert set(skullstrip_qc) == set(ANAT_MASK_QC_METADATA)
+    for key, value in skullstrip_qc.items():
+        if with_check:
+            assert qc_df[key].iloc[0] == pytest.approx(value)
+            assert metadata[key] == ANAT_MASK_QC_METADATA[key]
+        else:
+            assert key not in qc_df.columns
+            assert key not in metadata

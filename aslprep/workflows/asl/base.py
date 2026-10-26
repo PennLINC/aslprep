@@ -31,6 +31,7 @@ from aslprep.workflows.asl.apply import (
     init_asl_volumetric_resample_wf,
 )
 from aslprep.workflows.asl.cbf import (
+    basil_pvc_enabled,
     init_cbf_wf,
     init_load_atlases_wf,
     init_parcellate_cbf_wf,
@@ -178,7 +179,7 @@ def init_asl_wf(
         -   In the GE workflow, the reference image comes from the M0 scan.
     3.  Motion correction.
         -   Outputs the HMC transform and the motion parameters.
-        -   Not in GE workflow.
+        -   Not in GE workflow, unless the series has label-control pairs.
     4.  Susceptibility distortion correction.
         -   Outputs the SDC transform.
         -   Not in GE workflow.
@@ -214,13 +215,17 @@ def init_asl_wf(
     surf_std = [ref for ref in spaces.get_standard(dim=(2,)) if ref.space != 'fsaverage']
     layout = config.execution.layout
 
-    # If number of ASL volumes is less than 5, motion correction, etc. will be skipped.
+    # Short series (5 volumes or fewer) take the GE-specific path: no SCORE/SCRUB, and no motion
+    # correction unless they have label-control pairs (see init_asl_fit_wf).
     n_vols = get_n_volumes(asl_file)
     use_ge = ('ge' in config.workflow.force or n_vols <= 5) and (
         'no-ge' not in config.workflow.force
     )
     if use_ge:
-        config.loggers.workflow.warning('Using GE-specific processing. HMC will be disabled.')
+        config.loggers.workflow.warning(
+            'Using GE-specific processing. HMC will be disabled unless the series has '
+            'label-control pairs.'
+        )
         if scorescrub:
             config.loggers.workflow.warning(
                 'SCORE/SCRUB processing is disabled for GE-specific processing'
@@ -633,7 +638,9 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             ]),
         ])  # fmt:skip
 
-    if lr_sources:
+    # The partial volume maps are written whenever a correction uses them: BASIL's, too.
+    basil_pvc = basil_pvc_enabled(basil=basil, processing_target=processing_target)
+    if lr_sources or basil_pvc:
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
@@ -647,7 +654,8 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         workflow.connect([
             (cbf_wf, ds_pvc_native_wf, [
                 (f'outputnode.{field}', f'inputnode.{field}')
-                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata']
+                + (['pvc_metadata'] if lr_sources else [])
                 + lr_native
             ]),
         ])  # fmt:skip
@@ -696,11 +704,17 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         scorescrub=scorescrub,
         basil=basil,
         lr_pvc=bool(lr_sources),
+        anatomical_mask=config.workflow.skull_strip_asl == 'anatomical',
         name='cbf_confounds_wf',
     )
     if lr_sources:
         workflow.connect([
             (cbf_wf, cbf_confounds_wf, [('outputnode.pvc_qc', 'inputnode.pvc_qc')]),
+        ])  # fmt:skip
+    if config.workflow.skull_strip_asl == 'anatomical':
+        # Undefined when the brain mask was precomputed: then no columns are added
+        workflow.connect([
+            (asl_fit_wf, cbf_confounds_wf, [('outputnode.skullstrip_qc', 'inputnode.skullstrip_qc')]),
         ])  # fmt:skip
     if run_data['m0scan']:
         cbf_confounds_wf.inputs.inputnode.m0scan = run_data['m0scan']
