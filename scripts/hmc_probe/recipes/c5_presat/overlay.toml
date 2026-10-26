@@ -1,0 +1,11 @@
+seed = 20261017
+[acquisition]
+oversample = 2
+matrix = [64, 68]
+noise_variance = 0.0
+[m0]
+repetition_time = 8.0
+[background_suppression]
+# A saturation pulse at labeling start (#673); no inversion pulses.
+presaturation = true
+inversion_efficiency = 0.975

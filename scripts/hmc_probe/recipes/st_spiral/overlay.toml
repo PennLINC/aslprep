@@ -1,0 +1,22 @@
+seed = 20261017
+
+[acquisition]
+oversample = 2
+matrix = [64, 64]
+noise_variance = 0.0
+# kz acceleration needs coils that differ along z; four coils in four rings is the minimum.
+n_coils = 4
+coil_rows = 4
+
+[readout]
+interleaves = 2
+spiral_readout_time = 4.0
+dwell_time = 1.0e-6
+refocusing_flip_angle = 180.0
+# Scanner-style reconstruction: gridding with turns at Nyquist leaves part of the object's
+# signal as a haze over the field of view (aslscan README, "Stack of spirals: reconstruction").
+spiral_reconstruction = "gridding"
+radial_oversampling = 1.0
+
+[background_suppression]
+presaturation = true
