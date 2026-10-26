@@ -716,8 +716,7 @@ negative CBF values.
             template_mask=template_brain_mask,
         ),
         name='compute_qc_metrics',
-        run_without_submitting=True,
-        mem_gb=0.2,
+        mem_gb=1,
     )
 
     workflow.connect([

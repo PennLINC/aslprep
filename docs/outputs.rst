@@ -458,6 +458,11 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basilGMSD_cbf.nii.gz  # posterior SD of desc-basilGM_cbf
          <source_entities>[_space-<label>]_desc-basilWMSD_cbf.nii.gz  # posterior SD of desc-basilWM_cbf
          <source_entities>[_space-<label>]_desc-basilSD_att.nii.gz  # posterior SD of desc-basil_att (multi-delay data only)
+         <source_entities>_label-GM_desc-psf_probseg.nii.gz  # GM fraction used (aslref only)
+         <source_entities>_label-WM_desc-psf_probseg.nii.gz  # WM fraction used (aslref only)
+         <source_entities>_label-CSF_desc-psf_probseg.nii.gz  # CSF fraction (aslref only)
+
+The tissue fractions are not written in sloppy mode, where BASIL skips partial volume correction.
 
 .. _basil_outputs:
 
@@ -535,10 +540,13 @@ Keep the following in mind when using the corrected maps:
   Mask ``desc-basilGM_cbf`` with a gray matter mask and ``desc-basilWM_cbf`` with a white matter
   mask before averaging or comparing values.
   Estimates are least reliable in voxels with only a small fraction of the tissue.
-- The partial volume estimates are the gray matter and white matter probability maps from the
-  anatomical workflow, resampled to the ASL image.
+- The partial volume estimates are the gray and white matter fractions of each ASL voxel
+  (``label-*_desc-psf_probseg``), built by averaging the anatomical tissue probability maps over
+  the voxel, as ``oxford_asl`` does when it makes its own estimates.
+  Local-regression PVC uses the same maps; see :ref:`effective_resolution`.
   The corrected maps therefore depend on the quality of the anatomical segmentation and
   of the ASL-to-anatomical registration.
+  ``oxford_asl`` sets fractions below 0.1 to zero before fitting.
 - Corrected and uncorrected values are not interchangeable.
   Gray matter CBF is typically higher after correction, because the uncorrected value
   is diluted by white matter and CSF.
@@ -730,8 +738,8 @@ Partial volume correction needs it because the gray, white matter and CSF fracti
 regresses on must describe the same blurred mixture of tissue that each ASL voxel measured.
 If the fractions are sharper than the data, the correction attributes signal to the wrong
 tissue near tissue boundaries, which biases gray matter CBF :footcite:p:`petr2018effects`.
-The setting only affects the tissue maps used by ``--pvc-method``;
-it changes neither the uncorrected CBF nor BASIL.
+The setting only affects the tissue maps, which both ``--pvc-method`` and BASIL's partial volume
+correction use; it does not change the uncorrected CBF.
 
 How blurry an acquisition is depends mostly on its readout:
 
@@ -789,9 +797,12 @@ The value used, and where it came from, are written to the ``EffectiveResolution
 Blurring added by preprocessing, such as interpolation during motion and distortion correction,
 is not included.
 
-BASIL does not model the effective resolution.
-*ASLPrep* gives it gray and white matter maps that were interpolated to the ASL grid
-without additional blurring, and ``oxford_asl`` uses them as they are.
+BASIL is given the same gray and white matter maps, built with the same effective resolution.
+In a simulated GE 3D spiral acquisition, BASIL's partial volume correction recovered gray matter
+CBF within about 5% with the ``nominal`` maps, against about 12% with tissue probability maps
+interpolated at each voxel centre, which *ASLPrep* used before
+(`#740 <https://github.com/PennLINC/aslprep/issues/740>`_).
+``auto`` overcorrected BASIL as it did local regression.
 - For single-delay data, the arterial transit time is fixed rather than estimated,
   so neither it nor its standard deviation is written.
 - In standard and anatomical spaces, the maps are resampled like the estimates.
