@@ -406,7 +406,9 @@ def _sidecar(path):
 
 
 def merge_functional_derivatives(
-    caches, hmc_method='typewise_offset', skull_strip_asl='synthstrip'
+    caches,
+    hmc_method='typewise_offset',
+    skull_strip_asl='synthstrip',
 ):
     """Merge the caches of several derivatives datasets into one set of products to reuse.
 
