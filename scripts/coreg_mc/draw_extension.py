@@ -71,7 +71,10 @@ def survey(root, t1w_glob, keep):
         multi_run = any(len(v) >= 2 for v in runs.values())
         has_t1w = any(list((s / 'anat').glob(t1w_glob)) for s in asl)
         files = [
-            p for ses in asl for dt in ('anat', 'perf', 'fmap') if (ses / dt).exists()
+            p
+            for ses in asl
+            for dt in ('anat', 'perf', 'fmap')
+            if (ses / dt).exists()
             for p in sorted((ses / dt).iterdir())
             if not p.is_dir() and keep.search(f'{dt}/{p.name}')
         ]
@@ -102,8 +105,11 @@ def main():
     rows = []
     for ds, (n, t1w_glob, existing) in DATASETS.items():
         cands = [
-            r for r in survey(args.cache / ds, t1w_glob, FILTERS[ds])
-            if (r['multi_session'] or r['multi_run']) and r['has_t1w'] and r['subject'] not in existing
+            r
+            for r in survey(args.cache / ds, t1w_glob, FILTERS[ds])
+            if (r['multi_session'] or r['multi_run'])
+            and r['has_t1w']
+            and r['subject'] not in existing
         ]
         if ds == 'ds007522':
             # The four-run pCASL protocol only (one subject mixes Philips and Siemens series).
@@ -119,8 +125,10 @@ def main():
             ordered = sorted(cands, key=lambda r: r['subject'])
             rng.shuffle(ordered)
         chosen = ordered if n is None else ordered[:n]
-        print(f'{ds}: {len(cands)} eligible, {len(chosen)} drawn, '
-              f'{sum(r["mb"] for r in chosen) / 1e3:.2f} GB')
+        print(
+            f'{ds}: {len(cands)} eligible, {len(chosen)} drawn, '
+            f'{sum(r["mb"] for r in chosen) / 1e3:.2f} GB'
+        )
         rows += [{'dataset': ds, **r} for r in sorted(chosen, key=lambda r: r['subject'])]
 
     with args.files.open('w') as f:

@@ -31,7 +31,9 @@ from panel_config import (
     FULL_PIPELINE_EXCLUDED,
 )
 
-IMAGE = 'pennlinc/aslprep:unstable'
+# Pinned by the coregistration probe (2026-10-26): pennlinc/aslprep:unstable built from 072ee0f.
+# The HMC probe ran the moving `unstable` tag.
+IMAGE = 'pennlinc/aslprep@sha256:7b34cc5066181c4f23d42602376569613ee59e9c68de0c9899076ffa9c8450f6'
 SITE = '/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep'
 #: The FreeSurfer license used by ASLPrep's own tests (aslprep/tests/conftest.py).
 LICENSE = (

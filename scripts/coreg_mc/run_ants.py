@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """ANTs registration arms of the coregistration probe, scored against aslscan truth.
 
-Plan: "Candidates" (S1, S2, Q1, J1) and Task 2's engine pilot. Every arm works on a work
-directory prepared by the HMC probe's ``coreg_experiment.prepare`` (T1w brain and mask, white
-matter, the conventional reference and its ASL brain mask, and the perfusion images), plus a
-grey-matter target written here. Every arm starts from the same ``mri_coreg`` estimate as
-production (``conventional_init.mat`` from the same work directory), so arms differ only in
-their objective.
+Plan: "Candidates" (S1, S2, Q1, J1) and Task 2's engine pilot. For each fixture, the HMC
+probe's ``coreg_experiment.run_fixture`` (in ``scripts/hmc_probe``) prepares the work directory
+from an ASLPrep run on that fixture (T1w brain and mask, white matter, the conventional reference
+and its ASL brain mask, the perfusion images) and runs production's FSL path (``mri_coreg``, then
+FLIRT-BBR with both signs). A grey-matter target is added here, and every ANTs arm starts from
+the same ``mri_coreg`` estimate (``conventional_init.mat``), so arms differ only in their
+objective.
 
 Transform conventions. ASLPrep's ``from-aslref_to-T1w`` matrix, read as RAS by nitransforms, is
 a pull map: T1w point -> aslref point. ANTs with the anatomy as the fixed image estimates the
@@ -14,10 +15,10 @@ same pull map (fixed point -> moving point), so its initial transform is that RA
 in ITK form, and its output is read back the same way. Truth is ``F R^-1`` as in the HMC probe's
 ``coreg_experiment.run_fixture``.
 
-Usage (in WSL, ``hmc-probe`` environment)::
+Usage (in WSL, ``aslprep-pvc`` environment, from the repository root)::
 
-    python run_ants.py --fixtures <aslscan fixtures> --runs <fixture-runs/baseline> \\
-        --prepared <coreg-5b> --work <dir> --out scores.tsv --names rc_pcasl rc_grase ...
+    python scripts/coreg_mc/run_ants.py --fixtures <aslscan fixtures> --runs <fixture runs> \\
+        --license <license.txt> --work <dir> --out scores.tsv --names rc_pcasl rc_grase ...
 """
 
 import argparse
@@ -34,20 +35,23 @@ import pandas as pd
 from nibabel.affines import apply_affine
 from scipy.ndimage import gaussian_filter
 
-HMC_PROBE = Path('/mnt/c/Users/tsalo/Documents/linc/aslprep-hmc-probe/scripts/hmc_probe')
+HMC_PROBE = Path(__file__).resolve().parents[1] / 'hmc_probe'
 sys.path.insert(0, str(HMC_PROBE))
 
+import coreg_experiment  # noqa: E402
 from coreg_experiment import _pull, estimates  # noqa: E402
+from run_panel import IMAGE  # noqa: E402 - the pinned image
 from score import polar_mean  # noqa: E402
 from score_full import _load_series, _one, _transform_error  # noqa: E402
 
 from aslprep.tests import truth_scoring as ts  # noqa: E402
 
-IMAGE = 'pennlinc/aslprep@sha256:eacb03704072b411ca47ee89cbf17ea819b44640650ee3386beca8d29d9f78ff'
 SEED = 20261022
 
 #: Stage schedule, frozen by the engine pilot (Task 2) before Task 3.
-SCHEDULE = '--convergence [1000x500x250,1e-7,10] --shrink-factors 4x2x1 --smoothing-sigmas 2x1x0vox'
+SCHEDULE = (
+    '--convergence [1000x500x250,1e-7,10] --shrink-factors 4x2x1 --smoothing-sigmas 2x1x0vox'
+)
 
 
 def mi(fixed, moving, weight):
@@ -66,10 +70,12 @@ ARMS = {
         [mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 1)],
         [cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 1)],
     ],
-    'J1': [[
-        mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 0.6),
-        cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 0.4),
-    ]],
+    'J1': [
+        [
+            mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 0.6),
+            cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 0.4),
+        ]
+    ],
 }
 
 
@@ -117,9 +123,23 @@ def register(work, arms):
             cmd.append(SCHEDULE)
             cmd.append('--masks [/w/t1w_mask.nii.gz,/w/mask.nii.gz]')
         lines.append(' '.join(cmd) + f' > /w/ants_{arm}.log 2>&1')
-    (work / 'ants.sh').write_text('export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1\n' + '\n'.join(lines) + '\n')
-    cmd = ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/tmp',
-           '-v', f'{work}:/w', '--entrypoint', 'bash', IMAGE, '/w/ants.sh']
+    script = ['export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1', *lines]
+    (work / 'ants.sh').write_text('\n'.join(script) + '\n')
+    cmd = [
+        'docker',
+        'run',
+        '--rm',
+        '-u',
+        f'{os.getuid()}:{os.getgid()}',
+        '-e',
+        'HOME=/tmp',
+        '-v',
+        f'{work}:/w',
+        '--entrypoint',
+        'bash',
+        IMAGE,
+        '/w/ants.sh',
+    ]
     subprocess.run(cmd, check=True, capture_output=True)
 
 
@@ -143,7 +163,8 @@ def fixture_truth(fixture_dir, run_dir):
     poses = fixture.poses()
     keep = [i for i, t in enumerate(fixture.context) if t in ('control', 'label', 'm0scan')]
     keep = keep if len(keep) == len(hmc) else list(range(len(hmc)))
-    series_frame = polar_mean([np.linalg.inv(h) @ poses[i] for h, i in zip(hmc, keep, strict=True)])
+    frames = [np.linalg.inv(h) @ poses[i] for h, i in zip(hmc, keep, strict=True)]
+    series_frame = polar_mean(frames)
     truth = series_frame @ np.linalg.inv(fixture.R)
     production = _one(ts.find_xfm(run_dir, acq, 'from-aslref_to-T1w'))
     voxel = float(np.sqrt((fixture.affine[:3, :3] ** 2).sum(axis=0)).max())
@@ -151,19 +172,21 @@ def fixture_truth(fixture_dir, run_dir):
 
 
 def run_fixture(name, args):
-    src = args.prepared / name
     work = args.work / name
     if not args.rescore:
         shutil.rmtree(work, ignore_errors=True)
-        shutil.copytree(src, work)
-        gm = next((args.fixtures / name / 'derivatives' / 'anat' / 'sub-01' / 'anat').glob(
-            '*_label-GM_probseg.nii.gz'))
-        gm_target(work, gm)
+        # Prepares the work directory and runs production's FSL path (both BBR signs).
+        coreg_experiment.run_fixture(args.fixtures / name, args.runs / name, work, args.license)
+        anat = args.fixtures / name / 'derivatives' / 'anat' / 'sub-01' / 'anat'
+        gm_target(work, next(anat.glob('*_label-GM_probseg.nii.gz')))
         write_init(work)
         register(work, args.arms)
     truth, points, production, voxel = fixture_truth(args.fixtures / name, args.runs / name)
-    init = _pull(work / 'conventional_init.mat', nb.load(work / 'conventional.nii.gz'),
-                 nb.load(work / 't1w_brain.nii.gz'))
+    init = _pull(
+        work / 'conventional_init.mat',
+        nb.load(work / 'conventional.nii.gz'),
+        nb.load(work / 't1w_brain.nii.gz'),
+    )
     found = {'production': production, 'mri_coreg init': init}
     for (source, sign), (final, _bbr, _init, fallback) in estimates(work).items():
         if source in ('conventional', 'P-winsor'):
@@ -177,9 +200,12 @@ def run_fixture(name, args):
             row['problem'] = 'no transform'
         else:
             err = _transform_error(est, truth, points)
-            row |= {'rms_mm': err['rms_mm'], 'rot_deg': err['rot_deg'],
-                    'rms_voxels': err['rms_mm'] / voxel,
-                    'inverted_rms_mm': err['rms_mm_if_inverted']}
+            row |= {
+                'rms_mm': err['rms_mm'],
+                'rot_deg': err['rot_deg'],
+                'rms_voxels': err['rms_mm'] / voxel,
+                'inverted_rms_mm': err['rms_mm_if_inverted'],
+            }
         rows.append(row)
     return rows
 
@@ -188,7 +214,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     p.add_argument('--fixtures', type=Path, required=True)
     p.add_argument('--runs', type=Path, required=True)
-    p.add_argument('--prepared', type=Path, required=True)
+    p.add_argument('--license', type=Path, required=True)
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--names', nargs='+', required=True)
@@ -201,8 +227,9 @@ def main(argv=None):
         print(f'{name}: done', flush=True)
     df = pd.DataFrame(rows)
     df.to_csv(args.out, sep='\t', index=False)
+    table = df.pivot_table(index='arm', columns='fixture', values='rms_mm', aggfunc='first')
     with pd.option_context('display.width', 200, 'display.max_rows', 200):
-        print(df.pivot_table(index='arm', columns='fixture', values='rms_mm', aggfunc='first').round(2))
+        print(table.round(2))
     print(json.dumps({'schedule': SCHEDULE, 'seed': SEED}))
 
 

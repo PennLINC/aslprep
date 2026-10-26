@@ -48,15 +48,19 @@ def main():
     hmc = json.loads(a.hmc_split.read_text())
     hmc_side = {
         (ds, sub): ('held_out' if sub in v['held_out'] else 'development')
-        for ds, v in hmc.items() for sub in v['subjects']
+        for ds, v in hmc.items()
+        for sub in v['subjects']
     }
 
     rows = []
     with a.panel_manifest.open() as f:
         panel = {(r['dataset'], f'sub-{r["subject"]}') for r in csv.DictReader(f, delimiter='\t')}
     for ds, sub in sorted(panel):
-        side, why = ('held_out', HELD_OUT_DATASETS[ds]) if ds in HELD_OUT_DATASETS else (
-            'development', 'panel exemplar')
+        side, why = (
+            ('held_out', HELD_OUT_DATASETS[ds])
+            if ds in HELD_OUT_DATASETS
+            else ('development', 'panel exemplar')
+        )
         rows.append({'dataset': ds, 'subject': sub, 'source': 'panel', 'side': side, 'axis': why})
 
     with a.subjects.open() as f:
@@ -76,11 +80,11 @@ def main():
             else:
                 side = 'held_out' if s in free[:n_held] else 'development'
                 why = 'subject'
-            rows.append({'dataset': ds, 'subject': s, 'source': 'extension', 'side': side,
-                         'axis': why})
+            row = {'dataset': ds, 'subject': s, 'source': 'extension', 'side': side, 'axis': why}
+            rows.append(row)
 
-    a.out.write_text(json.dumps({'seed': SEED, 'held_out_datasets': HELD_OUT_DATASETS,
-                                 'subjects': rows}, indent=1) + '\n')
+    record = {'seed': SEED, 'held_out_datasets': HELD_OUT_DATASETS, 'subjects': rows}
+    a.out.write_text(json.dumps(record, indent=1) + '\n')
     count = defaultdict(lambda: [0, 0])
     for r in rows:
         count[r['dataset']][r['side'] == 'held_out'] += 1

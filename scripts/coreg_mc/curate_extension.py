@@ -19,13 +19,15 @@ import re
 import sys
 from pathlib import Path
 
-zu = None  # the zoo's zoo_utils, imported in main()
+# Each curator takes the zoo's ``zoo_utils`` module (imported in main()) as ``zu``.
 
 
 def _asl_sessions(src, sub):
     """Session directories of ``sub`` (relative to ``src``) that contain ASL."""
     sessions = sorted(p for p in (src / sub).glob('ses-*') if p.is_dir()) or [src / sub]
-    return [s.relative_to(src).as_posix() for s in sessions if list((s / 'perf').glob('*_asl.nii*'))]
+    return [
+        s.relative_to(src).as_posix() for s in sessions if list((s / 'perf').glob('*_asl.nii*'))
+    ]
 
 
 def header(ds, version, subjects):
@@ -37,7 +39,7 @@ def header(ds, version, subjects):
     )
 
 
-def curate_ds003823(subjects):
+def curate_ds003823(zu, subjects):
     b = zu.Builder('ds003823', zu.CACHE / 'ds003823')
     b.top_level(subjects)
     runs = {'': 'acq-rest', 'task-trainingMimickingASL_': 'acq-trainingMimicking'}
@@ -72,21 +74,25 @@ def curate_ds003823(subjects):
         '"*_acq-rest_asl" and "*_task-trainingMimickingASL_asl" -> "*_acq-trainingMimicking_asl" '
         '(same for m0scan and aslcontext). Physiological recordings were not downloaded.'
     )
-    b.note('asl.json: TotalAcquiredPairs set to half the number of volumes; removed the deprecated '
-           'PulseSequenceType and the all-zero SliceTiming (3D readout).')
+    b.note(
+        'asl.json: TotalAcquiredPairs set to half the number of volumes; removed the deprecated '
+        'PulseSequenceType and the all-zero SliceTiming (3D readout).'
+    )
     b.note('m0scan.json: added the missing IntendedFor; removed fields that only apply to asl.')
     b.note('anat: kept the acq-wholebrain T1w only (acq-lc is a locus coeruleus slab).')
     b.note('Uncompressed .nii images were gzipped. Only sessions with ASL were kept.')
     tsv = b.out / 'participants.tsv'
     lines = tsv.read_text().splitlines()
-    fixed = [lines[0]] + ['\t'.join('n/a' if c == 'N/A' else c for c in ln.split('\t')) for ln in lines[1:]]
+    fixed = [lines[0]] + [
+        '\t'.join('n/a' if c == 'N/A' else c for c in ln.split('\t')) for ln in lines[1:]
+    ]
     if fixed != lines:
         zu.write_text(tsv, '\n'.join(fixed) + '\n')
         b.note('participants.tsv: "N/A" cells rewritten as the BIDS missing value "n/a".')
     b.finish(header('ds003823', '1.3.5', subjects))
 
 
-def curate_ds004146(subjects):
+def curate_ds004146(zu, subjects):
     b = zu.Builder('ds004146', zu.CACHE / 'ds004146')
     b.top_level(subjects)
     for sub in subjects:
@@ -101,7 +107,8 @@ def curate_ds004146(subjects):
             stem = f'{base}/perf/{sub}_{ses}'
             b.image(f'{stem}_asl.nii.gz', f'{stem}_asl.nii.gz')
             zu.write_aslcontext(
-                b.out / f'{stem}_aslcontext.tsv', zu.read_aslcontext(b.src / f'{stem}_aslcontext.tsv')
+                b.out / f'{stem}_aslcontext.tsv',
+                zu.read_aslcontext(b.src / f'{stem}_aslcontext.tsv'),
             )
     b.note(
         'anat: the source has no T1w, only MP2RAGE UNIT1. The denoised UNIT1 was copied with the '
@@ -129,7 +136,7 @@ def curate_ds004146(subjects):
     b.finish(header('ds004146', '1.0.0', subjects))
 
 
-def curate_ds008020(subjects):
+def curate_ds008020(zu, subjects):
     b = zu.Builder('ds008020', zu.CACHE / 'ds008020')
     b.top_level(subjects)
     for sub in subjects:
@@ -146,15 +153,19 @@ def curate_ds008020(subjects):
 
             b.image(f'{stem}_asl.nii', f'{stem}_asl.nii.gz', edit=fix)
             zu.copy(b.src / f'{stem}_aslcontext.tsv', b.out / f'{stem}_aslcontext.tsv')
-    b.note('asl.json: RepetitionTimePreparation converted from milliseconds to seconds where it '
-           'was above 100; deprecated PulseSequenceType moved to PulseSequenceDetails.')
-    b.note('anat: the source has no T1w, only a brain-extracted MP2RAGE UNIT1, copied with the T1w '
-           'suffix ("*_T1w", identical data, still brain-extracted). Run with --skull-strip-t1w skip.')
+    b.note(
+        'asl.json: RepetitionTimePreparation converted from milliseconds to seconds where it '
+        'was above 100; deprecated PulseSequenceType moved to PulseSequenceDetails.'
+    )
+    b.note(
+        'anat: the source has no T1w, only a brain-extracted MP2RAGE UNIT1, copied with the T1w '
+        'suffix ("*_T1w", identical data, still brain-extracted). Run with --skull-strip-t1w skip.'
+    )
     b.note('All images written as .nii.gz. Per-subject derivatives/ folders not copied.')
     b.finish(header('ds008020', '1.0.4', subjects))
 
 
-def curate_ds007522(subjects):
+def curate_ds007522(zu, subjects):
     b = zu.Builder('ds007522', zu.CACHE / 'ds007522')
     b.top_level(subjects)
     for sub in subjects:
@@ -193,13 +204,17 @@ def curate_ds007522(subjects):
     b.prune_intended_for()
     b.note('acq-pcasl3000RR m0scans dropped (the same series as the acq-pcasl3000 m0scans).')
     b.note('m0scan IntendedFor narrowed to the runs with the same phase-encoding direction.')
-    b.note('PASL asl.json: removed LabelingDuration, BolusCutOffDelayTechnique and PostLabelDelay.')
-    b.note('Fieldmap IntendedFor lists pruned to the files kept; fieldmaps left without targets dropped.')
+    b.note(
+        'PASL asl.json: removed LabelingDuration, BolusCutOffDelayTechnique and PostLabelDelay.'
+    )
+    b.note(
+        'Fieldmap IntendedFor lists pruned to the files kept; fieldmaps left without targets dropped.'
+    )
     b.note('anat: T1w plus T2w, or 3D FLAIR where there is no T2w. Only sessions with ASL kept.')
     b.finish(header('ds007522', '2.0.1', subjects))
 
 
-def curate_ds007116(subjects):
+def curate_ds007116(zu, subjects):
     b = zu.Builder('ds007116', zu.CACHE / 'ds007116')
     b.top_level(subjects)
     for sub in subjects:
@@ -224,12 +239,14 @@ def curate_ds007116(subjects):
     b.prune_intended_for()
     b.note('anat: kept the rec-normrefaced T1w and rec-normdefaced T2w.')
     b.note('Fieldmaps not kept: they are IntendedFor BOLD or DWI runs.')
-    b.note('perf file names (including CuBIDS "acq-VARIANT..." labels) and aslcontext kept as in '
-           'the source; TotalAcquiredPairs made an integer where it was a float.')
+    b.note(
+        'perf file names (including CuBIDS "acq-VARIANT..." labels) and aslcontext kept as in '
+        'the source; TotalAcquiredPairs made an integer where it was a float.'
+    )
     b.finish(header('ds007116', '1.0.6', subjects))
 
 
-def curate_ds005752(subjects):
+def curate_ds005752(zu, subjects):
     b = zu.Builder('ds005752', zu.CACHE / 'ds005752')
     b.top_level(subjects)
     context = zu.read_aslcontext(b.src / 'aslcontext.tsv')
@@ -244,10 +261,15 @@ def curate_ds005752(subjects):
                     b.image(f'{base}/anat/{path.name}', f'{base}/anat/{path.name}')
             stem = f'{base}/perf/{sub}_{ses}'
             asl = b.image(f'{stem}_asl.nii.gz', f'{stem}_asl.nii.gz')
-            assert zu.n_volumes(asl) == len(context), asl
+            n_vols = zu.n_volumes(asl)
+            if n_vols != len(context):
+                raise ValueError(f'{asl}: {n_vols} volumes, {len(context)} context rows')
+
             zu.write_aslcontext(b.out / f'{stem}_aslcontext.tsv', context)
-    b.note('aslcontext.tsv (m0scan, deltam, cbf) copied from the dataset root to sit next to each '
-           'asl file, as in the zoo exemplar.')
+    b.note(
+        'aslcontext.tsv (m0scan, deltam, cbf) copied from the dataset root to sit next to each '
+        'asl file, as in the zoo exemplar.'
+    )
     b.note('anat: one T1w and one T2w per session, preferring rec-SCIC; FLAIR not kept.')
     b.finish(header('ds005752', '2.1.0', subjects))
 
@@ -263,7 +285,6 @@ CURATORS = {
 
 
 def main():
-    global zu
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     parser.add_argument('--zoo-code', type=Path, required=True)
     parser.add_argument('--subjects', type=Path, required=True)
@@ -274,7 +295,12 @@ def main():
     out = args.out.resolve()
     zoo = args.zoo_code.resolve().parent
     # Builder rebuilds its output directory from scratch, so the root must be a dedicated one.
-    if not out.is_absolute() or out == out.anchor or zoo in (out, *out.parents) or out.name != 'panel-ext':
+    if (
+        not out.is_absolute()
+        or out == out.anchor
+        or zoo in (out, *out.parents)
+        or out.name != 'panel-ext'
+    ):
         sys.exit(f'refusing output root {out}')
     out.mkdir(parents=True, exist_ok=True)
     sys.path.insert(0, str(args.zoo_code))
@@ -282,13 +308,12 @@ def main():
     import zoo_utils
 
     zoo_utils.ZOO = out  # Builder writes to ZOO / <dataset>
-    zu = zoo_utils
 
     with args.subjects.open() as f:
         rows = list(csv.DictReader(f, delimiter='\t'))
     for ds in args.datasets or CURATORS:
         subjects = [r['subject'] for r in rows if r['dataset'] == ds]
-        CURATORS[ds](subjects)
+        CURATORS[ds](zoo_utils, subjects)
 
 
 if __name__ == '__main__':
