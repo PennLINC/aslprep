@@ -286,7 +286,9 @@ Head-motion estimation
    )
 
 Using the previously estimated reference scan,
-FSL ``mcflirt`` is used to estimate head-motion.
+FSL ``mcflirt`` is used to estimate head-motion
+(AFNI ``3dvolreg`` and FSL ``flirt`` with the experimental ``--hmc-method typewise_volreg``;
+see below).
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labeling)`
 time-step.
@@ -295,17 +297,62 @@ three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`,
 for a more accurate estimation of head-motion.
 
-Each volume type (control, label, M0, ...) is registered to the reference separately.
-This leaves a small rigid offset between the corrected label and control volumes,
-which appears at the edges of the brain after subtraction.
-With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),
-*ASLPrep* removes it: for each post-labeling delay, the mean of the corrected label volumes is
-registered rigidly to the mean of the corrected control volumes with AFNI ``3dvolreg``,
-and the correction is composed into the transforms of that delay's label volumes.
-Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
-use the estimate of the nearest other delay.
-The motion confounds are computed from the corrected transforms.
-The method is recorded in the transforms' sidecar (``HMCMethod``).
+``--hmc-method`` selects one of three methods.
+Each registers every volume type (control, label, M0, ...) separately, so that contrast
+differences between the types are not read as motion:
+
+``typewise``
+   FSL ``mcflirt`` registers each type's volumes to the ASL reference.
+   This was the default in earlier versions of *ASLPrep*.
+   Registering the types separately leaves a small rigid offset between the corrected label and
+   control volumes (hundredths of a millimetre, a fraction of a degree),
+   which appears at the edges of the brain after subtraction.
+
+``typewise_offset`` (the default)
+   ``typewise``, followed by a correction of that offset.
+   For each post-labeling delay of at least 1.0 s (inversion time of at least 0.8 s for PASL),
+   the mean of the corrected label volumes is registered rigidly to the mean of the corrected
+   control volumes with AFNI ``3dvolreg``,
+   and the correction is composed into the transforms of that delay's label volumes.
+   At those delays the two means should differ mainly by the perfusion signal, so what the
+   registration finds is mostly the offset; the cutoff is a conservative rule, not a guarantee
+   that no arterial signal is left.
+   Labels at shorter delays are not corrected and keep the ``typewise`` transforms:
+   before the arterial transit time (which can exceed a second) the labels still hold arterial
+   signal, bright vessels that the control images lack, and registering the two means would
+   read the vessels as an offset of the head.
+   Each delay is corrected with its own estimate because, when the delays are acquired one after
+   another, the estimate also carries the residual misregistration of that delay's volumes.
+   On simulated data with known motion, it halves ``typewise``'s edge error or better on series
+   without background suppression, single-delay and PASL multi-delay alike.
+   With background suppression it gains little or nothing: single-delay results were close to
+   ``typewise``'s (slightly worse in the median), and PCASL multi-delay results about 12% worse.
+
+``typewise_volreg`` (**experimental**)
+   Each type is registered, by least squares, to a reference of its own contrast:
+   AFNI ``3dvolreg`` registers the type's volumes to their middle volume,
+   FSL ``flirt`` (six degrees of freedom, mutual information) aligns their mean to the ASL
+   reference, and ``3dvolreg`` registers the type's volumes to that aligned mean.
+   The label offset correction of ``typewise_offset`` always follows, with the same delay
+   cutoff: each type is aligned to the reference separately, and without the correction the
+   types' alignments leave a larger offset than ``typewise`` does.
+   On most simulated data with known motion it leaves smaller label-control offsets and pose
+   errors than ``typewise_offset``, and on PASL multi-delay data it matches it;
+   it is not yet validated as widely on real data.
+   It is not suited to multi-delay PCASL with background suppression:
+   background suppression changes the images' intensity from one delay to the next, which
+   least squares (unlike MCFLIRT's mutual information) reads partly as motion.
+   On simulated data of that kind it was worse than both ``typewise`` and ``typewise_offset``,
+   and with motion it could leave large label-control offsets at the delays below the cutoff,
+   whose labels are not corrected.
+   The motion parameters it writes are decomposed from the transforms,
+   so they differ slightly in convention from MCFLIRT's.
+
+The motion confounds are computed from the final transforms.
+The method is recorded in the transforms' sidecar (``HMCMethod``):
+precomputed transforms recorded with another method are re-estimated,
+and transforms without the record (from versions before it existed) are reused, with a note in
+the log.
 
 Series of five volumes or fewer, and any series run with ``--force ge``, take the GE-specific path.
 If such a series has no label-control pairs (an M0 with delta-M or CBF images), head-motion
@@ -942,6 +989,10 @@ As in *ASLPrep*'s own models, the bolus duration is fixed (``--fixbolus``):
 it is the labeling duration for (P)CASL data,
 and the bolus cut-off delay time (TI1) for PASL data with a bolus cut-off.
 Without this flag, ``oxford_asl`` would estimate the bolus duration for multi-delay PASL data.
+
+For partial volume correction, BASIL is given the gray and white matter fractions of each ASL
+voxel, built by :py:func:`~aslprep.workflows.asl.pv.init_asl_pv_wf` (described below), which
+local-regression PVC also uses.
 
 A sample of BASIL CBF with spatial regularization is shown below:
 

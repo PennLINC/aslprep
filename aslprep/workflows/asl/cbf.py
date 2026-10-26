@@ -38,6 +38,7 @@ from aslprep.utils.calibration import (
     resolve_calibration,
 )
 from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
+from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -54,6 +55,16 @@ def _lr_pvc_mem_gb(name_source, num_threads):
     except Exception:  # noqa: BLE001 - the name source may be a placeholder, as in tests
         return 2.0 + 0.1 * num_threads
     return estimate_lr_pvc_mem_gb(shape, num_threads)
+
+
+def basil_pvc_enabled(*, basil, processing_target):
+    """Whether BASIL runs partial volume correction.
+
+    BASIL does not run on pre-calculated CBF. Partial volume correction takes most of
+    oxford_asl's run time (its spatial step runs ten times as many iterations as the uncorrected
+    fit), so it is skipped in sloppy mode.
+    """
+    return basil and processing_target != 'cbf' and not config.execution.sloppy
 
 
 def init_cbf_wf(
@@ -117,7 +128,8 @@ def init_cbf_wf(
     pvc_kernel_size : :obj:`tuple` of :obj:`int`
         Local-regression kernel size, ordered (in-plane, in-plane, slice).
     asl_effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
-        Effective resolution used to build the partial volume maps.
+        Effective resolution used to build the partial volume maps,
+        which both BASIL and local-regression PVC use.
     calibration : :obj:`dict` or None
         The calibration specification that every quantification step uses
         (see :func:`~aslprep.utils.calibration.resolve_calibration`).
@@ -168,8 +180,8 @@ def init_cbf_wf(
         BASIL posterior standard deviations (with ``basil``).
     gm_pv, wm_pv, csf_pv, pv_metadata
         Partial volume maps on the ASL reference grid and how they were built
-        (with ``pvc_method='local-regression'``; see
-        :func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`).
+        (with ``pvc_method='local-regression'``, or with ``basil`` when BASIL runs partial
+        volume correction; see :func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`).
     mean_cbf_gm_lr, ..., csf_noise_lr, pvc_summary, pvc_metadata, pvc_qc
         Local-regression partial volume correction outputs for ``mean_cbf`` (with
         ``pvc_method='local-regression'``; see :func:`~aslprep.workflows.asl.pv.init_lr_pvc_wf`
@@ -407,6 +419,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     workflow.__desc__ += '\n'
 
     lr_pvc = pvc_method == 'local-regression'
+    basil_pvc = basil_pvc_enabled(basil=basil, processing_target=processing_target)
     lr_sources = []
     lr_fields = []
     if lr_pvc:
@@ -417,8 +430,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             kernel_size=pvc_kernel_size,
         )
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
-        lr_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata', 'pvc_qc']
+        lr_fields = ['pvc_metadata', 'pvc_qc']
         lr_fields += lr_pvc_fields(lr_sources, multi_delay=is_multi_pld)
+    # Both partial volume corrections use the same voxel-averaged maps (gh-740)
+    pv_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata'] if (lr_pvc or basil_pvc) else []
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -467,6 +482,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'cbf_wm_sd_basil',
                 'att_sd_basil',  # Only for multi-delay data
             ]
+            + pv_fields
             + lr_fields
         ),
         name='outputnode',
@@ -493,70 +509,74 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
         return os.path.dirname(file)
 
-    gm_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='gm_tfm',
-        mem_gb=0.1,
-    )
+    if scorescrub:
+        # SCORE/SCRUB samples the tissue probability maps at each ASL voxel centre
+        gm_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='gm_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, gm_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_gm), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, gm_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_gm), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
-    wm_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='wm_tfm',
-        mem_gb=0.1,
-    )
+        wm_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='wm_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, wm_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_wm), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, wm_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_wm), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
-    csf_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='csf_tfm',
-        mem_gb=0.1,
-    )
+        csf_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='csf_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, csf_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_csf), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, csf_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_csf), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
+    # Nodes that load the ASL series, or a CBF time series of the same size, run in workers,
+    # so the scheduler needs their memory to pack them.
+    series_mem_gb = estimate_asl_mem_usage(name_source)[1]['resampled']
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
             fwhm=smooth_kernel,
         ),
-        mem_gb=0.2,
-        run_without_submitting=True,
+        mem_gb=series_mem_gb,
         name='extract_deltam',
     )
 
@@ -589,9 +609,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             use_gpu=fit_on_gpu,
             write_calibration=pvc_method != 'none',
         ),
-        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
+        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else series_mem_gb,
         n_procs=fit_nthreads,
-        run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
     if calibration is not None:
@@ -618,12 +637,30 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         ]),
     ])  # fmt:skip
 
+    if pv_fields:
+        asl_pv_wf = init_asl_pv_wf(
+            metadata=metadata,
+            effective_resolution=asl_effective_resolution,
+        )
+        workflow.connect([
+            (inputnode, asl_pv_wf, [
+                ('t1w_tpms', 'inputnode.t1w_tpms'),
+                ('asl_mask', 'inputnode.asl_mask'),
+                ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+            ]),
+            (asl_pv_wf, outputnode, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+                ('outputnode.csf_pv', 'csf_pv'),
+                ('outputnode.pv_metadata', 'pv_metadata'),
+            ]),
+        ])  # fmt:skip
+
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
             ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function='huber'),
-            mem_gb=0.2,
+            mem_gb=series_mem_gb,
             name='score_and_scrub_cbf',
-            run_without_submitting=True,
         )
 
         workflow.__desc__ += """
@@ -649,12 +686,11 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         ])  # fmt:skip
 
     if basil:
-        # Partial volume correction takes most of oxford_asl's run time
-        # (its spatial step runs ten times as many iterations as the uncorrected fit),
-        # so it is skipped in sloppy mode.
-        basil_pvc = not config.execution.sloppy
         if basil_pvc:
-            pvc_str = ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+            pvc_str = (
+                ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+                '\nBASIL was given the gray and white matter partial volume maps described below.'
+            )
         else:
             pvc_str = (
                 '.\nPartial volume correction was skipped, because *ASLPrep* was run in sloppy '
@@ -733,8 +769,8 @@ rather than estimated.
                 **basil_kwargs,
             ),
             name='basilcbf',
-            run_without_submitting=True,
-            mem_gb=0.2,
+            # fabber peaked at 1.2 times the series estimate for multi-delay data
+            mem_gb=1.5 * series_mem_gb,
         )
 
         workflow.connect([
@@ -758,8 +794,7 @@ rather than estimated.
             make_tiimg = pe.Node(
                 BASILInflowTimeImage(),
                 name='make_tiimg',
-                run_without_submitting=True,
-                mem_gb=0.2,
+                mem_gb=series_mem_gb,
             )
             workflow.connect([
                 (extract_deltam, make_tiimg, [
@@ -773,9 +808,12 @@ rather than estimated.
             workflow.connect([(determine_inflow_times, basilcbf, [('tis', 'tis')])])
 
         if basil_pvc:
+            # Voxel-averaged maps, not the point-sampled TPMs (gh-740)
             workflow.connect([
-                (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
-                (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
+                (asl_pv_wf, basilcbf, [
+                    ('outputnode.gm_pv', 'gm_tpm'),
+                    ('outputnode.wm_pv', 'wm_tpm'),
+                ]),
                 (basilcbf, outputnode, [
                     ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
                     ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
@@ -806,10 +844,6 @@ rather than estimated.
             ])  # fmt:skip
 
     if lr_pvc:
-        asl_pv_wf = init_asl_pv_wf(
-            metadata=metadata,
-            effective_resolution=asl_effective_resolution,
-        )
         lr_pvc_wf = init_lr_pvc_wf(
             metadata=metadata,
             sources=lr_sources,
@@ -831,11 +865,6 @@ rather than estimated.
                 (compute_cbf, lr_pvc_wf, [('att', 'inputnode.att')]),
             ])  # fmt:skip
         workflow.connect([
-            (inputnode, asl_pv_wf, [
-                ('t1w_tpms', 'inputnode.t1w_tpms'),
-                ('asl_mask', 'inputnode.asl_mask'),
-                ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ]),
             (inputnode, lr_pvc_wf, [('asl_mask', 'inputnode.asl_mask')]),
             (compute_cbf, lr_pvc_wf, [
                 ('mean_cbf', 'inputnode.mean_cbf'),
@@ -847,17 +876,7 @@ rather than estimated.
                 ('outputnode.wm_pv', 'inputnode.wm_pv'),
                 ('outputnode.csf_pv', 'inputnode.csf_pv'),
             ]),
-            (asl_pv_wf, outputnode, [
-                ('outputnode.gm_pv', 'gm_pv'),
-                ('outputnode.wm_pv', 'wm_pv'),
-                ('outputnode.csf_pv', 'csf_pv'),
-                ('outputnode.pv_metadata', 'pv_metadata'),
-            ]),
-            (lr_pvc_wf, outputnode, [
-                (f'outputnode.{field}', field)
-                for field in lr_fields
-                if field not in ('gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata')
-            ]),
+            (lr_pvc_wf, outputnode, [(f'outputnode.{field}', field) for field in lr_fields]),
         ])  # fmt:skip
         if scorescrub:
             workflow.connect([
