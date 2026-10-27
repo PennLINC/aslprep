@@ -468,6 +468,13 @@ def _score_native_multi(fixture, preproc, cbf, att_masks_from, subset, aslprep_d
     voxels = voxels[:: max(1, len(voxels) // subset)][:subset]
     raw_fit = _fit_subset(fixture, fixture.asl_img.get_fdata(), voxels, fwhm)
     out['tier_a'], ok = _fit_stats(cbf, att, raw_fit, voxels, **arterial)
+    # CBF scales as 1 / alpha (with ATT and aBAT unchanged, away from the CBF bound), so the
+    # expectation under the efficiency the simulator applied is the reference fit rescaled.
+    physical = raw_fit.copy()
+    physical[:, 0] *= tm.labeling_efficiency(fixture.metadata) / tm.labeling_efficiency_physical(
+        fixture.simulation, fixture.context
+    )
+    out['physical'], _ = _fit_stats(cbf, att, physical, voxels)
     fit = raw_fit
     if preproc is not None:
         fit = _fit_subset(fixture, preproc, voxels, fwhm)
