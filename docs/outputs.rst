@@ -376,17 +376,6 @@ because the ranges change abruptly between neighboring voxels and slices,
 and interpolating them to another space would produce values that are no longer bounds.
 See :ref:`multidelay_identifiability` before interpreting these maps.
 
-The arterial blood volume (aBV) maps, ``abv`` and BASIL's ``desc-basil_abv``,
-are the fraction of the voxel's volume occupied by labeled arterial blood
-:footcite:p:`woods2023recommendations`.
-To compare them with blood volumes reported in mL/100 g, multiply by about 100 / 1.05,
-where 1.05 g/mL is the density of brain tissue.
-aBV only reflects labeled blood still in the larger arteries during the labeled bolus,
-from the arterial bolus arrival time to the end of the bolus.
-It is not the total cerebral blood volume (CBV) measured with DSC or PET,
-nor the arterial CBV measured with methods such as inflow-based VASO,
-which also includes the arterioles.
-
 .. _calibration_parameters:
 
 Calibration parameters
