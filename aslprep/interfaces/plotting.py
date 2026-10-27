@@ -298,42 +298,6 @@ class PVCDiagnosticsPlot(SimpleInterface):
         # Show the axial slice with the most brain voxels
         k = int(np.argmax((status > 0).sum(axis=(0, 1))))
 
-        fig, axes = plt.subplots(1, 4, figsize=(20, 5.5))
-        im = axes[0].imshow(np.rot90(gm_pv[:, :, k]), cmap='gray', vmin=0, vmax=1)
-        axes[0].set_title('Gray matter fraction (effective resolution)')
-        fig.colorbar(im, ax=axes[0], fraction=0.046)
-
-        status_cmap = ListedColormap(['black', '#1b60a5', '#2da467', '#9d8f25', '#c0392b'])
-        im = axes[1].imshow(
-            np.rot90(status[:, :, k]),
-            cmap=status_cmap,
-            vmin=-0.5,
-            vmax=4.5,
-            interpolation='nearest',
-        )
-        axes[1].set_title('Fit status')
-        cbar = fig.colorbar(im, ax=axes[1], fraction=0.046, ticks=range(5))
-        cbar.ax.set_yticklabels(['outside', 'GM + WM', 'GM only', 'WM only', 'none'])
-
-        noise = np.where(gm_valid, gm_noise, np.nan)
-        finite = noise[np.isfinite(noise)]
-        vmax = float(np.percentile(finite, 99)) if finite.size else 1.0
-        im = axes[2].imshow(np.rot90(noise[:, :, k]), cmap='magma', vmin=0, vmax=vmax)
-        axes[2].set_title('GM noise amplification')
-        fig.colorbar(im, ax=axes[2], fraction=0.046)
-        for ax in axes[:3]:
-            ax.axis('off')
-
-        if gm_valid.any():
-            values = np.concatenate([mean_cbf[gm_valid], gm_cbf[gm_valid]])
-            low, high = np.percentile(values, [1, 99])
-            bins = np.linspace(low, high, 60)
-            axes[3].hist(mean_cbf[gm_valid], bins=bins, alpha=0.6, label='uncorrected')
-            axes[3].hist(gm_cbf[gm_valid], bins=bins, alpha=0.6, label='GM corrected')
-            axes[3].legend()
-        axes[3].set_xlabel('CBF (mL/100 g/min)')
-        axes[3].set_title('Where GM CBF was estimated')
-
         summary = self.inputs.summary
         meta = self.inputs.pv_metadata
         fwhm = ' x '.join(f'{v:.2g}' for v in meta.get('EffectiveResolution', []))
@@ -349,12 +313,54 @@ class PVCDiagnosticsPlot(SimpleInterface):
                 f', IQR {qc["lr_csf_cbf_iqr"]:.1f} mL/100 g/min '
                 f'in {qc["lr_csf_n_voxels"]} voxels with at least 50% CSF'
             )
-        fig.suptitle(title, fontsize=11)
-        fig.tight_layout()
 
         self._results['out_file'] = fname_presuffix(
             self.inputs.gm_cbf, suffix='_pvcplot.svg', use_ext=False, newpath=runtime.cwd
         )
-        fig.savefig(self._results['out_file'])
-        plt.close(fig)
+
+        # Other plots change the global matplotlib settings (nireports' carpet plot sets
+        # font.size to 24), and nipype workers run many nodes in one process, so the layout
+        # is only predictable with the default style.
+        with plt.style.context('default'):
+            fig, axes = plt.subplots(1, 4, figsize=(20, 5.5))
+            im = axes[0].imshow(np.rot90(gm_pv[:, :, k]), cmap='gray', vmin=0, vmax=1)
+            axes[0].set_title('Gray matter fraction (effective resolution)')
+            fig.colorbar(im, ax=axes[0], fraction=0.046)
+
+            status_cmap = ListedColormap(['black', '#1b60a5', '#2da467', '#9d8f25', '#c0392b'])
+            im = axes[1].imshow(
+                np.rot90(status[:, :, k]),
+                cmap=status_cmap,
+                vmin=-0.5,
+                vmax=4.5,
+                interpolation='nearest',
+            )
+            axes[1].set_title('Fit status')
+            cbar = fig.colorbar(im, ax=axes[1], fraction=0.046, ticks=range(5))
+            cbar.ax.set_yticklabels(['outside', 'GM + WM', 'GM only', 'WM only', 'none'])
+
+            noise = np.where(gm_valid, gm_noise, np.nan)
+            finite = noise[np.isfinite(noise)]
+            vmax = float(np.percentile(finite, 99)) if finite.size else 1.0
+            im = axes[2].imshow(np.rot90(noise[:, :, k]), cmap='magma', vmin=0, vmax=vmax)
+            axes[2].set_title('GM noise amplification')
+            fig.colorbar(im, ax=axes[2], fraction=0.046)
+            for ax in axes[:3]:
+                ax.axis('off')
+
+            if gm_valid.any():
+                values = np.concatenate([mean_cbf[gm_valid], gm_cbf[gm_valid]])
+                low, high = np.percentile(values, [1, 99])
+                bins = np.linspace(low, high, 60)
+                axes[3].hist(mean_cbf[gm_valid], bins=bins, alpha=0.6, label='uncorrected')
+                axes[3].hist(gm_cbf[gm_valid], bins=bins, alpha=0.6, label='GM corrected')
+                axes[3].legend()
+
+            axes[3].set_xlabel('CBF (mL/100 g/min)')
+            axes[3].set_title('Where GM CBF was estimated')
+            fig.suptitle(title, fontsize=11)
+            fig.tight_layout()
+            fig.savefig(self._results['out_file'])
+            plt.close(fig)
+
         return runtime
