@@ -168,6 +168,8 @@ def init_cbf_wf(
         (multi-delay data only).
     att_lower, att_upper, abat_lower, abat_upper
         The ranges of ATT and aBAT that fit as well as the estimates (multi-delay data only).
+    abv_at_bound
+        Mask of voxels whose aBV is at its upper bound (multi-delay data only).
     abv_decayed
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
@@ -463,6 +465,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'att_upper',  # Only calculated for multi-delay data
                 'abat_lower',  # Only calculated for multi-delay data
                 'abat_upper',  # Only calculated for multi-delay data
+                'abv_at_bound',  # Only calculated for multi-delay data
                 'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
@@ -633,6 +636,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             ('att_upper', 'att_upper'),
             ('abat_lower', 'abat_lower'),
             ('abat_upper', 'abat_upper'),
+            ('abv_at_bound', 'abv_at_bound'),
             ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip

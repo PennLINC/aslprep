@@ -84,6 +84,14 @@ abat_upper:
     Upper bound of the arterial bolus arrival time. The longest arterial bolus arrival
     time that fits the data as well as the estimate.
 
+abv_at_bound:
+  desc: abvBound
+  suffix: mask
+  Description: >-
+    Voxels where the fitted arterial blood volume is at its upper bound, the physical
+    limit of 1. The arterial term could not absorb all of the arterial signal there,
+    so what is left of it may bias the cerebral blood flow and arterial transit time.
+
 abv_decayed:
   desc: decayed
   suffix: abv

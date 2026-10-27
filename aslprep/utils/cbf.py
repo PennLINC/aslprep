@@ -883,7 +883,20 @@ def calculate_deltam_pasl(X, cbf, att, abat, abv):
 
 #: Lower and upper bounds for (CBF, ATT, aBAT, aBV) in the multi-delay general kinetic model.
 #: Manuel Taso recommended 5, 5, and 0.2 for the ATT, aBAT, and aBV upper bounds.
-MULTIPLD_BOUNDS = ((0.0, 300.0), (0.0, 5.0), (0.0, 5.0), (0.0, 0.1))
+#: aBV is the fraction of the voxel occupied by arterial blood (Woods et al. 2024), so its
+#: physical limit is 1. A voxel crossed by a 4 mm artery (the intracranial ICA) can be 0.8-1.0
+#: arterial at common ASL voxel sizes (3-4 mm in-plane), so a lower bound would truncate the
+#: arterial term in exactly the voxels where it matters, leaving the rest of the arterial signal
+#: to bias CBF and ATT. The bound was 0.1 from #545, when the per-voxel curve_fit reached aBV of
+#: about 12 without it. With the batched fit (#711), refitting the multi-delay aslscan fixtures
+#: with bounds of 0.1, 0.2, 0.5, 1 and 100 changed only 4 of about 95,000 brain voxels, all at
+#: the brain edge with CBF also at its bound, and no fit exceeded an aBV of 0.13.
+#: Voxels with aBV at the bound are reported (see :func:`abv_at_bound`).
+MULTIPLD_BOUNDS = ((0.0, 300.0), (0.0, 5.0), (0.0, 5.0), (0.0, 1.0))
+
+#: A multi-delay fit's aBV within this fraction of its upper bound is at the bound.
+#: The solver can stop just below a bound, so an exact comparison would miss some voxels.
+MULTIPLD_BOUND_RTOL = 1e-5
 
 #: Number of evenly spaced ATT values evaluated in each interval on each search pass.
 MULTIPLD_ATT_GRID_SIZE = 11
@@ -1600,6 +1613,40 @@ def fit_deltam_multipld(
     cbf, att, abat, abv, *bounds = estimates
     bounds = dict(zip(('att_lower', 'att_upper', 'abat_lower', 'abat_upper'), bounds, strict=True))
     return cbf, att, abat, abv, failures, bounds
+
+
+def abv_at_bound(abv, failures, abv_max=None):
+    """Find the voxels whose multi-delay fit put aBV at its upper bound.
+
+    In these voxels, the arterial term could not absorb all of the arterial signal,
+    so what is left of it may bias CBF and ATT.
+
+    Parameters
+    ----------
+    abv : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Fitted arterial blood volume, from :func:`fit_deltam_multipld`.
+    failures : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Voxels that were not fit, from :func:`fit_deltam_multipld`.
+    abv_max : :obj:`float` or None, optional
+        Upper bound on aBV. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
+
+    Returns
+    -------
+    at_bound : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Boolean array, True where aBV is within :data:`MULTIPLD_BOUND_RTOL` of its bound.
+    """
+    abv_max = MULTIPLD_BOUNDS[3][1] if abv_max is None else abv_max
+    at_bound = ~failures & (abv >= abv_max * (1 - MULTIPLD_BOUND_RTOL))
+    n_at_bound = int(at_bound.sum())
+    if n_at_bound:
+        n_fitted = int((~failures).sum())
+        config.loggers.workflow.warning(
+            f'Arterial blood volume reached its upper bound ({abv_max:g}) in '
+            f'{n_at_bound}/{n_fitted} ({100 * n_at_bound / n_fitted:.2f}%) fitted voxel(s). '
+            'CBF and ATT may be biased there by arterial signal the model could not absorb.'
+        )
+
+    return at_bound
 
 
 def slice_shifted_delays(delays, metadata, ref_img):
