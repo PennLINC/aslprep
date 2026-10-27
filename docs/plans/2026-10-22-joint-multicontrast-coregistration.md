@@ -38,6 +38,39 @@ tag built from `072ee0f` itself, so no source is mounted). What changed on resum
   eligibility statistic and its multi-delay pair selection need, so R2 stays the probe's design.
   Fixture run times with the series: 5.3-6.9 min (5.4-6.8 without).
 
+**Engine pilot, simulation part (2026-10-27; `rc_pcasl`, `rc_grase`, `st_spiral`, `derivatives`
+anatomy, one seed).** RMS error in mm against the corrected series' truth (`F R^-1`):
+
+| Arm | `rc_pcasl` (5 mm) | `rc_grase` (4 mm) | `st_spiral` (3.75 mm) |
+|---|---|---|---|
+| R0 production (FSL BBR, default sign) | 0.17 | 1.04 (fallback) | 10.30 |
+| FSL conventional, opposite sign (R1 candidate) | 0.35 (fallback) | 0.45 | 0.32 |
+| FSL P-winsor BBR (R2 candidate) | 0.33 | 0.20 | 0.24 |
+| `mri_coreg` start | 0.35 | 1.04 | 0.72 |
+| ANTs S1 (MI) | 0.51 | 0.98 | 0.90 |
+| ANTs S2 (CC to GM) | 0.37 | 0.14 | 0.12 |
+| ANTs Q1 | 0.36 | 0.12 | 0.13 |
+| ANTs J1 (0.6 MI + 0.4 CC) | 0.34 | 0.88 | 0.61 |
+
+- Conventions (gate 1): the harness's FSL path reproduces ASLPrep's transform exactly (0.1745
+  mm both on `rc_pcasl`); every arm's error read the other way round is about 7 mm, so the
+  directions are right. A repeated S2 is byte-identical (single-threaded ANTs, fixed seed).
+- Speed: dense CC on the 1 mm T1w grid ran 19 h without finishing one arm (the laptop also
+  slept overnight). The anatomical fixed images now go onto an isotropic grid at the ASL voxel
+  size (`run_ants.lowres`), CC radius 2, schedule `500x250` / shrink `2x1` / smoothing `1x0vox`,
+  and a 30 min timeout per arm; each stage takes 0.1-21 s.
+- The static MI term is the weak link: Mattes, dense sampling, 64 bins and the 1 mm fixed T1w
+  all stay at 0.73-1.02 mm on `rc_grase` and `st_spiral` (the 1 mm T1w helps only on
+  `rc_pcasl`, 0.23). Part of any static term's error is a frame offset: the conventional
+  reference depicts the separate M0 at its own pose (or volume 0 for `st_spiral`), 0.17-0.44 mm
+  from the corrected series (correct-sign BBR on `rc_grase` is 0.11 mm in the reference's frame,
+  0.45 mm end to end). MI's error is far above that floor. Perfusion terms are built from the
+  series, so they avoid the offset.
+- J1 at the proposal's weights inherits the weak static term and is worse than S2 or Q1 on both
+  stress fixtures. This is an engine and weighting result, not yet a joint-versus-sequential one;
+  the weight grid is Task 4's. Caveats: three fixtures, one seed, and S2's target comes from the
+  same labels as the simulated perfusion (circularity, see "What it does not model").
+
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
 so better motion correction gives more useful inputs. Done before the pause: the panel extension

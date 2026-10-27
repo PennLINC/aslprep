@@ -79,6 +79,16 @@ ARMS = {
         ],
     ],
 }
+#: Engine-pilot variants of the static term (Task 2), and a repeat of S2 for determinism.
+PILOT_ARMS = {
+    'S1-mattes': [['Mattes[/w/t1w_brain_lr.nii.gz,/w/conventional.nii.gz,1,32,Regular,0.25]']],
+    'S1-dense': [['MI[/w/t1w_brain_lr.nii.gz,/w/conventional.nii.gz,1,32,None]']],
+    'S1-mattes-dense': [['Mattes[/w/t1w_brain_lr.nii.gz,/w/conventional.nii.gz,1,32,None]']],
+    'S1-mattes64-dense': [['Mattes[/w/t1w_brain_lr.nii.gz,/w/conventional.nii.gz,1,64,None]']],
+    'S1-fullres': [[mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 1)]],
+    'S2-repeat': ARMS['S2'],
+}
+ALL_ARMS = ARMS | PILOT_ARMS
 
 
 def gm_target(work, gm_probseg):
@@ -137,7 +147,7 @@ def register(work, arms):
             '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
             f'--random-seed {SEED} --initial-moving-transform /w/init_itk.txt',
         ]
-        for terms in ARMS[arm]:
+        for terms in ALL_ARMS[arm]:
             cmd.append('--transform Rigid[0.1]')
             cmd += [f'--metric {t}' for t in terms]
             cmd.append(SCHEDULE)
@@ -195,7 +205,10 @@ def fixture_truth(fixture_dir, run_dir):
 
 def run_fixture(name, args):
     work = args.work / name
-    if not args.rescore:
+    if args.ants_only:
+        # Reuse the prepared work directory (and its FSL results); register the ANTs arms only.
+        register(work, args.arms)
+    elif not args.rescore:
         shutil.rmtree(work, ignore_errors=True)
         # Prepares the work directory and runs production's FSL path (both BBR signs).
         coreg_experiment.run_fixture(args.fixtures / name, args.runs / name, work, args.license)
@@ -241,8 +254,9 @@ def main(argv=None):
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--names', nargs='+', required=True)
-    p.add_argument('--arms', nargs='+', default=list(ARMS))
+    p.add_argument('--arms', nargs='+', default=list(ARMS), choices=list(ALL_ARMS))
     p.add_argument('--rescore', action='store_true')
+    p.add_argument('--ants-only', action='store_true')
     args = p.parse_args(argv)
     rows = []
     for name in args.names:
