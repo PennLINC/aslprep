@@ -32,6 +32,8 @@ sub-01/perf/sub-01_acq-paslmultipld_attstatus.json
 sub-01/perf/sub-01_acq-paslmultipld_attstatus.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_cbf.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-abvBound_mask.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-abvBound_mask.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilGMSD_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilGMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-basilGM_cbf.json

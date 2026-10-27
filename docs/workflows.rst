@@ -888,9 +888,21 @@ Within that interval, the data therefore determine the product
 *ASLPrep* writes that product to the ``desc-decayed`` aBV map,
 and the aBV map holds the aBV implied by the reported aBAT.
 The one exception is an arterial signal that is large enough to need the largest allowed aBV
-(10% of the voxel): longer aBATs in the interval would need more than that,
+(the whole voxel): longer aBATs in the interval would need more than that,
 so they are ruled out, and the aBAT upper bound falls inside the interval.
 For PASL, the arterial signal does not contain aBAT, so the aBV map needs no counterpart.
+
+**An arterial term at the longest delay only fits one number.**
+Where the aBAT lower bound is at or after the second-longest :math:`PLD + LD` (PCASL)
+or the second-longest :math:`TI` (PASL), the arterial term is zero at every delay but the longest.
+Its aBV then absorbs whatever that delay holds beyond the tissue signal, such as noise or motion,
+so it does not measure arterial blood.
+For PCASL, aBAT is that late, so the reported aBV is :math:`e^{\frac{aBAT}{T_{1b}}}` times the
+``desc-decayed`` product (often 5 to 10 times); use the ``desc-decayed`` map rather than aBV there.
+Because the arterial term takes up the longest delay, CBF and ATT in these voxels rest on the other
+delays, and they can shift with what the arterial term absorbs.
+These voxels can be found from the native-space ``desc-lower_abat`` map,
+and they can be around a tenth of the brain.
 
 **ATT is only bounded above when it is shorter than every delay.**
 The tissue signal depends on ATT only at delays where the labeled blood is still arriving

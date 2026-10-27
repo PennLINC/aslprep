@@ -256,7 +256,13 @@ def test_local_regression_pvc_interface_exact_two_tissue(tmp_path):
 
 
 def test_pvc_diagnostics_plot(tmp_path):
-    """The diagnostics figure renders from the LR outputs."""
+    """The diagnostics figure renders from the LR outputs.
+
+    Its text keeps the default size when another plot in the same process left a larger
+    global font size behind (as nireports' carpet plot does).
+    """
+    import matplotlib.pyplot as plt
+
     from aslprep.interfaces.plotting import PVCDiagnosticsPlot
 
     rng = np.random.default_rng(0)
@@ -273,16 +279,24 @@ def test_pvc_diagnostics_plot(tmp_path):
     for name, arr in data.items():
         files[name] = str(tmp_path / f'{name}.nii.gz')
         nb.Nifti1Image(arr, np.eye(4)).to_filename(files[name])
-    results = PVCDiagnosticsPlot(
-        summary={'two-tissue fit': 0.7, 'not identifiable': 0.3},
-        pv_metadata={
-            'EffectiveResolution': [3.0, 3.0, 4.0],
-            'EffectiveResolutionSource': 'auto:2d',
-        },
-        **files,
-    ).run(cwd=tmp_path)
+
+    with plt.rc_context({'font.size': 24}):
+        results = PVCDiagnosticsPlot(
+            summary={'two-tissue fit': 0.7, 'not identifiable': 0.3},
+            pv_metadata={
+                'EffectiveResolution': [3.0, 3.0, 4.0],
+                'EffectiveResolutionSource': 'auto:2d',
+            },
+            **files,
+        ).run(cwd=tmp_path)
+        assert plt.rcParams['font.size'] == 24
+
     assert results.outputs.out_file.endswith('.svg')
-    assert '<svg' in open(results.outputs.out_file).read(2000)
+    svg = open(results.outputs.out_file).read()
+    assert '<svg' in svg[:2000]
+    # Matplotlib draws text as glyph paths scaled by font size / 100
+    title = svg.split('<!-- Fit status -->', 1)[1][:200]
+    assert 'scale(0.12 -0.12)' in title
 
 
 def test_divide_by_weight(tmp_path):

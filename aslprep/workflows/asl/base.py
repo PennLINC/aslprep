@@ -325,6 +325,7 @@ def init_asl_wf(
     att_derivs = []
     # The ATT and aBAT bounds step between neighboring voxels, and interpolation would blend
     # them into values that are no longer bounds, so they are only written in native space.
+    # So is the mask of voxels with aBV at its bound, which flags voxels of the native fit.
     native_att_derivs = []
     basil_sd_derivs = []
     cbf_3d_derivs = ['mean_cbf']
@@ -344,6 +345,7 @@ def init_asl_wf(
             'att_lower_ci',
             'att_upper_ci',
             'att_status',
+            'abv_at_bound',
         ]
         if pcasl_or_pasl(metadata=metadata):
             # For PASL, the arterial signal does not depend on aBAT, so aBV needs no counterpart.

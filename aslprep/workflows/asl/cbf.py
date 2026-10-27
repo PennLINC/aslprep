@@ -179,6 +179,8 @@ def init_cbf_wf(
         How well the fit located ATT in each voxel (multi-delay data only).
     earliest_delay
         Each voxel's earliest delay, including slice timing (multi-delay data only).
+    abv_at_bound
+        Mask of voxels whose aBV is at its upper bound (multi-delay data only).
     abv_decayed
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
@@ -487,6 +489,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'att_upper_ci',  # Only calculated for multi-delay data
                 'att_status',  # Only calculated for multi-delay data
                 'earliest_delay',  # Only calculated for multi-delay data
+                'abv_at_bound',  # Only calculated for multi-delay data
                 'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
@@ -661,6 +664,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             ('att_upper_ci', 'att_upper_ci'),
             ('att_status', 'att_status'),
             ('earliest_delay', 'earliest_delay'),
+            ('abv_at_bound', 'abv_at_bound'),
             ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip

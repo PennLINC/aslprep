@@ -366,6 +366,7 @@ CBF Outputs::
          <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-delay data only)
          <source_entities>_desc-<ciLower|ciUpper>_att.nii.gz  # 95% interval for the arterial transit time (multi-delay data only)
          <source_entities>_attstatus.nii.gz  # where the arterial transit time was located (multi-delay data only)
+         <source_entities>_desc-abvBound_mask.nii.gz  # voxels with arterial blood volume at its upper bound (multi-delay data only)
          <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-delay (P)CASL data only)
 
 For multi-delay data, the model cannot always locate the arterial transit time
@@ -387,6 +388,22 @@ which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--ou
 because the ranges change abruptly between neighboring voxels and slices,
 and interpolating them to another space would produce values that are no longer bounds.
 See :ref:`multidelay_identifiability` before interpreting these maps.
+
+The arterial blood volume (aBV) maps, ``abv`` and BASIL's ``desc-basil_abv``,
+are the fraction of the voxel's volume occupied by labeled arterial blood
+:footcite:p:`woods2023recommendations`.
+To compare them with blood volumes reported in mL/100 g, multiply by about 100 / 1.05,
+where 1.05 g/mL is the density of brain tissue.
+aBV only reflects labeled blood still in the larger arteries during the labeled bolus,
+from the arterial bolus arrival time to the end of the bolus.
+It is not the total cerebral blood volume (CBV) measured with DSC or PET,
+nor the arterial CBV measured with methods such as inflow-based VASO,
+which also includes the arterioles.
+The ``desc-abvBound`` mask marks voxels where the fitted aBV reached its upper bound,
+the physical limit of 1.
+The arterial term could not absorb all of the arterial signal in those voxels,
+so what is left of it may bias their CBF and ATT.
+Like the ``desc-lower`` and ``desc-upper`` maps, this mask is only written in native space.
 
 .. _calibration_parameters:
 
@@ -508,7 +525,8 @@ output directory.
      - Arterial transit time in seconds. Multi-delay data only.
    * - ``desc-basil_abv``
      - ``native_space/aCBV_calib``
-     - Arterial blood volume. Multi-delay data only.
+     - Arterial blood volume, as a fraction of the voxel. ``oxford_asl`` writes it as a
+       percentage, so *ASLPrep* divides it by 100. Multi-delay data only.
    * - ``desc-basilSD_cbf``
      - ``native_space/perfusion_var_calib``
      - Posterior standard deviation of ``desc-basil_cbf``, in mL/100 g/min.
@@ -700,8 +718,9 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
 - The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
   raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
   exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
-  The arterial blood volume bound is raised from 0.1 to 1 for the same reason: unmixing assigns
-  a voxel's arterial signal to its tissue fraction. A fit with aBV still at that bound is flagged
+  The arterial blood volume bound is 1, its physical limit, as for the uncorrected fit.
+  Unmixing assigns a voxel's arterial signal to its tissue fraction, so a tissue curve can need
+  a larger aBV than its voxel did. A fit with aBV at that bound is flagged
   (status 5), and neither its CBF nor its ATT is written, because the arterial signal it could
   not absorb would bias both.
 - Tissue curves are noisier than the voxel's own curve, and the non-negative fit skews noisy
