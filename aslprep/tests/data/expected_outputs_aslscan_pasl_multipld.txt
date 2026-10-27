@@ -28,6 +28,8 @@ sub-01/perf/sub-01_acq-paslmultipld_atlas-4S156Parcels_scalarstats.json
 sub-01/perf/sub-01_acq-paslmultipld_atlas-4S156Parcels_scalarstats.tsv
 sub-01/perf/sub-01_acq-paslmultipld_att.json
 sub-01/perf/sub-01_acq-paslmultipld_att.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_attstatus.json
+sub-01/perf/sub-01_acq-paslmultipld_attstatus.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_cbf.json
 sub-01/perf/sub-01_acq-paslmultipld_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-abvBound_mask.json
@@ -53,6 +55,10 @@ sub-01/perf/sub-01_acq-paslmultipld_desc-basil_cbf.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-brain_mask.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-brain_mask.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-calibration_parameters.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-ciLower_att.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-ciLower_att.nii.gz
+sub-01/perf/sub-01_acq-paslmultipld_desc-ciUpper_att.json
+sub-01/perf/sub-01_acq-paslmultipld_desc-ciUpper_att.nii.gz
 sub-01/perf/sub-01_acq-paslmultipld_desc-confounds_timeseries.tsv
 sub-01/perf/sub-01_acq-paslmultipld_desc-coreg_aslref.json
 sub-01/perf/sub-01_acq-paslmultipld_desc-coreg_aslref.nii.gz

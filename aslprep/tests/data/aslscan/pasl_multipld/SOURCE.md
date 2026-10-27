@@ -7,6 +7,6 @@ Derived from bids-examples commit 7150efcf2c040465e9fcb6745f0b5aa4e84919c1, as c
 Changes:
 
 - TIs from 0.9 s (asl003 starts at 0.3 s, before its own 0.7 s bolus cut-off, which aslscan refuses)
-- 2D EPI at 4 x 4 x 6 mm instead of 3D GRASE at 8 x 4 x 6 mm: the GRASE segmentation does not fit the full phantom's phase-encoding lines with NumberShots 2, and 3D GRASE is covered by pcasl1pld_grase
+- 2D EPI at 4 x 4 x 6 mm instead of 3D GRASE at 8 x 4 x 6 mm: the GRASE segmentation does not fit the full phantom's phase-encoding lines with NumberShots 2, and 3D GRASE is covered by pcasl_multipld_grase
 - no background suppression (asl003: two pulses, which for PASL need the bolus-position model); suppression is covered by the PCASL recipes
 - TR 4 s (asl003: 3.5 s) for the 2D slice train

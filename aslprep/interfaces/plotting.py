@@ -306,6 +306,200 @@ class MultiPLDByTissueTypePlot(SimpleInterface):
         return runtime
 
 
+class _ATTStatusPlotInputSpec(BaseInterfaceInputSpec):
+    att = File(exists=True, mandatory=True, desc='Arterial transit time map.')
+    earliest_delay = File(
+        exists=True,
+        mandatory=True,
+        desc='Earliest delay of each voxel, including slice timing.',
+    )
+    att_status = File(exists=True, mandatory=True, desc='ATT status map.')
+    ref_vol = File(exists=True, mandatory=True, desc='ASL reference image.')
+    mask = File(exists=True, mandatory=True, desc='Brain mask.')
+    seg_file = File(
+        exists=True,
+        desc='Tissue segmentation in the same space (1: GM, 2: WM, 3: CSF).',
+    )
+    slice_axis = traits.Int(2, usedefault=True, desc='Axis along which slices were acquired.')
+    n_cuts = traits.Int(5, usedefault=True, desc='Number of cuts to show.')
+
+
+class _ATTStatusPlotOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The figure.')
+
+
+class ATTStatusPlot(SimpleInterface):
+    """Plot where the multi-delay fit located the arterial transit time.
+
+    The image rows are cut perpendicular to the acquired slices (sagittal for axial slices),
+    so that a slice-timing effect appears as bands along the slice direction.
+    The top row shows the ATT status (:data:`~aslprep.utils.cbf.ATT_STATUS`),
+    and the bottom row shows ATT only where it was located, with other brain voxels in gray.
+    The right-hand panel shows the fraction of brain voxels with each status in every slice,
+    together with the earliest delay of that slice, including its slice-timing offset.
+    """
+
+    input_spec = _ATTStatusPlotInputSpec
+    output_spec = _ATTStatusPlotOutputSpec
+
+    def _run_interface(self, runtime):
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+        from matplotlib.patches import Patch
+        from nibabel.affines import apply_affine
+        from nilearn import plotting
+
+        from aslprep.utils.cbf import ATT_STATUS
+
+        axis = self.inputs.slice_axis
+        status_img = nb.load(self.inputs.att_status)
+        ref_img = nb.load(self.inputs.ref_vol)
+        mask_img = nb.load(self.inputs.mask)
+        affine = status_img.affine
+        att, earliest_delay, status, mask = (
+            nb.load(fname).get_fdata()
+            for fname in (
+                self.inputs.att,
+                self.inputs.earliest_delay,
+                self.inputs.att_status,
+                self.inputs.mask,
+            )
+        )
+        status = np.round(status).astype(int)
+        mask = mask > 0
+        located = mask & (status == ATT_STATUS['located'])
+
+        labels = {
+            ATT_STATUS['located']: ('located', '#2da467'),
+            ATT_STATUS['bounded_above']: ('bounded above only', '#1b60a5'),
+            ATT_STATUS['wide_range']: ('other wide range', '#c0392b'),
+            ATT_STATUS['no_tissue_signal']: ('no tissue signal', '#9d8f25'),
+            ATT_STATUS['not_fitted']: ('not fitted', '#555555'),
+        }
+        n_levels = max(labels) + 1
+        status_cmap = ListedColormap([labels[level][1] for level in range(n_levels)])
+
+        # Cut perpendicular to the slices: sagittal, unless the slices are themselves sagittal
+        slice_code = nb.aff2axcodes(affine)[axis]
+        display_mode = 'y' if slice_code in ('L', 'R') else 'x'
+        world = apply_affine(affine, np.argwhere(mask))
+        coord = world[:, 'xyz'.index(display_mode)]
+        cuts = np.percentile(coord, np.linspace(15, 85, self.inputs.n_cuts))
+
+        fig = plt.figure(figsize=(20, 8))
+        grid = fig.add_gridspec(
+            2,
+            2,
+            width_ratios=[3.2, 1],
+            wspace=0.15,
+            hspace=0.25,
+            left=0.03,
+            right=0.98,
+            top=0.88,
+            bottom=0.2,
+        )
+        common = {
+            'bg_img': ref_img,
+            'display_mode': display_mode,
+            'cut_coords': cuts,
+            'figure': fig,
+            'black_bg': False,
+            'draw_cross': False,
+            'annotate': True,
+        }
+
+        # Status, shifted up by one so that background voxels (zero) are not drawn
+        shifted = nb.Nifti1Image(np.where(mask, status + 1, 0).astype(np.uint8), affine)
+        plotting.plot_roi(
+            shifted,
+            axes=fig.add_subplot(grid[0, 0]),
+            title='ATT status',
+            cmap=status_cmap,
+            vmin=0.5,
+            vmax=n_levels + 0.5,
+            alpha=0.9,
+            # The legend next to the per-slice fractions names the colors
+            colorbar=False,
+            **common,
+        )
+
+        located_att = nb.Nifti1Image(np.where(located, att, 0).astype(np.float32), affine)
+        display = plotting.plot_stat_map(
+            located_att,
+            axes=fig.add_subplot(grid[1, 0]),
+            title='Located ATT (s)',
+            cmap='viridis',
+            vmin=0,
+            vmax=3,
+            symmetric_cbar=False,
+            threshold=1e-6,
+            colorbar=True,
+            resampling_interpolation='nearest',
+            **common,
+        )
+        display.add_overlay(
+            nb.Nifti1Image((mask & ~located).astype(np.uint8), affine),
+            cmap=ListedColormap(['#bdbdbd']),
+            threshold=0.5,
+        )
+
+        # Fraction of brain voxels with each status, per slice
+        status, earliest_delay, mask = (
+            np.moveaxis(arr, axis, -1) for arr in (status, earliest_delay, mask)
+        )
+        in_brain = np.flatnonzero(mask.any(axis=(0, 1)))
+        ax = fig.add_subplot(grid[:, 1])
+        n_brain = mask.sum(axis=(0, 1))
+        left = np.zeros(in_brain.size)
+        for level, (label, color) in labels.items():
+            fraction = (mask & (status == level)).sum(axis=(0, 1))[in_brain] / n_brain[in_brain]
+            ax.barh(in_brain, fraction, left=left, height=1, color=color, label=label)
+            left += fraction
+        ax.set_xlim(0, 1)
+        ax.set_ylim(in_brain[0] - 0.5, in_brain[-1] + 0.5)
+        ax.set_xlabel('Fraction of brain voxels')
+        ax.set_ylabel('Slice')
+
+        # ATTs shorter than a slice's earliest delay cannot be told apart
+        earliest = np.array([np.median(earliest_delay[..., k][mask[..., k]]) for k in in_brain])
+        delay_ax = ax.twiny()
+        delay_ax.plot(earliest, in_brain, color='black', marker='.', label='earliest delay')
+        delay_ax.set_xlabel('Earliest delay, including slice timing (s)')
+        handles = [Patch(color=color, label=label) for label, color in labels.values()]
+        handles += delay_ax.get_legend_handles_labels()[0]
+        ax.legend(
+            handles=handles,
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.1),
+            ncol=2,
+            fontsize=8,
+            frameon=False,
+        )
+
+        # Fractions located over the whole brain and by tissue
+        title = f'ATT located in {100 * located.sum() / max(mask.sum(), 1):.1f}% of brain voxels'
+        if isdefined(self.inputs.seg_file):
+            seg = nb.load(self.inputs.seg_file).get_fdata()
+            brain = mask_img.get_fdata() > 0
+            tissue_str = []
+            for name, value in (('GM', 1), ('WM', 2)):
+                tissue = brain & (np.round(seg) == value)
+                if tissue.any():
+                    tissue_str.append(f'{name} {100 * located[tissue].mean():.1f}%')
+
+            if tissue_str:
+                title += f' ({", ".join(tissue_str)})'
+
+        fig.suptitle(title)
+
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.att_status, suffix='_attstatusplot.svg', use_ext=False, newpath=runtime.cwd
+        )
+        fig.savefig(self._results['out_file'])
+        plt.close(fig)
+        return runtime
+
+
 class _PVCDiagnosticsPlotInputSpec(BaseInterfaceInputSpec):
     mean_cbf = File(exists=True, mandatory=True, desc='Uncorrected mean CBF.')
     gm_cbf = File(exists=True, mandatory=True, desc='Gray matter CBF after LR PVC.')

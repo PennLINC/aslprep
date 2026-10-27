@@ -342,6 +342,9 @@ def init_asl_wf(
             'att_upper',
             'abat_lower',
             'abat_upper',
+            'att_lower_ci',
+            'att_upper_ci',
+            'att_status',
             'abv_at_bound',
         ]
         if pcasl_or_pasl(metadata=metadata):
@@ -771,6 +774,14 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 ]
             ]),
         ])  # fmt:skip
+    if is_multi_pld:
+        workflow.connect([
+            (cbf_wf, cbf_reporting_wf, [
+                ('outputnode.earliest_delay', 'inputnode.earliest_delay'),
+                ('outputnode.att_status', 'inputnode.att_status'),
+            ]),
+        ])  # fmt:skip
+
     workflow.connect([
         (inputnode, cbf_reporting_wf, [
             ('t1w_dseg', 'inputnode.t1w_dseg'),

@@ -923,6 +923,31 @@ Unlike the case above, CBF and aBV can differ across such a range.
 Where no tissue signal is detected (CBF is zero), ATT has no effect at all,
 and its bounds span every value that fits equally well.
 
+With noise, ATTs that the model cannot distinguish no longer fit exactly as well as each
+other, so the fit can report a precise-looking ATT just above the earliest delay in a voxel
+whose blood arrived before it.
+*ASLPrep* therefore also calculates a 95% profile-likelihood interval for ATT:
+the ATTs whose sum of squared errors, minimized over CBF, aBV, and aBAT, exceeds the minimum
+by at most 3.84 (the 95th percentile of a chi-squared distribution with one degree of freedom)
+times the noise variance.
+The noise variance is estimated from the residuals of every volume (around the mean of its
+delay and of those means around the fit), as the median across voxels with positive CBF,
+scaled to be unbiased for Gaussian noise.
+It is pooled across voxels, which assumes that the delta-M noise is the same everywhere.
+The interval's ends are written to the native-space ``desc-ciLower`` and ``desc-ciUpper`` maps.
+Because aBAT may move to another interval, where the arterial term can absorb part of the
+tissue signal, the interval can be wider than the ``desc-lower`` to ``desc-upper`` range
+even without noise; it always contains that range.
+
+*ASLPrep* classifies each voxel from this interval in the native-space ``attstatus`` map,
+and the report plots the classes by slice (see :doc:`outputs`).
+ATT counts as located where its interval does not reach 0 s and is at most 0.5 s wide.
+Where the interval reaches 0 s, the data only bound ATT above.
+To locate ATT, the earliest effective delay, including the slice-timing offset of the
+latest slice, must come before the shortest ATT expected in the tissue of interest.
+3D readouts, or 2D readouts with a short first delay and compressed slice timing,
+meet this requirement more easily.
+
 .. note::
    The ATT bounds are found with aBAT kept in its reported interval,
    and the aBAT bounds with ATT fixed at its reported value.

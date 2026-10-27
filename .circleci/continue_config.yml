@@ -690,7 +690,7 @@ workflows:
               marker:
                 - aslscan_pcasl1pld
                 - aslscan_pcasl1pld_ge3d
-                - aslscan_pcasl1pld_grase
+                - aslscan_pcasl_multipld_grase
                 - aslscan_pasl1pld
                 - aslscan_pcasl_multipld
                 - aslscan_pasl_multipld
@@ -745,7 +745,7 @@ workflows:
             - test_003_full
             - aslscan_pcasl1pld
             - aslscan_pcasl1pld_ge3d
-            - aslscan_pcasl1pld_grase
+            - aslscan_pcasl_multipld_grase
             - aslscan_pasl1pld
             - aslscan_pcasl_multipld
             - aslscan_pasl_multipld

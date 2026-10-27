@@ -183,6 +183,19 @@ sections:
     caption: |
       The map plots arterial transit time (ATT) estimated by the basic model.
       The unit is seconds.
+  - subtitle: Where ATT Was Located
+    bids: {datatype: figures, desc: status, suffix: att, extension: [.svg]}
+    caption: |
+      Where the multi-delay fit located arterial transit time (ATT).
+      The images are cut perpendicular to the acquired slices (sagittal for axial slices),
+      so slice-timing effects appear as bands. The top row shows each brain voxel's ATT
+      status, and the bottom row shows ATT only where it was located (its 95% interval is at most 0.5 s wide and does not reach 0 s).
+      Elsewhere, the ATT map is not a measurement.
+      ATT is only bounded above where the labeled blood may all have arrived before the earliest
+      delay,
+      which is common in the later slices of 2D acquisitions, because slice timing adds to their
+      delays. The right-hand panel shows the fraction of brain voxels with each status in every
+      slice, and the earliest delay of each slice, including its slice-timing offset.
   - subtitle: Arterial Bolus Arrival Time
     bids: {datatype: figures, desc: brain, suffix: abat, extension: [.svg]}
     caption: |
