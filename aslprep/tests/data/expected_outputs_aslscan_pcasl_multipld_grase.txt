@@ -40,6 +40,8 @@ sub-01/perf/sub-01_acq-pcaslmultipldgrase_attstatus.json
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_attstatus.nii.gz
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_cbf.json
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_cbf.nii.gz
+sub-01/perf/sub-01_acq-pcaslmultipldgrase_desc-abvBound_mask.json
+sub-01/perf/sub-01_acq-pcaslmultipldgrase_desc-abvBound_mask.nii.gz
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_desc-basilGMSD_cbf.json
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_desc-basilGMSD_cbf.nii.gz
 sub-01/perf/sub-01_acq-pcaslmultipldgrase_desc-basilGM_cbf.json
