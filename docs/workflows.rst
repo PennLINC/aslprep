@@ -893,8 +893,13 @@ and for PASL:
 
 Both reduce to the consensus model when :math:`T_1' = T_{1b}`.
 The intravascular term is unchanged.
-Unlike the consensus model, the tissue signal after the bolus has arrived still depends on ATT,
-so long delays help locate it.
+Long delays help because the model's decay after arrival now matches the tissue's,
+so the fit no longer moves ATT earlier to explain a faster decay.
+After the bolus has arrived, ATT only scales a single tissue's signal, by
+:math:`e^{ATT (1 / T_1' - 1 / T_{1b})}` at every delay, so CBF absorbs it:
+as in the consensus model, ATT is located only by delays at which the bolus is still arriving.
+This has consequences when ATT is shorter than every delay
+(see :ref:`multidelay_identifiability`).
 
 Choices this model makes:
 
@@ -985,6 +990,18 @@ and it makes both the range and the reported ATT vary with slice position.
 A protocol whose earliest delay (including slice-timing offsets) exceeds the expected ATT
 cannot measure ATT with this model.
 CBF is unaffected in that case, because the signal does not depend on ATT there.
+
+With the tissue-T1 model (``--kinetic-model tissue-t1``), this is different in two ways.
+In a voxel of one tissue, the ATT range is the same, but CBF is not unaffected:
+it is scaled by :math:`e^{ATT (1 / T_1' - 1 / T_{1b})}`,
+so it depends on the ATT reported from the range.
+In white matter at 3 T, a range of 1 s spans a factor of about 1.8 in CBF,
+and with the true ATT at the low end of the range, CBF is about 20% low.
+In a voxel that mixes gray and white matter, the two tissues' terms scale by different factors,
+so the fit can locate ATT from the shape of their sum alone.
+That estimate rests on the assumed tissue T1s, nominal CBFs and partial volumes,
+and on one ATT for both tissues, so it is not a measurement of ATT;
+with noise, the profile-likelihood interval below is usually wide.
 
 Ranges of equally good ATTs can also occur between delays,
 when the arterial term can absorb the part of the tissue signal that ATT changes.

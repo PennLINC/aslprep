@@ -55,7 +55,7 @@ M0_RECOVERY_TR_THRESHOLD = 5.0
 CBF_UNIT_CONVERSION = 6000
 
 #: T1 of tissue, in seconds, that BASIL's kinetic model uses (the oxford_asl default).
-#: ASLPrep's own models describe the decay of the label with the T1 of blood alone.
+#: ASLPrep's consensus models describe the decay of the label with the T1 of blood alone.
 BASIL_TISSUE_T1 = 1.3
 
 #: ASLPrep's kinetic models (``--kinetic-model``): the consensus models, in which the label
@@ -524,9 +524,11 @@ def resolve_calibration(
             BASIL_TISSUE_T1,
             'default',
             'oxford_asl default',
-            (
-                "T1 of tissue in BASIL's kinetic model. "
-                "ASLPrep's own models use the T1 of blood for the decay of the label."
+            "T1 of tissue in BASIL's kinetic model. "
+            + (
+                "ASLPrep's own tissue-T1 model uses GrayMatterT1 and WhiteMatterT1 instead."
+                if kinetic_model == 'tissue-t1'
+                else "ASLPrep's own models use the T1 of blood for the decay of the label."
             ),
             units='s',
         )
