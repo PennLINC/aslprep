@@ -30,6 +30,7 @@ from aslprep.utils.calibration import (
     calibration_value,
     m0_partition_coefficient,
     resolve_calibration,
+    tissue_t1_kinetics,
 )
 from aslprep.utils.cbf import (
     _getcbfscore,
@@ -40,6 +41,7 @@ from aslprep.utils.cbf import (
     get_array_module,
     multipld_bolus,
     slice_shifted_delays,
+    tissue_mixing_weights,
     voxel_delays,
     zero_low_m0,
 )
@@ -362,6 +364,20 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
             '(m0_calib, quant_valid), which partial volume correction needs.'
         ),
     )
+    gm_pv = File(
+        exists=True,
+        desc=(
+            'Gray matter partial volume map on the grid of deltam. '
+            'Required by the tissue-T1 kinetic model, to weight the tissues in mixed voxels.'
+        ),
+    )
+    wm_pv = File(
+        exists=True,
+        desc=(
+            'White matter partial volume map on the grid of deltam. '
+            'Required by the tissue-T1 kinetic model, to weight the tissues in mixed voxels.'
+        ),
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -655,6 +671,36 @@ class ComputeCBF(SimpleInterface):
         if is_multi_pld:
             tau, ti1 = multipld_bolus(metadata, is_casl)
 
+            # The tissue-T1 model weights the gray and white matter bases in each voxel
+            tissue_kwargs = {}
+            tissue_t1 = tissue_t1_kinetics(calibration)
+            if tissue_t1 is not None:
+                if not (isdefined(self.inputs.gm_pv) and isdefined(self.inputs.wm_pv)):
+                    raise ValueError(
+                        'The tissue-T1 kinetic model needs gray and white matter partial '
+                        'volume maps (gm_pv and wm_pv).'
+                    )
+
+                pvs = []
+                for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv):
+                    # The masker samples by array index, so the grids must be the same.
+                    pv_img = nb.load(pv_file)
+                    if pv_img.shape != dims or not np.allclose(
+                        pv_img.affine,
+                        deltam_img.affine,
+                        atol=1e-3,
+                    ):
+                        raise ValueError(
+                            f'Partial volume map {pv_file} does not match the delta-M grid '
+                            f'({dims}).'
+                        )
+                    pvs.append(np.ravel(masker.transform(pv_file)))
+
+                tissue_kwargs = {
+                    't1prime': tissue_t1['t1prime'],
+                    'tissue_weights': tissue_mixing_weights(*pvs, *tissue_t1['nominal_cbf']),
+                }
+
             cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
@@ -668,6 +714,7 @@ class ComputeCBF(SimpleInterface):
                 xp=get_array_module(self.inputs.use_gpu),
                 n_jobs=self.inputs.num_threads,
                 att_interval=True,
+                **tissue_kwargs,
             )
 
             mean_cbf_img = masker.inverse_transform(cbf)

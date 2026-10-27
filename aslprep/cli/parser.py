@@ -547,6 +547,23 @@ any spatial references.""",
         ),
     )
     g_conf.add_argument(
+        '--kinetic-model',
+        action='store',
+        choices=['consensus', 'tissue-t1'],
+        default='consensus',
+        help=(
+            "ASLPrep's kinetic model for multi-delay data. "
+            "'consensus' (default): the general kinetic model of the ISMRM perfusion study group "
+            '(Woods et al., 2023), in which the label decays with the T1 of blood throughout. '
+            "'tissue-t1': the label decays with the apparent T1 of gray and white matter once it "
+            'reaches the tissue (Buxton et al., 1998), which locates ATT better at long delays '
+            'and changes CBF, especially in white matter. It uses default tissue T1s for the '
+            'field strength (Wright et al., 2008), and its results depend on them. '
+            'Only available for multi-delay data; single-delay runs stop with an error. '
+            'BASIL always uses its own model.'
+        ),
+    )
+    g_conf.add_argument(
         '--pvc-method',
         action='store',
         choices=['none', 'local-regression'],
@@ -570,7 +587,7 @@ any spatial references.""",
         metavar='{nominal,auto} | FWHM FWHM FWHM',
         help=(
             'How blurry the ASL images are, used only to build the tissue maps for '
-            '--pvc-method and BASIL partial volume correction. '
+            '--pvc-method, BASIL partial volume correction and --kinetic-model tissue-t1. '
             'ASL readouts blur each voxel into its neighbours (3D GRASE and '
             '3D spiral readouts mostly along the slice direction), so the gray and white '
             'matter fractions can be blurred to match. '

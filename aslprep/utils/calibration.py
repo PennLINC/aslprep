@@ -58,6 +58,19 @@ CBF_UNIT_CONVERSION = 6000
 #: ASLPrep's own models describe the decay of the label with the T1 of blood alone.
 BASIL_TISSUE_T1 = 1.3
 
+#: ASLPrep's kinetic models (``--kinetic-model``): the consensus models, in which the label
+#: decays with the T1 of blood throughout, and the multi-delay model in which it decays with the
+#: apparent T1 of tissue once it reaches the tissue.
+KINETIC_MODELS = ('consensus', 'tissue-t1')
+
+#: Calibration parameters that only the tissue-T1 kinetic model uses.
+TISSUE_T1_PARAMETERS = (
+    'GrayMatterT1',
+    'WhiteMatterT1',
+    'NominalGrayMatterCBF',
+    'NominalWhiteMatterCBF',
+)
+
 #: Haematocrit values outside this range (as fractions) are flagged as implausible.
 PLAUSIBLE_HAEMATOCRIT = (0.2, 0.65)
 
@@ -109,6 +122,7 @@ def resolve_calibration(
     smooth_kernel_source='default',
     haematocrit_source=None,
     basil=False,
+    kinetic_model='consensus',
 ):
     """Resolve the calibration and physiological parameters for an ASL run.
 
@@ -132,6 +146,9 @@ def resolve_calibration(
         Where ``metadata['Haematocrit']`` came from, if not the ASL sidecar.
     basil : :obj:`bool`, optional
         Whether BASIL also quantifies CBF. Adds the parameters that only BASIL uses.
+    kinetic_model : {"consensus", "tissue-t1"}, optional
+        ASLPrep's kinetic model (``--kinetic-model``). ``tissue-t1`` adds the gray and white
+        matter T1s and nominal CBFs it uses, and is only available for multi-delay data.
 
     Returns
     -------
@@ -147,14 +164,28 @@ def resolve_calibration(
         BACKGROUND_SUPPRESSION_PULSE_EFFICIENCY,
         TYPICAL_LABELING_EFFICIENCY,
         background_suppression_pulses,
+        determine_multi_pld,
     )
     from aslprep.utils.cbf import (
         M0_THRESHOLD,
+        NOMINAL_CBF,
         PARTITION_COEFFICIENT,
         REFERENCE_HAEMATOCRIT,
         estimate_t1blood,
         estimate_t1tissue,
+        estimate_t1wm,
     )
+
+    if kinetic_model not in KINETIC_MODELS:
+        raise ValueError(
+            f'Unknown kinetic model {kinetic_model!r}; expected one of {KINETIC_MODELS}.'
+        )
+
+    if kinetic_model == 'tissue-t1' and not determine_multi_pld(metadata=metadata):
+        raise ValueError(
+            'The tissue-T1 kinetic model (--kinetic-model tissue-t1) is only available for '
+            'multi-delay data. Single-delay data need an arterial transit time to use it.'
+        )
 
     params = {}
     warnings = []
@@ -457,6 +488,37 @@ def resolve_calibration(
         'Factor converting CBF from mL/g/s to mL/100 g/min, the units of the CBF outputs.',
     )
 
+    if kinetic_model == 'tissue-t1':
+        for tissue, name, t1 in (
+            ('gray', 'GrayMatterT1', estimate_t1tissue(field_strength)),
+            ('white', 'WhiteMatterT1', estimate_t1wm(field_strength)),
+        ):
+            params[name] = _parameter(
+                t1,
+                'default',
+                f'{tissue.capitalize()} matter T1 at {field_strength:g} T (Wright et al., 2008)',
+                (
+                    f'T1 of {tissue} matter in the tissue-T1 kinetic model, '
+                    'in which the label decays with it once it reaches the tissue.'
+                ),
+                units='s',
+            )
+        for tissue, name, key in (
+            ('gray', 'NominalGrayMatterCBF', 'gm'),
+            ('white', 'NominalWhiteMatterCBF', 'wm'),
+        ):
+            params[name] = _parameter(
+                NOMINAL_CBF[key],
+                'default',
+                'ASLPrep default',
+                (
+                    f'Nominal CBF of {tissue} matter in the tissue-T1 kinetic model. It sets the '
+                    'flow term of the apparent tissue T1, 1 / (1 / T1 + CBF / lambda), and the '
+                    "weight of the tissue's signal in voxels that mix gray and white matter."
+                ),
+                units='mL/100 g/min',
+            )
+
     if basil:
         params['BASILTissueT1'] = _parameter(
             BASIL_TISSUE_T1,
@@ -496,6 +558,72 @@ def calibration_value(calibration, name, default=None):
     return default if param is None else param['Value']
 
 
+def calibration_kinetic_model(calibration):
+    """Get the kinetic model a calibration specification was resolved for.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`.
+
+    Returns
+    -------
+    {"consensus", "tissue-t1"}
+        ``tissue-t1`` if the specification has the parameters of the tissue-T1 model.
+    """
+    if all(name in calibration['Parameters'] for name in TISSUE_T1_PARAMETERS):
+        return 'tissue-t1'
+    return 'consensus'
+
+
+def tissue_t1_kinetics(calibration):
+    """Get the apparent T1 and nominal CBF of gray and white matter for the tissue-T1 model.
+
+    The apparent T1 of each tissue is calculated with its nominal CBF
+    (see :func:`~aslprep.utils.cbf.apparent_tissue_t1`), and the blood-brain partition
+    coefficient of the specification, or the default one for an ``M0Estimate``,
+    whose specification has none.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`.
+
+    Returns
+    -------
+    :obj:`dict` or None
+        ``t1prime`` (gray, then white matter, in seconds) and ``nominal_cbf``
+        (gray, then white matter, in mL/100 g/min), as arrays,
+        or None if the specification is for the consensus model.
+    """
+    from aslprep.utils.cbf import PARTITION_COEFFICIENT, apparent_tissue_t1
+
+    if calibration_kinetic_model(calibration) != 'tissue-t1':
+        return None
+
+    partition_coefficient = calibration_value(
+        calibration,
+        'PartitionCoefficient',
+        PARTITION_COEFFICIENT,
+    )
+    t1tissue = np.array(
+        [
+            calibration_value(calibration, 'GrayMatterT1'),
+            calibration_value(calibration, 'WhiteMatterT1'),
+        ]
+    )
+    nominal_cbf = np.array(
+        [
+            calibration_value(calibration, 'NominalGrayMatterCBF'),
+            calibration_value(calibration, 'NominalWhiteMatterCBF'),
+        ]
+    )
+    return {
+        't1prime': apparent_tissue_t1(t1tissue, nominal_cbf, partition_coefficient),
+        'nominal_cbf': nominal_cbf,
+    }
+
+
 def m0_partition_coefficient(calibration):
     """Get the factor the calibration image is divided by to give the M0 of arterial blood.
 
@@ -519,8 +647,8 @@ MODELS = ('aslprep', 'basil', 'lr')
 #: Calibration parameters that a model does not use, and so leaves out of its metadata.
 _UNUSED_PARAMETERS = {
     'aslprep': ('BASILTissueT1',),
-    # oxford_asl does not drop voxels with a low M0.
-    'basil': ('M0Threshold',),
+    # oxford_asl does not drop voxels with a low M0, and has its own kinetic model.
+    'basil': ('M0Threshold',) + TISSUE_T1_PARAMETERS,
     # Local regression unmixes the signal calibrated by ASLPrep's model, with its parameters.
     'lr': ('BASILTissueT1',),
 }
@@ -556,7 +684,14 @@ def describe_model(calibration, model, *, asl_type, multi_delay):
         raise ValueError(f'Unknown model {model!r}; expected one of {MODELS}.')
 
     delays = 'multi-delay' if multi_delay else 'single-delay'
-    if multi_delay:
+    if calibration_kinetic_model(calibration) == 'tissue-t1':
+        kinetic_model = (
+            'two-compartment general kinetic model, with tissue and macrovascular terms '
+            '(Buxton et al., 1998; Woods et al., 2023), in which the label decays with the T1 of '
+            'blood until it reaches the tissue and with the apparent T1 of gray and white matter '
+            'afterwards, weighted by their partial volumes and nominal CBFs in mixed voxels'
+        )
+    elif multi_delay:
         kinetic_model = (
             'two-compartment general kinetic model, with tissue and macrovascular terms '
             '(Buxton et al., 1998; Woods et al., 2023)'

@@ -988,6 +988,8 @@ def gkm_predict(
     tau=None,
     ti1=None,
     partition_coefficient=None,
+    t1prime=None,
+    tissue_weights=None,
 ):
     """Predict delta-M from general kinetic model parameters, as the multi-delay fit models it.
 
@@ -1002,6 +1004,9 @@ def gkm_predict(
     partition_coefficient : :obj:`float`, optional
         Blood-brain partition coefficient.
         Defaults to :data:`~aslprep.utils.cbf.PARTITION_COEFFICIENT`.
+    t1prime, tissue_weights : optional
+        The tissue-T1 model's apparent tissue T1s and their weights, as for
+        :func:`~aslprep.utils.cbf.fit_deltam_multipld`. None for the consensus model.
 
     Returns
     -------
@@ -1016,7 +1021,25 @@ def gkm_predict(
     plds = np.asarray(plds, dtype=float)
     bolus = _bolus_array(tau, ti1, is_casl, plds.shape[1])
     kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': np}
-    tissue = _gkm_tissue_basis(np.asarray(att)[:, None], plds, bolus, **kwargs)
+    tissue_kwargs = {}
+    if t1prime is not None:
+        t1prime = np.atleast_1d(np.asarray(t1prime, dtype=float))
+        if tissue_weights is None:
+            tissue_weights = np.full(t1prime.shape[-1:], 1 / t1prime.shape[-1])
+
+        tissue_weights = np.atleast_1d(np.asarray(tissue_weights, dtype=float))
+        n_tissues = max(t1prime.shape[-1], tissue_weights.shape[-1])
+        tissue_kwargs = {
+            't1prime': np.broadcast_to(t1prime, (plds.shape[0], n_tissues)),
+            'tissue_weights': np.broadcast_to(tissue_weights, (plds.shape[0], n_tissues)),
+        }
+    tissue = _gkm_tissue_basis(
+        np.asarray(att)[:, None],
+        plds,
+        bolus,
+        **kwargs,
+        **tissue_kwargs,
+    )
     arterial = _gkm_arterial_basis(np.asarray(abat)[:, None], plds, bolus, **kwargs)
     if partition_coefficient is None:
         partition_coefficient = PARTITION_COEFFICIENT
@@ -1041,6 +1064,7 @@ def fit_tissue_curves(
     abv_max=LR_ABV_MAX,
     xp=None,
     n_jobs=1,
+    t1prime=None,
 ):
     """Fit the general kinetic model to tissue curves from multi-delay local regression.
 
@@ -1067,6 +1091,10 @@ def fit_tissue_curves(
         Upper bound on CBF.
     abv_max : :obj:`float`
         Upper bound on aBV.
+    t1prime : :obj:`float` or None
+        The apparent T1 of the curves' tissue, for the tissue-T1 model.
+        The curves are of one tissue each, so it is that tissue's alone, with no mixing.
+        None for the consensus model.
 
     Returns
     -------
@@ -1100,6 +1128,7 @@ def fit_tissue_curves(
         n_jobs=n_jobs,
         cbf_max=cbf_max,
         abv_max=abv_max,
+        t1prime=t1prime,
     )
     fitted = ~failures & np.isfinite(cbf) & np.isfinite(att)
     # The solver returns bound solutions only to within rounding error (for example ~1e-13 for
@@ -1130,6 +1159,7 @@ def fit_tissue_curves(
             tau=tau,
             ti1=ti1,
             partition_coefficient=partition_coefficient,
+            t1prime=t1prime,
         )
     norm = np.linalg.norm(curves, axis=1)
     kinres = np.zeros(n_voxels)

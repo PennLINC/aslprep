@@ -36,6 +36,7 @@ from aslprep.utils.calibration import (
     basil_calibration_inputs,
     calibration_value,
     resolve_calibration,
+    tissue_t1_kinetics,
 )
 from aslprep.utils.cbf import (
     ATT_INTERVAL_LEVEL,
@@ -238,11 +239,14 @@ Cerebral blood flow computation and denoising
             smooth_kernel=smooth_kernel,
             smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
             basil=basil,
+            kinetic_model=config.workflow.kinetic_model,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(warning)
 
     m0_str = ''
+    # The tissue-T1 kinetic model's parameters, if the calibration was resolved for it
+    tissue_t1 = None if calibration is None else tissue_t1_kinetics(calibration)
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
         # The M0 image is smoothed as the specification records (absent for an M0Estimate).
@@ -324,12 +328,32 @@ Cerebral blood flow computation and denoising
             if m0type == 'Estimate'
             else 'M0 divided by the blood-brain partition coefficient'
         )
+        tissue_t1_str = ''
+        if tissue_t1 is not None:
+            t1prime = tissue_t1['t1prime']
+            tissue_t1_str = f"""
+Rather than assuming, as the consensus model does, that the label decays with the T1 of blood
+throughout, the label was modeled as decaying with the T1 of blood until it reached the tissue,
+and with the apparent T1 of the tissue, 1 / (1 / T1 + f / lambda), afterwards
+[@buxton1998general].
+The T1s of gray and white matter were set to
+{calibration_value(calibration, 'GrayMatterT1'):g} s and
+{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
+{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
+and f to nominal CBFs of {calibration_value(calibration, 'NominalGrayMatterCBF'):g} and
+{calibration_value(calibration, 'NominalWhiteMatterCBF'):g} mL/100 g/min,
+which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
+In voxels that mixed gray and white matter, the tissue term was the sum of the two tissues'
+terms, weighted by their partial volumes times their nominal CBFs, with one ATT and one CBF
+per voxel. CSF was not modeled as perfused.
+"""
+
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
 [@buxton1998general], as recommended and extended in @woods2023recommendations.
 This model contains separate terms for tissue and macrovascular delta-M signals.
-
+{tissue_t1_str}
 {m0_str}
 The equilibrium magnetization of arterial blood (M0b) was estimated voxel-wise as
 {m0b_str},
@@ -669,7 +693,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         ]),
     ])  # fmt:skip
 
-    if pv_fields:
+    # The tissue-T1 model weights gray and white matter by the same maps as PVC
+    if pv_fields or tissue_t1 is not None:
         asl_pv_wf = init_asl_pv_wf(
             metadata=metadata,
             effective_resolution=asl_effective_resolution,
@@ -680,6 +705,18 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 ('asl_mask', 'inputnode.asl_mask'),
                 ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
             ]),
+        ])  # fmt:skip
+
+    if tissue_t1 is not None:
+        workflow.connect([
+            (asl_pv_wf, compute_cbf, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+        ])  # fmt:skip
+
+    if pv_fields:
+        workflow.connect([
             (asl_pv_wf, outputnode, [
                 ('outputnode.gm_pv', 'gm_pv'),
                 ('outputnode.wm_pv', 'wm_pv'),

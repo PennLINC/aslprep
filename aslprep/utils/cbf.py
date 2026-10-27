@@ -921,14 +921,46 @@ MULTIPLD_CHUNK_SIZE = 256
 MULTIPLD_GPU_CHUNK_ELEMENTS = 15_000_000
 
 
-def _gkm_tissue_basis(att, plds, bolus, is_casl, labeleff, t1blood, xp):
+def _gkm_tissue_basis(
+    att,
+    plds,
+    bolus,
+    is_casl,
+    labeleff,
+    t1blood,
+    xp,
+    t1prime=None,
+    tissue_weights=None,
+):
     """Calculate the tissue delta-M per unit CBF and per unit M0a.
 
     This is a vectorized version of the tissue terms in :func:`calculate_deltam_pcasl`
     (where ``bolus`` is the labeling duration) and :func:`calculate_deltam_pasl`
     (where ``plds`` are inversion times and ``bolus`` is TI1).
     ``att`` must broadcast against ``plds`` and ``bolus``.
+
+    With ``t1prime``, the label decays with the T1 of blood until it reaches the tissue,
+    and then with each tissue's apparent T1 (see :func:`_relaxed_tissue_basis`).
+    ``t1prime`` and ``tissue_weights`` then have shape (n_voxels, n_tissues),
+    where the first axis of ``att`` and ``plds`` is also the voxels,
+    and the basis is the weighted sum of the tissues' bases.
     """
+    if t1prime is not None:
+        # Line each voxel's values up with the first axis of the other arrays.
+        shape = (-1,) + (1,) * (max(np.ndim(att), np.ndim(plds)) - 1)
+        basis = 0
+        for i_tissue in range(t1prime.shape[1]):
+            basis = basis + tissue_weights[:, i_tissue].reshape(shape) * _relaxed_tissue_basis(
+                att,
+                plds,
+                bolus,
+                is_casl,
+                t1blood,
+                t1prime[:, i_tissue].reshape(shape),
+                xp,
+            )
+        return basis * (2 * labeleff / 6000)
+
     if is_casl:
         end = bolus + plds
         partial = xp.exp(-att / t1blood) * (1 - xp.exp(-(end - att) / t1blood))
@@ -946,6 +978,119 @@ def _gkm_tissue_basis(att, plds, bolus, is_casl, labeleff, t1blood, xp):
         xp.where((att <= plds) & (plds < att + bolus), plds - att, bolus),
     )
     return basis * xp.exp(-plds / t1blood) * (2 * labeleff / 6000)
+
+
+def _expm1_ratio(x, rate, xp):
+    """Calculate ``(exp(rate * x) - 1) / rate``, which tends to ``x`` as ``rate`` tends to 0."""
+    small = xp.abs(rate) < 1e-8
+    safe_rate = xp.where(small, 1.0, rate)
+    return xp.where(small, x * (1 + rate * x / 2), xp.expm1(safe_rate * x) / safe_rate)
+
+
+def _relaxed_tissue_basis(att, plds, bolus, is_casl, t1blood, t1prime, xp):
+    """Calculate one tissue's delta-M per unit CBF and M0a, without the 2 * alpha / 6000 factor.
+
+    The label decays with the T1 of blood (``t1blood``) until it reaches the tissue at ``att``,
+    and with the tissue's apparent T1 (``t1prime``) afterwards :footcite:p:`buxton1998general`.
+    With ``k = 1 / T1b - 1 / T1'``, the tissue signal of (P)CASL data is
+
+    - ``T1' exp(-ATT / T1b) (1 - exp(-(tau + PLD - ATT) / T1'))`` while the bolus arrives, and
+    - ``T1' exp(-ATT / T1b) exp(-(PLD - ATT) / T1') (1 - exp(-tau / T1'))`` after it has,
+
+    and that of PASL data, with TI1 as ``bolus``, is
+
+    - ``exp(-TI / T1b) (exp(k (TI - ATT)) - 1) / k`` while the bolus arrives, and
+    - ``exp(-TI / T1b) exp(k (TI - ATT - TI1)) (exp(k TI1) - 1) / k`` after it has.
+
+    The model changes form at the same values of ATT as the consensus model, and is the same
+    as it when ``t1prime`` equals ``t1blood``.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if is_casl:
+        end = bolus + plds
+        arrival = t1prime * xp.exp(-att / t1blood)
+        partial = arrival * -xp.expm1(-(end - att) / t1prime)
+        full = arrival * xp.exp(-(plds - att) / t1prime) * -xp.expm1(-bolus / t1prime)
+        return xp.where(
+            (end > 0) & (end < att),
+            0.0,
+            xp.where((att <= end) & (end < att + bolus), partial, full),
+        )
+
+    rate = 1 / t1blood - 1 / t1prime
+    partial = _expm1_ratio(plds - att, rate, xp)
+    full = xp.exp(rate * (plds - att - bolus)) * _expm1_ratio(bolus, rate, xp)
+    basis = xp.where(
+        (plds > 0) & (plds < att),
+        0.0,
+        xp.where((att <= plds) & (plds < att + bolus), partial, full),
+    )
+    return basis * xp.exp(-plds / t1blood)
+
+
+def apparent_tissue_t1(t1tissue, cbf, partition_coefficient=None):
+    """Calculate the apparent T1 of the label in tissue, which flow out of the voxel shortens.
+
+    Parameters
+    ----------
+    t1tissue : :obj:`float` or :obj:`numpy.ndarray`
+        T1 of the tissue, in seconds.
+    cbf : :obj:`float` or :obj:`numpy.ndarray`
+        CBF, in mL/100 g/min.
+    partition_coefficient : :obj:`float`, optional
+        Blood-brain partition coefficient, in mL/g. Defaults to :data:`PARTITION_COEFFICIENT`.
+
+    Returns
+    -------
+    :obj:`float` or :obj:`numpy.ndarray`
+        ``1 / (1 / T1 + f / lambda)``, in seconds, with ``f = cbf / 6000`` in mL/g/s
+        :footcite:p:`buxton1998general`.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    if partition_coefficient is None:
+        partition_coefficient = PARTITION_COEFFICIENT
+    return 1 / (1 / t1tissue + cbf / 6000 / partition_coefficient)
+
+
+#: GM + WM partial volume below which a voxel's tissue-T1 basis is that of gray matter alone.
+TISSUE_MIXING_MIN_FRACTION = 0.01
+
+
+def tissue_mixing_weights(gm_pv, wm_pv, gm_cbf, wm_cbf):
+    """Weight the gray and white matter bases of the tissue-T1 model in each voxel.
+
+    A voxel's tissue signal is the sum of its tissues' signals, each in proportion to the
+    tissue's partial volume and CBF. The bases are therefore weighted by partial volume times a
+    nominal CBF, normalized to sum to one, so that the fitted CBF keeps its meaning: the voxel's
+    mean CBF, calibrated by its M0. CSF has no perfusion signal and is left out. Voxels with
+    almost no gray or white matter use the gray matter basis.
+
+    Parameters
+    ----------
+    gm_pv, wm_pv : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Gray and white matter partial volumes.
+    gm_cbf, wm_cbf : :obj:`float`
+        Nominal CBF of each tissue, in mL/100 g/min.
+
+    Returns
+    -------
+    :obj:`numpy.ndarray` of shape (n_voxels, 2)
+        The gray and white matter weights.
+    """
+    gm_pv = np.clip(np.nan_to_num(np.asarray(gm_pv, dtype=float)), 0, 1)
+    wm_pv = np.clip(np.nan_to_num(np.asarray(wm_pv, dtype=float)), 0, 1)
+    weights = np.stack([gm_pv * gm_cbf, wm_pv * wm_cbf], axis=1)
+    total = weights.sum(axis=1, keepdims=True)
+    tissue = (gm_pv + wm_pv) >= TISSUE_MIXING_MIN_FRACTION
+    weights = np.where(tissue[:, None], weights / np.where(total > 0, total, 1), 0.0)
+    weights[~tissue, 0] = 1.0
+    return weights
 
 
 def _gkm_arterial_basis(abat, plds, bolus, is_casl, labeleff, t1blood, xp):
@@ -1070,7 +1215,18 @@ def _argmin_att(loss, tol, xp):
 
 
 def _fit_gkm_chunk(
-    y, plds, bolus, weights, is_casl, labeleff, t1blood, xp, cbf_max=None, abv_max=None
+    y,
+    plds,
+    bolus,
+    weights,
+    is_casl,
+    labeleff,
+    t1blood,
+    xp,
+    cbf_max=None,
+    abv_max=None,
+    t1prime=None,
+    tissue_weights=None,
 ):
     """Fit the general kinetic model to a chunk of voxels by searching over ATT and aBAT.
 
@@ -1088,6 +1244,9 @@ def _fit_gkm_chunk(
         Upper bound on CBF. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
     abv_max : float or None
         Upper bound on aBV. Defaults to the bound in :data:`MULTIPLD_BOUNDS`.
+    t1prime, tissue_weights : arrays of shape (n_voxels, n_tissues) or None
+        The tissue-T1 model's apparent tissue T1s and their weights
+        (see :func:`_gkm_tissue_basis`). None for the consensus model.
 
     Notes
     -----
@@ -1121,6 +1280,7 @@ def _fit_gkm_chunk(
     n_voxels = y.shape[0]
     rows = xp.arange(n_voxels)
     basis_kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': xp}
+    tissue_kwargs = {**basis_kwargs, 't1prime': t1prime, 'tissue_weights': tissue_weights}
     grid = xp.linspace(0, 1, MULTIPLD_ATT_GRID_SIZE)
     # Losses closer than this are treated as ties. It is well above the rounding error of the
     # losses (about 1e-15 * y.y), and the constant covers all-zero data.
@@ -1152,7 +1312,7 @@ def _fit_gkm_chunk(
         att[..., None],
         plds[:, None, None, :],
         bolus[:, None, None, :] if is_casl else bolus,
-        **basis_kwargs,
+        **tissue_kwargs,
     )
     tissue *= weights
     _, _, loss = _solve_box_lsq(
@@ -1191,7 +1351,7 @@ def _fit_gkm_chunk(
             att[..., None],
             plds[:, None, None, :],
             bolus[:, None, None, :] if is_casl else bolus,
-            **basis_kwargs,
+            **tissue_kwargs,
         )
         tissue *= weights
         cbf, abv, loss = _solve_box_lsq(
@@ -1223,7 +1383,7 @@ def _fit_gkm_chunk(
             att[..., None],
             plds[:, None, :],
             bolus[:, None, :] if is_casl else bolus,
-            **basis_kwargs,
+            **tissue_kwargs,
         )
         tissue = tissue * weights
         return _solve_box_lsq(
@@ -1359,6 +1519,8 @@ def _att_interval_chunk(
     max_loss,
     cbf_max=None,
     abv_max=None,
+    t1prime=None,
+    tissue_weights=None,
 ):
     """Find the range of ATTs whose profile loss is at most ``max_loss``, for a chunk of voxels.
 
@@ -1368,6 +1530,7 @@ def _att_interval_chunk(
     and the largest acceptable sum of squared errors (``max_loss``), both of shape (n_voxels,).
     """
     basis_kwargs = {'is_casl': is_casl, 'labeleff': labeleff, 't1blood': t1blood, 'xp': xp}
+    tissue_kwargs = {**basis_kwargs, 't1prime': t1prime, 'tissue_weights': tissue_weights}
     tol = 1e-12 * xp.sum(y * y, axis=1) + 1e-30
     edges = _delay_edges(plds, bolus, is_casl, xp)
     abat_mid = (edges[:, :-1] + edges[:, 1:]) / 2
@@ -1397,7 +1560,7 @@ def _att_interval_chunk(
             att_points[..., None],
             plds[:, None, :],
             bolus[:, None, :] if is_casl else bolus,
-            **basis_kwargs,
+            **tissue_kwargs,
         )
         tissue = (tissue * weights)[:, :, None, :]
         _, _, loss = _solve_box_lsq(
@@ -1485,11 +1648,15 @@ def fit_deltam_multipld(
     cbf_max=None,
     abv_max=None,
     att_interval=False,
+    t1prime=None,
+    tissue_weights=None,
 ):
     """Estimate CBF, ATT, aBAT, and aBV from multi-PLD PCASL data.
 
     This function uses the general kinetic model specified by
-    :footcite:t:`woods2023recommendations`.
+    :footcite:t:`woods2023recommendations`, or, with ``t1prime``, a version of it in which the
+    label decays with the apparent T1 of tissue once it reaches the tissue
+    :footcite:p:`buxton1998general`.
 
     Parameters
     ----------
@@ -1543,6 +1710,15 @@ def fit_deltam_multipld(
         The noise variance is pooled across the voxels with positive CBF
         (see :func:`pooled_noise_variance`), so this assumes that they share one noise level
         in delta-M. Partial volume correction, which fits tissue curves, does not use it.
+    t1prime : :obj:`float` or :obj:`numpy.ndarray` or None, optional
+        Apparent T1 of each tissue, in seconds (see :func:`apparent_tissue_t1`), for the
+        tissue-T1 model. Broadcastable to shape (n_voxels, n_tissues).
+        None (the default) uses the consensus model, in which the label decays with the T1 of
+        blood throughout.
+    tissue_weights : :obj:`numpy.ndarray` or None, optional
+        Weight of each tissue's basis in each voxel (see :func:`tissue_mixing_weights`),
+        broadcastable to shape (n_voxels, n_tissues). Defaults to equal weights that sum to one.
+        Only used with ``t1prime``.
 
     Returns
     -------
@@ -1601,8 +1777,11 @@ def fit_deltam_multipld(
     fitting, with each average weighted by its number of volumes,
     which yields the same fit as using every volume.
 
-    This model does not include a separate term for T1,tissue, but we could expand it to do so
-    in the future.
+    The tissue-T1 model (``t1prime``) changes form at the same edges, and is still linear in CBF
+    for fixed ATT, because the apparent tissue T1s are fixed rather than fit (they depend on CBF
+    only weakly, through ``f / lambda``). Its basis in a mixed voxel is a weighted sum of each
+    tissue's basis, not one basis at an average T1, because a sum of exponentials is not an
+    exponential of the mean. Every tissue in a voxel shares one ATT.
 
     References
     ----------
@@ -1646,6 +1825,27 @@ def fit_deltam_multipld(
             raise ValueError('tau should be None for PASL data.')
 
     xp = np if xp is None else xp
+
+    if t1prime is not None:
+        t1prime = np.atleast_1d(np.asarray(t1prime, dtype=float))
+        if tissue_weights is None:
+            tissue_weights = np.full(t1prime.shape[-1:], 1 / t1prime.shape[-1])
+
+        tissue_weights = np.atleast_1d(np.asarray(tissue_weights, dtype=float))
+        n_tissues = max(t1prime.shape[-1], tissue_weights.shape[-1])
+        t1prime = np.broadcast_to(t1prime, (n_voxels, n_tissues))
+        tissue_weights = np.broadcast_to(tissue_weights, (n_voxels, n_tissues))
+        if not np.all(np.isfinite(t1prime) & (t1prime > 0)):
+            raise ValueError('t1prime must be finite and positive.')
+
+    def tissue_chunk(chunk):
+        """The tissue-T1 model's arguments for a chunk of voxels."""
+        if t1prime is None:
+            return {}
+        return {
+            't1prime': xp.asarray(t1prime[chunk]),
+            'tissue_weights': xp.asarray(tissue_weights[chunk]),
+        }
 
     # Average volumes that share the same delay (and labeling duration) in every voxel.
     delay_keys = np.vstack([plds, tau[None, :]]) if is_casl else plds
@@ -1712,6 +1912,7 @@ def fit_deltam_multipld(
             xp=xp,
             cbf_max=cbf_max,
             abv_max=abv_max,
+            **tissue_chunk(chunk),
         )
         # Chunks hold different voxels, so threads never write to the same elements.
         estimates[:, chunk] = [_to_numpy(estimate) for estimate in chunk_estimates]
@@ -1777,6 +1978,7 @@ def fit_deltam_multipld(
             max_loss=xp.asarray(max_loss[chunk]),
             cbf_max=cbf_max,
             abv_max=abv_max,
+            **tissue_chunk(chunk),
         )
         bounds['att_lower_ci'][chunk], bounds['att_upper_ci'][chunk] = (
             _to_numpy(end) for end in interval
@@ -2234,6 +2436,17 @@ T1TISSUE_BY_FIELD_STRENGTH = {
     7: 1.939,
 }
 
+#: T1 of white matter, in seconds, by field strength in tesla (Wright et al., 2008).
+T1WM_BY_FIELD_STRENGTH = {
+    1.5: 0.646,
+    3: 0.838,
+    7: 1.126,
+}
+
+#: Nominal CBF of gray and white matter, in mL/100 g/min, used by the tissue-T1 model for the
+#: flow term of the apparent tissue T1 and to weight the tissues in mixed voxels.
+NOMINAL_CBF = {'gm': 60.0, 'wm': 20.0}
+
 
 def estimate_t1blood(metadata, warn=True):
     """Estimate the T1 of arterial blood, and say how it was estimated.
@@ -2308,3 +2521,31 @@ def estimate_t1tissue(field_strength):
     if not t1tissue:
         raise ValueError(f'T1tissue cannot be inferred for {field_strength}T data.')
     return t1tissue
+
+
+def estimate_t1wm(field_strength):
+    """Get the T1 of white matter for a field strength, from :footcite:t:`wright2008water`.
+
+    Parameters
+    ----------
+    field_strength : :obj:`float`
+        Magnetic field strength, in tesla.
+
+    Returns
+    -------
+    t1wm : :obj:`float`
+        T1 of white matter, in seconds.
+
+    Raises
+    ------
+    ValueError
+        If the field strength is not 1.5, 3 or 7 T.
+
+    References
+    ----------
+    .. footbibliography::
+    """
+    t1wm = T1WM_BY_FIELD_STRENGTH.get(field_strength)
+    if not t1wm:
+        raise ValueError(f'White matter T1 cannot be inferred for {field_strength}T data.')
+    return t1wm

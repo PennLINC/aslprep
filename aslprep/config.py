@@ -637,6 +637,8 @@ class workflow(_Config):
     basil = False
     """Run BASIL, FSL utils to compute CBF with spatial regularization and
     partial volume correction."""
+    kinetic_model = 'consensus'
+    """ASLPrep's kinetic model for multi-delay data: ``consensus`` or ``tissue-t1``."""
     pvc_method = 'none'
     """Additional partial volume correction of the CBF maps: ``none`` or ``local-regression``."""
     asl_effective_resolution = 'nominal'

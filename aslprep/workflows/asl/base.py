@@ -289,6 +289,7 @@ def init_asl_wf(
             smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
             haematocrit_source=run_data.get('haematocrit_source'),
             basil=basil,
+            kinetic_model=config.workflow.kinetic_model,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')

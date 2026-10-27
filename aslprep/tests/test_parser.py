@@ -345,6 +345,26 @@ def test_pvc_options(tmp_path, supp_args, method, resolution, kernel):
 
 
 @pytest.mark.parametrize(
+    ('supp_args', 'model'),
+    [([], 'consensus'), (['--kinetic-model', 'tissue-t1'], 'tissue-t1')],
+)
+def test_kinetic_model_option(tmp_path, supp_args, model):
+    """The kinetic model reaches the config and survives a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.kinetic_model == model
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.kinetic_model == model
+    reset_config()
+
+
+@pytest.mark.parametrize(
     ('supp_args', 'message'),
     [
         (['--asl-effective-resolution', '3', '3'], 'three FWHM values'),
