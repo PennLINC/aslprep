@@ -48,10 +48,12 @@ from aslprep.tests import truth_scoring as ts  # noqa: E402
 
 SEED = 20261022
 
-#: Stage schedule, frozen by the engine pilot (Task 2) before Task 3.
-SCHEDULE = (
-    '--convergence [1000x500x250,1e-7,10] --shrink-factors 4x2x1 --smoothing-sigmas 2x1x0vox'
-)
+#: Stage schedule, frozen by the engine pilot (Task 2) before Task 3. The fixed images are on
+#: the ASL-resolution grid (``lowres``), so two levels suffice.
+SCHEDULE = '--convergence [500x250,1e-6,10] --shrink-factors 2x1 --smoothing-sigmas 1x0vox'
+#: A registration that takes longer than this has stalled (the first pilot's dense CC on the
+#: 1 mm T1w grid ran for 19 hours without finishing one arm).
+TIMEOUT_S = 1800
 
 
 def mi(fixed, moving, weight):
@@ -59,22 +61,22 @@ def mi(fixed, moving, weight):
 
 
 def cc(fixed, moving, weight):
-    return f'CC[{fixed},{moving},{weight},4]'
+    return f'CC[{fixed},{moving},{weight},2]'
 
 
 #: arm -> stages; each stage is a list of metric terms (fixed = anatomy, moving = ASL).
 ARMS = {
-    'S1': [[mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 1)]],
-    'S2': [[cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 1)]],
+    'S1': [[mi('/w/t1w_brain_lr.nii.gz', '/w/conventional.nii.gz', 1)]],
+    'S2': [[cc('/w/gm_target_lr.nii.gz', '/w/P-winsor.nii.gz', 1)]],
     'Q1': [
-        [mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 1)],
-        [cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 1)],
+        [mi('/w/t1w_brain_lr.nii.gz', '/w/conventional.nii.gz', 1)],
+        [cc('/w/gm_target_lr.nii.gz', '/w/P-winsor.nii.gz', 1)],
     ],
     'J1': [
         [
-            mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 0.6),
-            cc('/w/gm_target.nii.gz', '/w/P-winsor.nii.gz', 0.4),
-        ]
+            mi('/w/t1w_brain_lr.nii.gz', '/w/conventional.nii.gz', 0.6),
+            cc('/w/gm_target_lr.nii.gz', '/w/P-winsor.nii.gz', 0.4),
+        ],
     ],
 }
 
@@ -95,6 +97,24 @@ def gm_target(work, gm_probseg):
     nb.Nifti1Image(data, t1.affine).to_filename(work / 'gm_target.nii.gz')
 
 
+def lowres(work):
+    """The anatomical fixed images on an isotropic grid at the ASL resolution.
+
+    ANTs evaluates its metrics on the fixed image's grid; the 1 mm T1w grid gives no
+    information the ASL image can use and makes dense CC far too slow. World coordinates are
+    unchanged, so transforms are unaffected.
+    """
+    from nibabel.processing import resample_to_output
+
+    asl = nb.load(work / 'conventional.nii.gz')
+    vox = float(np.sqrt((asl.affine[:3, :3] ** 2).sum(0)).max())
+    for name, order in (('t1w_brain', 1), ('t1w_mask', 0), ('gm_target', 1)):
+        img = nb.load(work / f'{name}.nii.gz')
+        img = nb.Nifti1Image(np.asanyarray(img.dataobj, np.float32), img.affine)
+        out = resample_to_output(img, voxel_sizes=(vox, vox, vox), order=order)
+        out.to_filename(work / f'{name}_lr.nii.gz')
+
+
 def write_init(work):
     """Production's mri_coreg estimate as an ITK pull transform for ANTs."""
     import nitransforms as nt
@@ -112,8 +132,8 @@ def register(work, arms):
     lines = []
     for arm in arms:
         cmd = [
-            'antsRegistration --dimensionality 3 --float 0 --collapse-output-transforms 1',
-            f'--output [/w/ants_{arm}_] --interpolation Linear',
+            f'timeout {TIMEOUT_S} antsRegistration --verbose 1 --dimensionality 3 --float 0',
+            f'--collapse-output-transforms 1 --output [/w/ants_{arm}_] --interpolation Linear',
             '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
             f'--random-seed {SEED} --initial-moving-transform /w/init_itk.txt',
         ]
@@ -121,9 +141,11 @@ def register(work, arms):
             cmd.append('--transform Rigid[0.1]')
             cmd += [f'--metric {t}' for t in terms]
             cmd.append(SCHEDULE)
-            cmd.append('--masks [/w/t1w_mask.nii.gz,/w/mask.nii.gz]')
+            cmd.append('--masks [/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]')
         lines.append(' '.join(cmd) + f' > /w/ants_{arm}.log 2>&1')
-    script = ['export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1', *lines]
+        lines.append(f'echo "{arm} exit $?" >> /w/ants_status.txt')
+    # No ``set -e``: an arm that fails or times out has no transform and is reported as such.
+    script = ['export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1', ': > /w/ants_status.txt', *lines]
     (work / 'ants.sh').write_text('\n'.join(script) + '\n')
     cmd = [
         'docker',
@@ -179,6 +201,7 @@ def run_fixture(name, args):
         coreg_experiment.run_fixture(args.fixtures / name, args.runs / name, work, args.license)
         anat = args.fixtures / name / 'derivatives' / 'anat' / 'sub-01' / 'anat'
         gm_target(work, next(anat.glob('*_label-GM_probseg.nii.gz')))
+        lowres(work)
         write_init(work)
         register(work, args.arms)
     truth, points, production, voxel = fixture_truth(args.fixtures / name, args.runs / name)
