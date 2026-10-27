@@ -371,10 +371,6 @@ For multi-delay data, the model cannot always locate the arterial transit time
 or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
 the range of values that fit equally well.
 The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
-The ``desc-abvBound`` mask marks voxels where the fitted arterial blood volume reached its
-upper bound, the physical limit of 1.
-The arterial term could not absorb all of the arterial signal in those voxels,
-so what is left of it may bias their CBF and ATT.
 These maps are only written in the ASL run's native space,
 which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--output-spaces``,
 because the ranges change abruptly between neighboring voxels and slices,
@@ -391,6 +387,11 @@ from the arterial bolus arrival time to the end of the bolus.
 It is not the total cerebral blood volume (CBV) measured with DSC or PET,
 nor the arterial CBV measured with methods such as inflow-based VASO,
 which also includes the arterioles.
+The ``desc-abvBound`` mask marks voxels where the fitted aBV reached its upper bound,
+the physical limit of 1.
+The arterial term could not absorb all of the arterial signal in those voxels,
+so what is left of it may bias their CBF and ATT.
+Like the ``desc-lower`` and ``desc-upper`` maps, this mask is only written in native space.
 
 .. _calibration_parameters:
 
