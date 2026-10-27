@@ -78,19 +78,21 @@ anatomy, one seed).** RMS error in mm against the corrected series' truth (`F R^
 `ds003823/sub-5023` (background-suppressed 3D, 3 runs, 2 sessions), `ds004873/sub-p021` (2D EPI,
 4 runs)).** `scripts/coreg_mc/run_real.py`: every arm on every run, then cross-run inconsistency
 over same-session, same-direction pairs (median over ordered pairs, mm; noise floor from the
-forward and reverse direct registrations):
+forward and reverse direct registrations). Each cell is conventional frame / perfusion frame:
+the direct registration between runs aligns their conventional references, or their P-winsor
+perfusion images.
 
 | Arm | `ds000234` | `ds003823` | `ds004873` |
 |---|---|---|---|
-| R0 production | 0.68 | 0.29 | 0.29 |
-| FSL conventional, opposite sign | 10.20 (fallback on 1 run) | **0.23** | 4.64 |
-| FSL P-winsor, default sign | 0.59 | 0.30 | 13.80 (fallback on 2 runs) |
-| FSL P-winsor, opposite sign | 1.67 (fallback on both runs) | 7.87 (fallback on 1 run) | 17.45 (fallback on 2 runs) |
-| ANTs S1 | 0.83 | 0.48 | 1.00 |
-| ANTs S2 | 0.71 | 0.31 | 0.98 |
-| ANTs Q1 | 0.59 | 0.29 | 1.05 |
-| ANTs J1 | **0.58** | 0.50 | 0.88 |
-| Noise floor | 0.22 | 0.04 | 0.09 |
+| R0 production | 0.68 / **0.29** | 0.29 / **0.19** | **0.29** / **0.45** |
+| FSL conventional, opposite sign | 10.20 / 9.78 (fallback on 1 run) | **0.23** / 0.52 | 4.64 / 4.48 |
+| FSL P-winsor, default sign | 0.59 / 0.70 | 0.30 / 0.35 | 13.80 / 13.92 (fallback on 2 runs) |
+| FSL P-winsor, opposite sign | 1.67 / 2.06 (fallback on both runs) | 7.87 / 7.98 (fallback on 1 run) | 17.45 / 17.66 (fallback on 2 runs) |
+| ANTs S1 | 0.83 / 0.59 | 0.48 / 0.69 | 1.00 / 1.09 |
+| ANTs S2 | 0.71 / 0.88 | 0.31 / 0.61 | 0.98 / 1.01 |
+| ANTs Q1 | 0.59 / 0.49 | 0.29 / 0.56 | 1.05 / 1.12 |
+| ANTs J1 | **0.58** / 0.55 | 0.50 / 0.82 | 0.88 / 1.00 |
+| Noise floor | 0.22 / 0.19 | 0.04 / 0.07 | 0.09 / 0.11 |
 
 - Every arm finished on all nine runs; no ANTs timeout. ANTs took 0-1 s (S1), 5-77 s (S2),
   6-68 s (Q1) and 1-49 s (J1) per run; the FSL path dominates (the pilot took 68 min, three
@@ -102,14 +104,17 @@ forward and reverse direct registrations):
 - P-winsor BBR breaks on `ds004873` (two of four runs fall back, 14-18 mm from R0): the D3 level
   needs the eligibility rule Task 3 freezes, as planned for R2.
 - ANTs arms sit 0.3-2.4 mm from R0 and are near 1 mm inconsistent on the 2D EPI subject, where
-  production is at 0.29. Q1 ties production on `ds003823`; Q1 and J1 beat it on the spiral
-  subject.
-- Bias in this score, to resolve in the Task 2 scorer: the direct registration aligns the
-  conventional references, which depict the M0 (or first volume) at its own pose, so arms built
-  from the same image share its frame, while perfusion-based arms (S2, Q1, P-winsor) live in the
-  series frame. The per-run offset between the two frames (0.17-0.44 mm in simulation) counts
-  against the perfusion arms. The scorer will add a direct registration between the runs'
-  perfusion images and report both.
+  production is at 0.29-0.45. In the conventional frame, Q1 ties production on `ds003823` and Q1
+  and J1 beat it on the spiral subject; in the perfusion frame production leads everywhere.
+- Frame bias, tested: the conventional references depict the M0 (or first volume) at its own
+  pose, while perfusion-based arms (S2, Q1, P-winsor) live in the series frame, so the
+  conventional-frame score could count the per-run offset between the two (0.17-0.44 mm in
+  simulation) against them. The perfusion frame does not bear this out: S2, Q1 and P-winsor BBR
+  are no better there (worse on `ds003823`), and the ANTs arms stay near 1 mm on the 2D EPI
+  subject in both frames. Production gains instead (0.68 to 0.29 mm on the spiral subject) and is
+  the most consistent arm on all three subjects in the perfusion frame. The perfusion frame's
+  noise floor is close to the conventional one's (0.07-0.19 mm), so both frames are reported from
+  here on, and neither is privileged. The ANTs arms' extra inconsistency is not a frame artefact.
 - Consistency is not accuracy: an arm that locks onto the same wrong boundary in every run scores
   well. The pilot uses it only to check that the engine works on real data, not to rank arms.
 

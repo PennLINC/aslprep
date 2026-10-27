@@ -9,11 +9,14 @@ taken from ASLPrep's own segmentation of the T1w. Every arm's pull transform (T1
 aslref point, ASLPrep's convention) is saved to ``<work>/transforms.json``.
 
 Consistency (plan: "Real data", design 1). For runs a and b of one session with the same
-phase-encoding direction, the conventional reference of run a (moving) is registered directly to
-run b's (fixed) with ANTs (MI, rigid, from the identity), giving the pull ``D_ab`` (b point -> a
+phase-encoding direction, an image of run a (moving) is registered directly to the same image of
+run b (fixed) with ANTs (MI, rigid, from the identity), giving the pull ``D_ab`` (b point -> a
 point). An arm with transforms ``C_a``, ``C_b`` is inconsistent by the RMS displacement of
 ``D_ab^-1 C_a C_b^-1`` over run b's brain mask. The direct registration's own error is bounded by
-its noise floor: the RMS displacement of ``D_ab D_ba`` over run a's brain.
+its noise floor: the RMS displacement of ``D_ab D_ba`` over run a's brain. It is done in two
+frames (``FRAMES``): the conventional reference, which depicts the M0 (or first volume) at its own
+pose, and the perfusion image built from the corrected series. An arm built from one image shares
+that image's frame, so the score in the other frame carries the per-run offset between the two.
 
 Usage (in WSL, ``aslprep-pvc`` environment, from the repository root)::
 
@@ -48,6 +51,9 @@ from score_full import _one, _transform_error  # noqa: E402
 
 #: FSL sources kept as arms: production's reference and the D3 level chosen for R2 candidates.
 FSL_SOURCES = ('conventional', 'P-winsor')
+
+#: Consistency frames: {frame name: the work-directory image registered between runs}.
+FRAMES = {'conventional': 'conventional', 'perfusion': 'P-winsor'}
 
 
 def comparable_key(run):
@@ -122,8 +128,8 @@ def brain_points(work, every=5):
     return apply_affine(mask.affine, ijk)
 
 
-def direct(work_a, work_b, out, reuse=False):
-    """ANTs rigid MI of run a's reference (moving) to run b's (fixed): the pull b -> a."""
+def direct(work_a, work_b, out, image, reuse=False):
+    """ANTs rigid MI of run a's ``image`` (moving) to run b's (fixed): the pull b -> a."""
     import nitransforms as nt
 
     result = out / 'direct_0GenericAffine.mat'
@@ -132,15 +138,15 @@ def direct(work_a, work_b, out, reuse=False):
 
     out.mkdir(parents=True, exist_ok=True)
     for name, src in (('a', work_a), ('b', work_b)):
-        for f in ('conventional.nii.gz', 'mask.nii.gz'):
-            shutil.copyfile(src / f, out / f'{name}_{f}')
+        shutil.copyfile(src / f'{image}.nii.gz', out / f'{name}_image.nii.gz')
+        shutil.copyfile(src / 'mask.nii.gz', out / f'{name}_mask.nii.gz')
 
     cmd_ants = (
         f'timeout {run_ants.TIMEOUT_S} antsRegistration --dimensionality 3 --float 0 '
         '--collapse-output-transforms 1 --output [/w/direct_] --interpolation Linear '
         '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0 '
         f'--random-seed {run_ants.SEED} --transform Rigid[0.1] '
-        '--metric MI[/w/b_conventional.nii.gz,/w/a_conventional.nii.gz,1,32,Regular,0.5] '
+        '--metric MI[/w/b_image.nii.gz,/w/a_image.nii.gz,1,32,Regular,0.5] '
         '--convergence [500x250,1e-6,10] --shrink-factors 2x1 --smoothing-sigmas 1x0vox '
         '--masks [/w/b_mask.nii.gz,/w/a_mask.nii.gz] > /w/direct.log 2>&1'
     )
@@ -179,28 +185,32 @@ def consistency(runs, args):
         if not same_session or comparable_key(row_a['run']) != comparable_key(row_b['run']):
             continue
 
-        pair_dir = args.work / 'direct' / f'{work_a.name}__to__{work_b.name}'
-        d_ab = direct(work_a, work_b, pair_dir, reuse=args.rescore)
-        reverse_dir = args.work / 'direct' / f'{work_b.name}__to__{work_a.name}'
-        d_ba = direct(work_b, work_a, reverse_dir, reuse=args.rescore)
+        points_a = brain_points(work_a)
         points_b = brain_points(work_b)
-        floor = _transform_error(d_ab @ d_ba, np.eye(4), brain_points(work_a))['rms_mm']
-        for arm in sorted(set(arms_a) & set(arms_b)):
-            implied = arms_a[arm] @ np.linalg.inv(arms_b[arm])
-            err = _transform_error(d_ab, implied, points_b)['rms_mm']
-            rows.append(
-                {
-                    'dataset': row_a['dataset'],
-                    'subject': row_a['subject'],
-                    'session': row_a['session'],
-                    'run_a': row_a['run'],
-                    'run_b': row_b['run'],
-                    'arm': arm,
-                    'inconsistency_mm': err,
-                    'floor_mm': floor,
-                    'fallback': arm in fb_a or arm in fb_b,
-                },
-            )
+        for frame, image in FRAMES.items():
+            frame_dir = args.work / 'direct' / frame
+            pair_dir = frame_dir / f'{work_a.name}__to__{work_b.name}'
+            d_ab = direct(work_a, work_b, pair_dir, image, reuse=args.rescore)
+            reverse_dir = frame_dir / f'{work_b.name}__to__{work_a.name}'
+            d_ba = direct(work_b, work_a, reverse_dir, image, reuse=args.rescore)
+            floor = _transform_error(d_ab @ d_ba, np.eye(4), points_a)['rms_mm']
+            for arm in sorted(set(arms_a) & set(arms_b)):
+                implied = arms_a[arm] @ np.linalg.inv(arms_b[arm])
+                err = _transform_error(d_ab, implied, points_b)['rms_mm']
+                rows.append(
+                    {
+                        'dataset': row_a['dataset'],
+                        'subject': row_a['subject'],
+                        'session': row_a['session'],
+                        'run_a': row_a['run'],
+                        'run_b': row_b['run'],
+                        'frame': frame,
+                        'arm': arm,
+                        'inconsistency_mm': err,
+                        'floor_mm': floor,
+                        'fallback': arm in fb_a or arm in fb_b,
+                    },
+                )
     return rows
 
 
@@ -243,16 +253,17 @@ def main(argv=None):
     if not cons.empty:
         table = cons.pivot_table(
             index='arm',
-            columns='dataset',
+            columns=['dataset', 'frame'],
             values='inconsistency_mm',
             aggfunc='median',
         )
-        floors = cons.groupby('dataset')['floor_mm'].median()
-        fell_back = cons[cons['fallback']].groupby('arm')['run_a'].nunique()
+        floors = cons.groupby(['dataset', 'frame'])['floor_mm'].median()
+        one_frame = cons[cons['frame'] == next(iter(FRAMES))]
+        fell_back = one_frame[one_frame['fallback']].groupby('arm').size()
         with pd.option_context('display.width', 200, 'display.max_rows', 200):
             print(table.round(2))
             print('noise floor (median):', floors.round(2).to_dict())
-            print('pairs with an FSL fallback (runs):', fell_back.to_dict())
+            print('ordered pairs with an FSL fallback:', fell_back.to_dict())
 
 
 if __name__ == '__main__':
