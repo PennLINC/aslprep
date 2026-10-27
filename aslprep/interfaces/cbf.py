@@ -34,6 +34,7 @@ from aslprep.utils.calibration import (
 from aslprep.utils.cbf import (
     _getcbfscore,
     _scrubcbf,
+    abv_at_bound,
     fit_deltam_multipld,
     get_array_module,
     multipld_bolus,
@@ -438,6 +439,14 @@ class _ComputeCBFOutputSpec(TraitedSpec):
         None,
         desc='Boolean map of failed model fits. Only generated for multi-delay data.',
     )
+    abv_at_bound = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'Mask of voxels whose fitted arterial blood volume is at its upper bound. '
+            'Only generated for multi-delay data.'
+        ),
+    )
     m0_calib = traits.Either(
         File(exists=True),
         None,
@@ -678,6 +687,15 @@ class ComputeCBF(SimpleInterface):
                 newpath=runtime.cwd,
             )
             failures_img.to_filename(self._results['failures'])
+
+            self._results['abv_at_bound'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_abv_at_bound',
+                newpath=runtime.cwd,
+            )
+            at_bound_img = masker.inverse_transform(abv_at_bound(abv, failures).astype(np.uint8))
+            at_bound_img.set_data_dtype(np.uint8)
+            at_bound_img.to_filename(self._results['abv_at_bound'])
 
         else:  # Single-delay
             if is_casl:

@@ -364,12 +364,17 @@ CBF Outputs::
          <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-delay data only)
          <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-delay data only)
          <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-delay data only)
+         <source_entities>_desc-abvBound_mask.nii.gz  # voxels with arterial blood volume at its upper bound (multi-delay data only)
          <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-delay (P)CASL data only)
 
 For multi-delay data, the model cannot always locate the arterial transit time
 or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
 the range of values that fit equally well.
 The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
+The ``desc-abvBound`` mask marks voxels where the fitted arterial blood volume reached its
+upper bound, the physical limit of 1.
+The arterial term could not absorb all of the arterial signal in those voxels,
+so what is left of it may bias their CBF and ATT.
 These maps are only written in the ASL run's native space,
 which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--output-spaces``,
 because the ranges change abruptly between neighboring voxels and slices,
@@ -688,8 +693,9 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
 - The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
   raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
   exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
-  The arterial blood volume bound is raised from 0.1 to 1 for the same reason: unmixing assigns
-  a voxel's arterial signal to its tissue fraction. A fit with aBV still at that bound is flagged
+  The arterial blood volume bound is 1, its physical limit, as for the uncorrected fit.
+  Unmixing assigns a voxel's arterial signal to its tissue fraction, so a tissue curve can need
+  a larger aBV than its voxel did. A fit with aBV at that bound is flagged
   (status 5), and neither its CBF nor its ATT is written, because the arterial signal it could
   not absorb would bias both.
 - Tissue curves are noisier than the voxel's own curve, and the non-negative fit skews noisy

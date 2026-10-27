@@ -377,6 +377,9 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert mean_cbf_img.ndim == 3
         assert os.path.isfile(results.outputs.att_lower)
         assert os.path.isfile(results.outputs.abat_upper)
+        at_bound_img = nb.load(results.outputs.abv_at_bound)
+        assert at_bound_img.get_data_dtype() == np.uint8
+        assert set(np.unique(at_bound_img.get_fdata())) <= {0, 1}
         # The PASL arterial signal does not depend on aBAT
         assert results.outputs.abv_decayed is None
 

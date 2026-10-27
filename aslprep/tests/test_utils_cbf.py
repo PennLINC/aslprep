@@ -664,19 +664,40 @@ def test_fit_deltam_multipld_abv_beyond_bound():
     assert sse(fit_abat[0]) < sse(0.5)
 
 
+def test_abv_at_bound(monkeypatch):
+    """Fitted voxels with aBV at (or just below) its bound are flagged and counted."""
+    from aslprep import config
+
+    messages = []
+    monkeypatch.setattr(config.loggers.workflow, 'warning', messages.append)
+    abv_max = cbf.MULTIPLD_BOUNDS[3][1]
+    abv = np.array([0.02, abv_max, abv_max * (1 - 1e-7), abv_max * 0.99, abv_max])
+    failures = np.array([False, False, False, False, True])
+    at_bound = cbf.abv_at_bound(abv, failures)
+    np.testing.assert_array_equal(at_bound, [False, True, True, False, False])
+    assert len(messages) == 1
+    assert '2/4' in messages[0]
+
+    # Nothing at the bound, nothing logged
+    assert not cbf.abv_at_bound(abv[:1], failures[:1]).any()
+    assert len(messages) == 1
+
+
 def test_fit_gkm_chunk_abat_bounds_stop_at_abv_bound():
     """The aBAT bounds do not cross the part of an interval that the aBV bound rules out.
 
     With two delays, several aBAT intervals fit these data exactly. In the reported interval,
     the longest aBATs would need more than the largest aBV, so the range ends inside it,
-    even though the next interval fits as well.
+    even though the next interval fits as well. The bound is set low enough to bind on these
+    data, rather than taken from MULTIPLD_BOUNDS.
     """
     kwargs = {'is_casl': True, 'labeleff': 0.7, 't1blood': 1.65, 'xp': np}
+    abv_max = 0.1
     y = np.array([[0.054, 0.052]])
     plds = np.array([[0.5, 1.0]])
     bolus = np.array([[1.8, 1.8]])
     cbf_, att, abat, abv, _, _, abat_lower, abat_upper = cbf._fit_gkm_chunk(
-        y, plds, bolus, np.ones((1, 2)), **kwargs
+        y, plds, bolus, np.ones((1, 2)), abv_max=abv_max, **kwargs
     )
     assert abat_lower[0] <= abat[0] <= abat_upper[0] < 2.3
     tissue = cbf._gkm_tissue_basis(att[:, None], plds, bolus, **kwargs)
@@ -690,7 +711,7 @@ def test_fit_gkm_chunk_abat_bounds_stop_at_abv_bound():
     for fraction in (0.01, 0.5, 0.99):
         other = abat_lower[0] + fraction * (abat_upper[0] - abat_lower[0])
         other_abv = abv[0] * np.exp((other - abat[0]) / 1.65)
-        assert other_abv <= cbf.MULTIPLD_BOUNDS[3][1]
+        assert other_abv <= abv_max
         np.testing.assert_allclose(sse(other, other_abv), best, atol=1e-20)
 
 
