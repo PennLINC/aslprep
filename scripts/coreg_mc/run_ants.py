@@ -87,8 +87,20 @@ PILOT_ARMS = {
     'S1-mattes64-dense': [['Mattes[/w/t1w_brain_lr.nii.gz,/w/conventional.nii.gz,1,64,None]']],
     'S1-fullres': [[mi('/w/t1w_brain.nii.gz', '/w/conventional.nii.gz', 1)]],
     'S2-repeat': ARMS['S2'],
+    # The fixed-image direction: ASL fixed, anatomy moving (metrics sampled on the ASL grid).
+    'S1-inv': [[mi('/w/conventional.nii.gz', '/w/t1w_brain.nii.gz', 1)]],
+    'S2-inv': [[cc('/w/P-winsor.nii.gz', '/w/gm_target.nii.gz', 1)]],
+    'J1-inv': [
+        [
+            mi('/w/conventional.nii.gz', '/w/t1w_brain.nii.gz', 0.6),
+            cc('/w/P-winsor.nii.gz', '/w/gm_target.nii.gz', 0.4),
+        ],
+    ],
 }
 ALL_ARMS = ARMS | PILOT_ARMS
+#: Arms with the ASL image fixed: ANTs estimates the push map (aslref point -> T1w point), so
+#: its initial transform is the inverse of production's and its result is inverted on reading.
+INVERSE = {'S1-inv', 'S2-inv', 'J1-inv'}
 
 
 def gm_target(work, gm_probseg):
@@ -135,23 +147,30 @@ def write_init(work):
         nb.load(work / 't1w_brain.nii.gz'),
     )
     nt.linear.Affine(pull).to_filename(work / 'init_itk.txt', fmt='itk')
+    nt.linear.Affine(np.linalg.inv(pull)).to_filename(work / 'init_itk_inv.txt', fmt='itk')
     return pull
 
 
 def register(work, arms):
     lines = []
     for arm in arms:
+        inverse = arm in INVERSE
+        init = '/w/init_itk_inv.txt' if inverse else '/w/init_itk.txt'
+        masks = '[/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]'
+        if inverse:
+            masks = '[/w/mask.nii.gz,/w/t1w_mask.nii.gz]'
+
         cmd = [
             f'timeout {TIMEOUT_S} antsRegistration --verbose 1 --dimensionality 3 --float 0',
             f'--collapse-output-transforms 1 --output [/w/ants_{arm}_] --interpolation Linear',
             '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
-            f'--random-seed {SEED} --initial-moving-transform /w/init_itk.txt',
+            f'--random-seed {SEED} --initial-moving-transform {init}',
         ]
         for terms in ALL_ARMS[arm]:
             cmd.append('--transform Rigid[0.1]')
             cmd += [f'--metric {t}' for t in terms]
             cmd.append(SCHEDULE)
-            cmd.append('--masks [/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]')
+            cmd.append(f'--masks {masks}')
         lines.append(' '.join(cmd) + f' > /w/ants_{arm}.log 2>&1')
         lines.append(f'echo "{arm} exit $?" >> /w/ants_status.txt')
     # No ``set -e``: an arm that fails or times out has no transform and is reported as such.
@@ -179,7 +198,11 @@ def read_ants(work, arm):
     import nitransforms as nt
 
     f = work / f'ants_{arm}_0GenericAffine.mat'
-    return np.asarray(nt.linear.load(f, fmt='itk').matrix) if f.exists() else None
+    if not f.exists():
+        return None
+
+    matrix = np.asarray(nt.linear.load(f, fmt='itk').matrix)
+    return np.linalg.inv(matrix) if arm in INVERSE else matrix
 
 
 def fixture_truth(fixture_dir, run_dir):

@@ -70,6 +70,65 @@ anatomy, one seed).** RMS error in mm against the corrected series' truth (`F R^
   stress fixtures. This is an engine and weighting result, not yet a joint-versus-sequential one;
   the weight grid is Task 4's. Caveats: three fixtures, one seed, and S2's target comes from the
   same labels as the simulated perfusion (circularity, see "What it does not model").
+- Fixed-image direction: with the ASL image fixed instead (masks swapped, the result inverted),
+  S1 is 0.58 / 2.56 / 0.86 mm, S2 0.33 / 0.26 / 0.15 and J1 0.29 / 1.43 / 0.66 on the three
+  fixtures; no arm gains on the stress fixtures, and S1 breaks on `rc_grase`. Anatomy stays fixed.
+
+**Engine pilot, real-data part (2026-10-27; development runs `ds000234/sub-01` (spiral, 2 runs),
+`ds003823/sub-5023` (background-suppressed 3D, 3 runs, 2 sessions), `ds004873/sub-p021` (2D EPI,
+4 runs)).** `scripts/coreg_mc/run_real.py`: every arm on every run, then cross-run inconsistency
+over same-session, same-direction pairs (median over ordered pairs, mm; noise floor from the
+forward and reverse direct registrations):
+
+| Arm | `ds000234` | `ds003823` | `ds004873` |
+|---|---|---|---|
+| R0 production | 0.68 | 0.29 | 0.29 |
+| FSL conventional, opposite sign | 10.20 (fallback on 1 run) | **0.23** | 4.64 |
+| FSL P-winsor, default sign | 0.59 | 0.30 | 13.80 (fallback on 2 runs) |
+| FSL P-winsor, opposite sign | 1.67 (fallback on both runs) | 7.87 (fallback on 1 run) | 17.45 (fallback on 2 runs) |
+| ANTs S1 | 0.83 | 0.48 | 1.00 |
+| ANTs S2 | 0.71 | 0.31 | 0.98 |
+| ANTs Q1 | 0.59 | 0.29 | 1.05 |
+| ANTs J1 | **0.58** | 0.50 | 0.88 |
+| Noise floor | 0.22 | 0.04 | 0.09 |
+
+- Every arm finished on all nine runs; no ANTs timeout. ANTs took 0-1 s (S1), 5-77 s (S2),
+  6-68 s (Q1) and 1-49 s (J1) per run; the FSL path dominates (the pilot took 68 min, three
+  subjects in parallel, beside the extension batch).
+- R0 equals FSL conventional with the default sign on every run (distance 0.00 mm), so the
+  harness reproduces production on real data as it does in simulation.
+- The sign result from simulation carries over: on the background-suppressed family the opposite
+  sign is the most consistent arm, and elsewhere it is 5-10 mm off.
+- P-winsor BBR breaks on `ds004873` (two of four runs fall back, 14-18 mm from R0): the D3 level
+  needs the eligibility rule Task 3 freezes, as planned for R2.
+- ANTs arms sit 0.3-2.4 mm from R0 and are near 1 mm inconsistent on the 2D EPI subject, where
+  production is at 0.29. Q1 ties production on `ds003823`; Q1 and J1 beat it on the spiral
+  subject.
+- Bias in this score, to resolve in the Task 2 scorer: the direct registration aligns the
+  conventional references, which depict the M0 (or first volume) at its own pose, so arms built
+  from the same image share its frame, while perfusion-based arms (S2, Q1, P-winsor) live in the
+  series frame. The per-run offset between the two frames (0.17-0.44 mm in simulation) counts
+  against the perfusion arms. The scorer will add a direct registration between the runs'
+  perfusion images and report both.
+- Consistency is not accuracy: an arm that locks onto the same wrong boundary in every run scores
+  well. The pilot uses it only to check that the engine works on real data, not to rank arms.
+
+**Engine settings, frozen (2026-10-27) for Tasks 3-6.** Changes after this point are logged as
+deviations.
+
+- antsRegistration in the pinned ASLPrep image, rigid only (`Rigid[0.1]`), from the `mri_coreg`
+  start; single-threaded (`ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1`), `--random-seed 20261022`,
+  `--float 0`, linear interpolation, winsorizing `[0.005,0.995]`, no histogram matching.
+- Anatomy fixed, ASL moving. Fixed images (brain-extracted T1w, its mask, the GM target, any
+  other anatomical target) are resampled to an isotropic grid at the run's ASL voxel size.
+- Schedule `--convergence [500x250,1e-6,10] --shrink-factors 2x1 --smoothing-sigmas 1x0vox`
+  for every stage.
+- MI: 32 bins, `Regular` sampling at 0.25. CC: radius 2. The GM target is ASLPrep's GM
+  probability map smoothed to the ASL resolution.
+- Masks per stage: the fixed T1w brain mask and the run's ASL brain mask.
+- Timeout 30 min per arm; a timed-out arm counts as a failure.
+- Known weaknesses carried into Task 4, not tuned further: the static MI term (0.7-1.0 mm on the
+  stress fixtures whatever the bins, sampling or grid), and ANTs on the 2D EPI subject.
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
@@ -82,7 +141,7 @@ Stopped and deleted: the first Task 0 runs (four extension subjects and the pane
 that carries the new motion correction (and an image whose dependencies match it), check whether
 the split and the extension still hold, then rerun Task 0 from the panel sample.
 
-Status: revision 5 (resume notes above), modelled on the HMC probe
+Status: revision 6 (resume notes and engine pilot above; engine settings frozen 2026-10-27), modelled on the HMC probe
 (`docs/plans/2026-10-13-hmc-probe.md` on branch `worktree-hmc-probe`), after one Codex
 adversarial review (log at the end).
 Issues: #672 (scope), #186 (motivating failure), #343 (closed as a duplicate of the same idea).
