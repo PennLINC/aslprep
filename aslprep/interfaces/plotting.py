@@ -6,6 +6,7 @@ import pandas as pd
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     File,
+    InputMultiObject,
     SimpleInterface,
     TraitedSpec,
     isdefined,
@@ -170,90 +171,138 @@ class CBFSummaryPlot(SimpleInterface):
 
 
 class _CBFByTissueTypePlotInputSpec(BaseInterfaceInputSpec):
-    in_file = File(exists=True, mandatory=True, desc='')
-    seg_file = File(exists=True, mandatory=True, desc='Segmentation file')
-    img_type = traits.Enum(
-        'cbf',
-        'att',
-        'abat',
-        'abv',
+    in_files = InputMultiObject(
+        File(exists=True),
         mandatory=True,
-        desc='Image type',
+        desc='Maps to plot, one row each, all in the space of seg_file',
+    )
+    labels = traits.List(
+        traits.Str,
+        mandatory=True,
+        desc='Row label for each map in in_files',
+    )
+    seg_file = File(
+        exists=True,
+        mandatory=True,
+        desc='Segmentation file, with 1 for GM, 2 for WM and 3 for CSF',
     )
 
 
-class _CBFByTissueTypePlotOutputSpec(TraitedSpec):
+class _ByTissueTypePlotOutputSpec(TraitedSpec):
     out_file = File(exists=True, desc='written file path')
 
 
+def _values_by_tissue(in_file, seg):
+    """Split a map's values by tissue type.
+
+    Voxels that are exactly zero or not finite are left out, since the gray matter partial
+    volume-corrected maps use zero for voxels where gray matter CBF was not estimated.
+    """
+    from aslprep.utils.plotting import TISSUE_COLORS
+
+    data = nb.load(in_file).get_fdata(dtype=np.float32)
+    if data.shape[:3] != seg.shape[:3]:
+        raise ValueError(
+            f'{in_file} has shape {data.shape}, but the segmentation has shape {seg.shape}.'
+        )
+
+    keep = np.isfinite(data) & (data != 0)
+    return {
+        tissue_type: data[keep & (seg == i_tissue_type + 1)]
+        for i_tissue_type, tissue_type in enumerate(TISSUE_COLORS)
+    }
+
+
 class CBFByTissueTypePlot(SimpleInterface):
-    """Prepare an CBF summary plot for the report."""
+    """Plot the distributions of one or more CBF maps by tissue type, as a ridge plot.
+
+    Voxels that are exactly zero or not finite are left out of the distributions.
+    """
 
     input_spec = _CBFByTissueTypePlotInputSpec
-    output_spec = _CBFByTissueTypePlotOutputSpec
+    output_spec = _ByTissueTypePlotOutputSpec
 
     def _run_interface(self, runtime):
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        from nilearn import image, masking
+        from aslprep.utils.plotting import plot_tissue_ridgeplot
+
+        if len(self.inputs.in_files) != len(self.inputs.labels):
+            raise ValueError(
+                f'Got {len(self.inputs.in_files)} files but {len(self.inputs.labels)} labels.'
+            )
 
         self._results['out_file'] = fname_presuffix(
-            self.inputs.in_file,
-            suffix=f'_{self.inputs.img_type}plot.svg',
+            self.inputs.in_files[0],
+            suffix='_cbfbytissue.svg',
             use_ext=False,
             newpath=runtime.cwd,
         )
 
-        column_names = {
-            'cbf': 'Cerebral Blood Flow\n(mL/100 g/min)',
-            'att': 'Arterial Transit Time\n(s)',
-            'abat': 'Arterial Bolus Arrival Time\n(s)',
-            'abv': 'Arterial Blood Volume\n(fraction)',
+        seg = np.asanyarray(nb.load(self.inputs.seg_file).dataobj)
+        rows = {
+            label: _values_by_tissue(in_file, seg)
+            for in_file, label in zip(self.inputs.in_files, self.inputs.labels, strict=True)
         }
-        unit_str = column_names[self.inputs.img_type]
+        plot_tissue_ridgeplot(
+            {'Cerebral Blood Flow (mL/100 g/min)': rows},
+            out_file=self._results['out_file'],
+        )
+        return runtime
 
-        dfs = []
-        for i_tissue_type, tissue_type in enumerate(['GM', 'WM', 'CSF']):
-            tissue_type_val = i_tissue_type + 1
-            mask_img = image.math_img(
-                f'(img == {tissue_type_val}).astype(int)',
-                img=self.inputs.seg_file,
-            )
-            tissue_type_vals = masking.apply_mask(self.inputs.in_file, mask_img)
-            df = pd.DataFrame(
-                columns=[unit_str, 'Tissue Type'],
-                data=list(
-                    map(
-                        list,
-                        zip(
-                            *[tissue_type_vals, [tissue_type] * tissue_type_vals.size],
-                            strict=False,
-                        ),
-                    ),
-                ),
-            )
-            dfs.append(df)
 
-        df = pd.concat(dfs, axis=0)
+class _MultiPLDByTissueTypePlotInputSpec(BaseInterfaceInputSpec):
+    att = File(exists=True, desc='Arterial transit time from the basic model')
+    abat = File(exists=True, desc='Arterial bolus arrival time from the basic model')
+    abv = File(exists=True, desc='Arterial blood volume from the basic model')
+    att_basil = File(exists=True, desc='Arterial transit time from BASIL')
+    abv_basil = File(exists=True, desc='Arterial blood volume from BASIL')
+    seg_file = File(
+        exists=True,
+        mandatory=True,
+        desc='Segmentation file, with 1 for GM, 2 for WM and 3 for CSF',
+    )
 
-        # Create the plot
-        with sns.axes_style('whitegrid'), sns.plotting_context(font_scale=3):
-            fig, ax = plt.subplots(figsize=(16, 8))
-            sns.despine(ax=ax, bottom=True, left=True)
-            sns.boxenplot(
-                y=unit_str,
-                data=df,
-                width=0.6,
-                showfliers=True,
-                palette={'GM': '#1b60a5', 'WM': '#2da467', 'CSF': '#9d8f25'},
-                hue='Tissue Type',
-                legend=True,
-                ax=ax,
-            )
-            fig.tight_layout()
-            fig.savefig(self._results['out_file'])
-            fig.clf()
 
+class MultiPLDByTissueTypePlot(SimpleInterface):
+    """Plot the distributions of the multi-delay parameters by tissue type, as ridge plots.
+
+    There is one panel per parameter (ATT, aBAT and aBV), with one row per map of that
+    parameter (the basic model and, for ATT and aBV, BASIL). Maps that are not defined are left
+    out, and so is a panel with no maps.
+    Voxels that are exactly zero or not finite are left out of the distributions.
+    """
+
+    input_spec = _MultiPLDByTissueTypePlotInputSpec
+    output_spec = _ByTissueTypePlotOutputSpec
+
+    def _run_interface(self, runtime):
+        from aslprep.utils.plotting import plot_tissue_ridgeplot
+
+        layout = {
+            'Arterial Transit Time (s)': {'Basic': 'att', 'BASIL': 'att_basil'},
+            'Arterial Bolus Arrival Time (s)': {'Basic': 'abat'},
+            'Arterial Blood Volume (fraction)': {'Basic': 'abv', 'BASIL': 'abv_basil'},
+        }
+        seg = np.asanyarray(nb.load(self.inputs.seg_file).dataobj)
+        panels = {}
+        for x_label, row_fields in layout.items():
+            rows = {
+                row_label: _values_by_tissue(getattr(self.inputs, field), seg)
+                for row_label, field in row_fields.items()
+                if isdefined(getattr(self.inputs, field))
+            }
+            if rows:
+                panels[x_label] = rows
+
+        if not panels:
+            raise ValueError('None of the multi-delay parameter maps are defined.')
+
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.seg_file,
+            suffix='_multipldbytissue.svg',
+            use_ext=False,
+            newpath=runtime.cwd,
+        )
+        plot_tissue_ridgeplot(panels, out_file=self._results['out_file'])
         return runtime
 
 
