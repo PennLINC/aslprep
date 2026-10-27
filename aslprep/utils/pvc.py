@@ -927,9 +927,10 @@ def summarize_csf_qc(cbf_csf, valid_csf, pv_csf, min_pv=0.5):
 #: and clipping it at the voxel fit's bound distorts ATT and the arterial term.
 LR_CBF_MAX = 1000.0
 
-#: Upper bound on the aBV of a tissue curve's kinetic fit. Unmixing assigns a voxel's arterial
-#: signal to its tissue fraction (no less than the 0.1 minimum PV of a written estimate), so a
-#: tissue curve's aBV can be up to ten times the voxel fit's bound of 0.1.
+#: Upper bound on the aBV of a tissue curve's kinetic fit: its physical limit, as for the voxel
+#: fit (:data:`~aslprep.utils.cbf.MULTIPLD_BOUNDS`). Unmixing assigns a voxel's arterial signal
+#: to its tissue fraction (no less than the 0.1 minimum PV of a written estimate), so a tissue
+#: curve can need a larger aBV than its voxel did; such fits are flagged (status 5).
 LR_ABV_MAX = 1.0
 
 #: A tissue curve's fitted CBF at or below this (mL/100 g/min) is at the lower bound.

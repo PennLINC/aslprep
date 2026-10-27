@@ -280,9 +280,10 @@ def test_csf_kinetic_projection_is_signed():
 
 
 def test_fit_tissue_curves_large_abv():
-    """A tissue curve with an arterial volume above the voxel fit's 0.1 bound is recovered.
+    """A tissue curve with a large arterial volume is recovered.
 
-    With the voxel bound, the excess arterial signal was absorbed into tissue CBF and ATT.
+    With the voxel fit's former bound of 0.1, the excess arterial signal was absorbed into
+    tissue CBF and ATT.
     """
     curve = _tissue_curve(60.0, 1.0, 1000.0, abv=0.12, abat=0.5)
     result = pvc.fit_tissue_curves(curve[None, :], np.array([1000.0]), PLDS[None, :], **KINETICS)
