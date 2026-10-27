@@ -507,8 +507,7 @@ output directory.
      - Arterial transit time in seconds. Multi-delay data only.
    * - ``desc-basil_abv``
      - ``native_space/aCBV_calib``
-     - Arterial blood volume, as a fraction of the voxel. ``oxford_asl`` writes it as a
-       percentage, so *ASLPrep* divides it by 100. Multi-delay data only.
+     - Arterial blood volume. Multi-delay data only.
    * - ``desc-basilSD_cbf``
      - ``native_space/perfusion_var_calib``
      - Posterior standard deviation of ``desc-basil_cbf``, in mL/100 g/min.
