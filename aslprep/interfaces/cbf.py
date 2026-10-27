@@ -916,6 +916,69 @@ class ComputeCBF(SimpleInterface):
         return runtime
 
 
+class _ResolveRuntimeCalibrationInputSpec(BaseInterfaceInputSpec):
+    calibration = traits.Dict(
+        mandatory=True,
+        desc=(
+            'Calibration specification resolved when the workflow was built, '
+            'from aslprep.utils.calibration.resolve_calibration.'
+        ),
+    )
+    updates = traits.Dict(
+        desc=(
+            'Parameters whose values were found at run time, as complete entries of the '
+            "specification's Parameters (see aslprep.utils.calibration.update_calibration)."
+        ),
+    )
+    asl_type = traits.Str(mandatory=True, desc='The ArterialSpinLabelingType.')
+    multi_delay = traits.Bool(mandatory=True, desc='Whether the data have several delays.')
+
+
+class _ResolveRuntimeCalibrationOutputSpec(TraitedSpec):
+    calibration = traits.Dict(desc='The calibration specification the run used.')
+    model_metadata = traits.Dict(
+        desc=(
+            'The Model dictionary of each model, for the sidecars of its maps '
+            '(see aslprep.utils.calibration.describe_model).'
+        ),
+    )
+
+
+class ResolveRuntimeCalibration(SimpleInterface):
+    """Complete the calibration specification with values found at run time.
+
+    The specification is resolved when the workflow is built, and that version decides the
+    workflow's structure and methods text. Values only known at run time, given as ``updates``,
+    replace its parameters here, and every output that records the specification
+    (the calibration file and report, and the ``Model`` metadata of the CBF and ATT maps) is
+    written from this node's outputs, so they all record the values that were used.
+    BASIL is configured from the specification as it was built, so its ``Model`` metadata
+    describes that version.
+    """
+
+    input_spec = _ResolveRuntimeCalibrationInputSpec
+    output_spec = _ResolveRuntimeCalibrationOutputSpec
+
+    def _run_interface(self, runtime):
+        from aslprep.utils.calibration import MODELS, describe_model, update_calibration
+
+        calibration = update_calibration(
+            self.inputs.calibration,
+            self.inputs.updates if isdefined(self.inputs.updates) else {},
+        )
+        self._results['calibration'] = calibration
+        self._results['model_metadata'] = {
+            model: describe_model(
+                self.inputs.calibration if model == 'basil' else calibration,
+                model,
+                asl_type=self.inputs.asl_type,
+                multi_delay=self.inputs.multi_delay,
+            )
+            for model in MODELS
+        }
+        return runtime
+
+
 class _WriteCalibrationInputSpec(BaseInterfaceInputSpec):
     calibration = traits.Dict(
         mandatory=True,

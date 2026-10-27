@@ -558,6 +558,67 @@ def calibration_value(calibration, name, default=None):
     return default if param is None else param['Value']
 
 
+def update_calibration(calibration, updates):
+    """Replace parameters of a calibration specification with values found at run time.
+
+    The specification is resolved when the workflow is built, but some values, such as tissue
+    T1s measured from a T1 map, are only known when it runs. This replaces those parameters,
+    so every output that records the specification records the values that were used.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`.
+    updates : :obj:`dict`
+        New entries of ``Parameters``, keyed by parameter name. Each is a complete entry, with the
+        same keys as those :func:`resolve_calibration` writes.
+
+    Returns
+    -------
+    :obj:`dict`
+        A copy of the specification, with the updated parameters.
+
+    Raises
+    ------
+    ValueError
+        If a parameter is not in the specification, or an entry is incomplete or has an
+        unknown source.
+    """
+    import copy
+
+    keys = {'Value', 'Units', 'Source', 'Origin', 'Description'}
+    calibration = copy.deepcopy(calibration)
+    for name, entry in updates.items():
+        # The workflow was built for the parameters the specification has, so an update can
+        # replace them but not add new ones (which could, for example, change the kinetic model).
+        if name not in calibration['Parameters']:
+            raise ValueError(
+                f'{name} is not a parameter of the calibration specification, so it cannot be '
+                'updated at run time.'
+            )
+
+        if set(entry) != keys:
+            raise ValueError(
+                f'The update of {name} must have exactly the keys {sorted(keys)}, '
+                f'but it has {sorted(entry)}.'
+            )
+
+        if entry['Source'] not in calibration['SourcePrecedence']:
+            raise ValueError(
+                f'Unknown source {entry["Source"]!r} for {name}; '
+                f'expected one of {calibration["SourcePrecedence"]}.'
+            )
+
+        calibration['Parameters'][name] = _parameter(
+            entry['Value'],
+            entry['Source'],
+            entry['Origin'],
+            entry['Description'],
+            units=entry['Units'],
+        )
+    return calibration
+
+
 def calibration_kinetic_model(calibration):
     """Get the kinetic model a calibration specification was resolved for.
 

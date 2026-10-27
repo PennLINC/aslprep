@@ -17,6 +17,7 @@ from aslprep.interfaces.cbf import (
     BASILInflowTimeImage,
     ComputeCBF,
     ExtractCBF,
+    ResolveRuntimeCalibration,
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import NiftiParcellate
@@ -137,8 +138,10 @@ def init_cbf_wf(
         Effective resolution used to build the partial volume maps,
         which both BASIL and local-regression PVC use.
     calibration : :obj:`dict` or None
-        The calibration specification that every quantification step uses
+        The calibration specification, as resolved when the workflow is built
         (see :func:`~aslprep.utils.calibration.resolve_calibration`).
+        It decides the workflow and its description; the quantification steps use the version
+        completed at run time (the ``calibration`` output).
         If None, it is resolved from ``metadata``, ``m0_scale`` and ``smooth_kernel``.
         Not used for pre-calculated CBF data.
     name : :obj:`str`
@@ -186,6 +189,11 @@ def init_cbf_wf(
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
         The post-labeling delays used for quantification.
+    calibration, model_metadata
+        The calibration specification the run used, completed with any values found at run
+        time, and the ``Model`` sidecar dictionary of each model
+        (see :class:`~aslprep.interfaces.cbf.ResolveRuntimeCalibration`).
+        Not defined for pre-calculated CBF data.
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -532,6 +540,9 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'cbf_gm_sd_basil',
                 'cbf_wm_sd_basil',
                 'att_sd_basil',  # Only for multi-delay data
+                # The calibration specification the run used, and each model's sidecar metadata
+                'calibration',
+                'model_metadata',
             ]
             + pv_fields
             + lr_fields
@@ -665,7 +676,26 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         name='compute_cbf',
     )
     if calibration is not None:
-        compute_cbf.inputs.calibration = calibration
+        # The specification built here decides the workflow and its description.
+        # This node completes it with any values found at run time (none yet), and every
+        # model and output that records it reads its outputs.
+        runtime_calibration = pe.Node(
+            ResolveRuntimeCalibration(
+                calibration=calibration,
+                asl_type=metadata['ArterialSpinLabelingType'],
+                multi_delay=is_multi_pld,
+            ),
+            name='runtime_calibration',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (runtime_calibration, compute_cbf, [('calibration', 'calibration')]),
+            (runtime_calibration, outputnode, [
+                ('calibration', 'calibration'),
+                ('model_metadata', 'model_metadata'),
+            ]),
+        ])  # fmt:skip
 
     workflow.connect([
         (extract_deltam, compute_cbf, [
@@ -921,7 +951,6 @@ rather than estimated.
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
-            calibration=calibration,
         )
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the
@@ -933,6 +962,11 @@ rather than estimated.
                 ]),
                 (compute_cbf, lr_pvc_wf, [('att', 'inputnode.att')]),
             ])  # fmt:skip
+            # The tissue curves are fit with the same parameters as the uncorrected data
+            if calibration is not None:
+                workflow.connect([
+                    (runtime_calibration, lr_pvc_wf, [('calibration', 'inputnode.calibration')]),
+                ])  # fmt:skip
         workflow.connect([
             (inputnode, lr_pvc_wf, [('asl_mask', 'inputnode.asl_mask')]),
             (compute_cbf, lr_pvc_wf, [

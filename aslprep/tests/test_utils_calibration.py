@@ -1,6 +1,7 @@
 """Tests for the resolution of calibration and physiological parameters."""
 
 import json
+from pathlib import Path
 
 import nibabel as nb
 import numpy as np
@@ -609,6 +610,154 @@ def test_computecbf_tissue_t1(tmp_path):
     for wrong in (wrong_shape, str(wrong_affine), wrong_ndim):
         with pytest.raises(ValueError, match='does not match the delta-M grid'):
             ComputeCBF(**inputs, gm_pv=wrong, wm_pv=wm_file).run(cwd=str(work_dir))
+
+
+def test_update_calibration():
+    """Run-time values replace whole parameters, and bad entries are refused."""
+    from aslprep.utils.calibration import update_calibration
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='tissue-t1')
+    entry = {
+        'Value': 1.4,
+        'Units': 's',
+        'Source': 'metadata',
+        'Origin': 'Median of a T1 map',
+        'Description': 'T1 of gray matter.',
+    }
+    updated = update_calibration(calibration, {'GrayMatterT1': entry})
+    assert updated['Parameters']['GrayMatterT1'] == entry
+    # The original is unchanged, and the other parameters are kept
+    assert calibration_value(calibration, 'GrayMatterT1') == T1TISSUE_BY_FIELD_STRENGTH[3]
+    assert updated['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']
+    assert update_calibration(calibration, {}) == calibration
+
+    with pytest.raises(ValueError, match='must have exactly the keys'):
+        update_calibration(calibration, {'GrayMatterT1': {'Value': 1.4}})
+
+    with pytest.raises(ValueError, match="Unknown source 'scanner'"):
+        update_calibration(calibration, {'GrayMatterT1': {**entry, 'Source': 'scanner'}})
+
+    # A misspelled or new parameter would be recorded but never used
+    with pytest.raises(ValueError, match='GreyMatterT1 is not a parameter'):
+        update_calibration(calibration, {'GreyMatterT1': entry})
+
+    consensus = resolve_calibration(MULTI_DELAY, m0tr=6.0)
+    with pytest.raises(ValueError, match='GrayMatterT1 is not a parameter'):
+        update_calibration(consensus, {'GrayMatterT1': entry})
+
+
+def test_resolve_runtime_calibration(tmp_path):
+    """The run-time node gives the updated specification and each model's Model metadata."""
+    from aslprep.interfaces.cbf import ResolveRuntimeCalibration
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True, kinetic_model='tissue-t1')
+    inputs = {'calibration': calibration, 'asl_type': 'PCASL', 'multi_delay': True}
+    result = ResolveRuntimeCalibration(**inputs).run(cwd=str(tmp_path))
+    assert result.outputs.calibration == calibration
+    assert result.outputs.model_metadata == {
+        model: describe_model(calibration, model, asl_type='PCASL', multi_delay=True)
+        for model in MODELS
+    }
+
+    updates = {
+        'GrayMatterT1': {
+            **calibration['Parameters']['GrayMatterT1'],
+            'Value': 1.4,
+            'Source': 'metadata',
+        },
+        'BloodT1': {**calibration['Parameters']['BloodT1'], 'Value': 1.7},
+    }
+    result = ResolveRuntimeCalibration(**inputs, updates=updates).run(cwd=str(tmp_path))
+    models = result.outputs.model_metadata
+    assert calibration_value(result.outputs.calibration, 'GrayMatterT1') == 1.4
+    for model in ('aslprep', 'lr'):
+        assert models[model]['Parameters']['GrayMatterT1'] == 1.4
+        assert models[model]['Parameters']['BloodT1'] == 1.7
+
+    # BASIL was configured from the specification as built, so its sidecars describe that one
+    assert 'GrayMatterT1' not in models['basil']['Parameters']
+    assert models['basil']['Parameters']['BloodT1'] == calibration_value(calibration, 'BloodT1')
+
+
+@pytest.mark.parametrize(
+    ('name', 'model', 'base', 'base_from_file', 'map_node'),
+    [
+        ('mean_cbf', 'aslprep', None, False, False),
+        ('mean_cbf', 'aslprep', {'Other': 1}, False, False),
+        # A base that already has a Model: the model's own wins, as the fixed argument did
+        ('mean_cbf', 'aslprep', {'Model': 'stale', 'Other': 1}, False, False),
+        ('mean_cbf_basil', 'basil', None, False, False),
+        ('mean_cbf_gm_lr', 'lr', {'Other': 1}, False, False),
+        # A base read from a file through a connect function, as for the CIFTI outputs
+        ('mean_cbf', 'aslprep', {'Other': 1}, True, False),
+        # MapNode sinks, as for the surface outputs
+        ('mean_cbf', 'aslprep', None, False, True),
+    ],
+)
+def test_model_metadata_reaches_sidecar(tmp_path, name, model, base, base_from_file, map_node):
+    """A sink given the Model metadata at run time writes the sidecar a fixed argument did."""
+    import nipype.interfaces.utility as niu
+    import nipype.pipeline.engine as pe
+
+    from aslprep.interfaces.bids import DerivativesDataSink
+    from aslprep.workflows.asl.outputs import _read_json, connect_model_metadata, output_fields
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True)
+    models = {
+        each: describe_model(calibration, each, asl_type='PCASL', multi_delay=True)
+        for each in MODELS
+    }
+    in_file = _write(np.ones((2, 2, 2)), tmp_path / 'cbf.nii.gz')
+    source_file = tmp_path / 'sub-01_asl.nii.gz'
+    source_file.touch()
+    base_file = tmp_path / 'base.json'
+    base_file.write_text(json.dumps(base))
+    base_field = ('base_file', _read_json) if base_from_file else 'base'
+
+    def sidecars(out_dir, run_time):
+        workflow = pe.Workflow(name=f'wf_{run_time}', base_dir=str(tmp_path / 'work'))
+        inputnode = pe.Node(
+            niu.IdentityInterface(fields=['model_metadata', 'base', 'base_file']),
+            name='inputnode',
+        )
+        inputnode.inputs.model_metadata = models
+        inputnode.inputs.base = base
+        inputnode.inputs.base_file = str(base_file)
+        sink_kwargs = {
+            'source_file': str(source_file),
+            'base_directory': str(out_dir),
+            **output_fields(name, None if run_time else models),
+        }
+        if map_node:
+            # Two outputs, told apart by their acq entity, as surface sinks are by hemisphere
+            sink = pe.MapNode(
+                DerivativesDataSink(**sink_kwargs),
+                iterfield=['in_file', 'acquisition'],
+                name=f'ds_{name}',
+            )
+            sink.inputs.in_file = [in_file, in_file]
+            sink.inputs.acquisition = ['a', 'b']
+        else:
+            sink = pe.Node(DerivativesDataSink(in_file=in_file, **sink_kwargs), name=f'ds_{name}')
+
+        if run_time:
+            pair = None if base is None else (inputnode, base_field)
+            connect_model_metadata(workflow, inputnode, sink, name, base=pair)
+        elif base is not None:
+            workflow.connect([(inputnode, sink, [(base_field, 'meta_dict')])])
+        else:
+            workflow.add_nodes([sink])
+        workflow.run()
+        return [json.loads(path.read_text()) for path in sorted(Path(out_dir).rglob('*.json'))]
+
+    static = sidecars(tmp_path / 'static', run_time=False)
+    run_time = sidecars(tmp_path / 'run_time', run_time=True)
+    assert len(run_time) == (2 if map_node else 1)
+    assert run_time == static
+    for sidecar in run_time:
+        assert sidecar['Model'] == models[model]
+        if base:
+            assert sidecar['Other'] == 1
 
 
 def test_computecbf_calibration_xor():
