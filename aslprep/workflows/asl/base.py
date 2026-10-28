@@ -8,6 +8,7 @@ from nipype.pipeline import engine as pe
 
 from aslprep import config
 from aslprep.interfaces.bids import DerivativesDataSink
+from aslprep.interfaces.confounds import ComputePairQC
 from aslprep.utils.asl import (
     count_reduced_volumes,
     describe_asl_acquisition,
@@ -410,6 +411,15 @@ ASL acquisition
 
 : {describe_asl_acquisition(metadata=metadata, aslcontext=run_data['aslcontext'])}
 """
+    workflow.__desc__ += """
+Pair-level quality control
+
+: Each control-label pair (or precomputed delta-M volume) was compared with the others acquired at
+the same delay: for every pair, the fraction of brain voxels lying more than 3.5 robust standard
+deviations (1.4826 times the median absolute deviation) from the voxelwise median was recorded
+in a quality-control table, an adaptation of the rule of @harteveld2022perfusion.
+No pairs were excluded on this basis.
+"""
     workflow.__postdesc__ = """
 Resampling
 
@@ -701,6 +711,39 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         (asl_confounds_wf, ds_confounds, [
             ('outputnode.confounds_file', 'in_file'),
             ('outputnode.confounds_metadata', 'meta_dict'),
+        ]),
+    ])  # fmt:skip
+
+    # Observation-level QC: how far each control-label pair deviates from the others at its
+    # delay. Written for review; nothing is excluded.
+    compute_pair_qc = pe.Node(
+        ComputePairQC(),
+        name='compute_pair_qc',
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB + 0.2,
+    )
+    ds_pair_qc = pe.Node(
+        DerivativesDataSink(
+            base_directory=config.execution.aslprep_dir,
+            desc='pairqc',
+            suffix='timeseries',
+            dismiss_entities=('echo',),
+        ),
+        name='ds_pair_qc',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    ds_pair_qc.inputs.source_file = asl_file
+    workflow.connect([
+        (cbf_wf, compute_pair_qc, [
+            ('outputnode.deltam', 'deltam'),
+            ('outputnode.deltam_metadata', 'metadata'),
+        ]),
+        (asl_native_wf, compute_pair_qc, [('outputnode.aslcontext', 'aslcontext')]),
+        (asl_fit_wf, compute_pair_qc, [('outputnode.asl_mask', 'asl_mask')]),
+        (asl_confounds_wf, compute_pair_qc, [('outputnode.confounds_file', 'confounds_file')]),
+        (compute_pair_qc, ds_pair_qc, [
+            ('qc_file', 'in_file'),
+            ('qc_metadata', 'meta_dict'),
         ]),
     ])  # fmt:skip
 
