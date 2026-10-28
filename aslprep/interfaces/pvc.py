@@ -432,6 +432,7 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             calibration_value,
             m0_partition_coefficient,
             resolve_calibration,
+            tissue_t1_kinetics,
         )
         from aslprep.utils.cbf import (
             get_array_module,
@@ -501,10 +502,12 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             'wm': np.isin(fit['status'], (1, 3)) & (pv_wm >= self.inputs.min_pv) & calibratable,
         }
 
-        # Step 2: a kinetic fit of each tissue's curve, calibrated by the centre voxel's M0
+        # Step 2: a kinetic fit of each tissue's curve, calibrated by the center voxel's M0.
+        # With the tissue-T1 model, each curve decays with its own tissue's apparent T1.
+        tissue_t1 = tissue_t1_kinetics(calibration)
         xp = get_array_module(self.inputs.use_gpu)
         maps = {}
-        for tissue in ('gm', 'wm'):
+        for i_tissue, tissue in enumerate(('gm', 'wm')):
             sel = spatial[tissue]
             result = fit_tissue_curves(
                 fit[f'beta_{tissue}'][sel],
@@ -512,6 +515,7 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
                 plds[sel],
                 xp=xp,
                 n_jobs=self.inputs.num_threads,
+                t1prime=None if tissue_t1 is None else tissue_t1['t1prime'][i_tissue],
                 **kinetics,
             )
             status = np.zeros(shape, dtype=np.uint8)
@@ -533,7 +537,8 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         del fit['beta_gm'], fit['beta_wm']
 
         # CSF quality control: the signed least-squares CBF of the CSF curve against a
-        # unit-CBF tissue curve (no arterial term), calibrated by the voxel's M0. Its ATT is the
+        # unit-CBF tissue curve (no arterial term), calibrated by the voxel's M0. CSF has no
+        # tissue T1 in the tissue-T1 model, so the curve always decays with blood T1. Its ATT is the
         # voxel's uncorrected ATT where that was estimated, and otherwise the median of those,
         # so the value is defined in CSF voxels, where the uncorrected CBF is usually zero.
         csf_fit = local_regression_csf(

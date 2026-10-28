@@ -1023,6 +1023,73 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
             assert not isdefined(getattr(basil, name)), name
 
 
+@pytest.mark.parametrize('pvc_method', ['none', 'local-regression'])
+def test_init_cbf_wf_tissue_t1(tmp_path, pvc_method):
+    """The tissue-T1 model gets partial volume maps, and is described in the boilerplate."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    plds = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MRAcquisitionType': '3D',
+        'PostLabelingDelay': [delay for delay in plds for _ in range(2)],
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+    }
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    volume_types = ['control', 'label'] * len(plds)
+    pd.DataFrame({'volume_type': volume_types}).to_csv(aslcontext, sep='\t', index=False)
+    reset_config()
+    with mock_config():
+        config.workflow.kinetic_model = 'tissue-t1'
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            pvc_method=pvc_method,
+        )
+        compute_cbf = wf.get_node('compute_cbf')
+        pv_wf = wf.get_node('asl_pv_wf')
+        edge = wf._graph.get_edge_data(pv_wf, compute_cbf)
+        desc = wf.__desc__
+
+        config.workflow.kinetic_model = 'consensus'
+        consensus = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+        )
+        consensus_desc = consensus.__desc__
+        consensus_nodes = consensus.list_node_names()
+
+        single_delay = {**metadata, 'PostLabelingDelay': 1.8}
+        config.workflow.kinetic_model = 'tissue-t1'
+        with pytest.raises(ValueError, match='only available for multi-delay data'):
+            init_cbf_wf(
+                name_source=str(asl_file),
+                processing_target='control',
+                aslcontext=str(aslcontext),
+                metadata=single_delay,
+            )
+
+    reset_config()
+    assert ('outputnode.gm_pv', 'gm_pv') in edge['connect']
+    assert ('outputnode.wm_pv', 'wm_pv') in edge['connect']
+    assert 'apparent T1 of the tissue' in desc
+    assert '[@wright2008water]' in desc
+    assert 'apparent T1' not in consensus_desc
+    assert not any(name.startswith('asl_pv_wf') for name in consensus_nodes)
+
+
 def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
     """The M0 image is smoothed with the kernel the given specification records."""
     import pandas as pd
