@@ -939,8 +939,8 @@ def _gkm_tissue_basis(
     (where ``plds`` are inversion times and ``bolus`` is TI1).
     ``att`` must broadcast against ``plds`` and ``bolus``.
 
-    With ``t1prime``, the label decays with the T1 of blood until it reaches the tissue,
-    and then with each tissue's apparent T1 (see :func:`_relaxed_tissue_basis`).
+    With ``t1prime``, the labeled blood water decays with the T1 of blood until it reaches the
+    tissue, and then with each tissue's apparent T1 (see :func:`_relaxed_tissue_basis`).
     ``t1prime`` and ``tissue_weights`` then have shape (n_voxels, n_tissues),
     where the first axis of ``att`` and ``plds`` is also the voxels,
     and the basis is the weighted sum of the tissues' bases.
@@ -990,8 +990,9 @@ def _expm1_ratio(x, rate, xp):
 def _relaxed_tissue_basis(att, plds, bolus, is_casl, t1blood, t1prime, xp):
     """Calculate one tissue's delta-M per unit CBF and M0a, without the 2 * alpha / 6000 factor.
 
-    The label decays with the T1 of blood (``t1blood``) until it reaches the tissue at ``att``,
-    and with the tissue's apparent T1 (``t1prime``) afterwards :footcite:p:`buxton1998general`.
+    The labeled blood water decays with the T1 of blood (``t1blood``) until it reaches the tissue
+    at ``att``, and, once in the tissue, with the tissue's apparent T1 (``t1prime``)
+    :footcite:p:`buxton1998general`.
     With ``k = 1 / T1b - 1 / T1'``, the tissue signal of (P)CASL data is
 
     - ``T1' exp(-ATT / T1b) (1 - exp(-(tau + PLD - ATT) / T1'))`` while the bolus arrives, and
@@ -1032,7 +1033,7 @@ def _relaxed_tissue_basis(att, plds, bolus, is_casl, t1blood, t1prime, xp):
 
 
 def apparent_tissue_t1(t1tissue, cbf, partition_coefficient=None):
-    """Calculate the apparent T1 of the label in tissue, which flow out of the voxel shortens.
+    """Calculate the apparent T1 of labeled water in tissue, which outflow from the voxel shortens.
 
     Parameters
     ----------
@@ -1655,8 +1656,8 @@ def fit_deltam_multipld(
 
     This function uses the general kinetic model specified by
     :footcite:t:`woods2023recommendations`, or, with ``t1prime``, a version of it in which the
-    label decays with the apparent T1 of tissue once it reaches the tissue
-    :footcite:p:`buxton1998general`.
+    labeled water decays with the apparent T1 of tissue once it has left the blood for the
+    tissue :footcite:p:`buxton1998general`.
 
     Parameters
     ----------
@@ -1713,8 +1714,8 @@ def fit_deltam_multipld(
     t1prime : :obj:`float` or :obj:`numpy.ndarray` or None, optional
         Apparent T1 of each tissue, in seconds (see :func:`apparent_tissue_t1`), for the
         tissue-T1 model. Broadcastable to shape (n_voxels, n_tissues).
-        None (the default) uses the consensus model, in which the label decays with the T1 of
-        blood throughout.
+        None (the default) uses the consensus model, in which the labeled water decays with the
+        T1 of blood throughout.
     tissue_weights : :obj:`numpy.ndarray` or None, optional
         Weight of each tissue's basis in each voxel (see :func:`tissue_mixing_weights`),
         broadcastable to shape (n_voxels, n_tissues). Defaults to equal weights that sum to one.

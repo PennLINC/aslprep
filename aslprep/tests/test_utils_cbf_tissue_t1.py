@@ -52,7 +52,7 @@ def _fit(deltam, delays, is_casl, bolus, **kwargs):
 
 @pytest.mark.parametrize('is_casl', [True, False])
 def test_relaxed_basis_matches_numerical_integration(is_casl):
-    """The closed-form tissue terms match direct integration of the delivered label."""
+    """The closed-form tissue terms match direct integration of the delivered labeled water."""
     rng = np.random.default_rng(0)
     bolus = 1.8 if is_casl else 0.8
     delays = np.linspace(0.3, 4.0, 15)
@@ -426,6 +426,59 @@ def test_fit_tissue_t1_att_interval():
     _, consensus_width = interval()
     assert tissue_coverage > 0.8
     assert tissue_width < 0.75 * consensus_width
+
+
+def test_fit_tissue_t1_att_before_every_delay():
+    """With ATT shorter than every delay, a single tissue's ATT trades off against CBF.
+
+    After arrival, ATT scales the signal by exp(ATT (1 / T1' - 1 / T1b)) at every delay, so a
+    range of ATTs fits equally well, as in the consensus model. Unlike the consensus model,
+    CBF then depends on the ATT reported from that range (its midpoint).
+    """
+    is_casl, bolus = True, 1.8
+    delays = np.arange(1.0, 4.01, 0.5)
+    deltam = _simulate(is_casl, bolus, delays, [40.0], [0.1], T1PRIME[1:], [1.0])
+    fit_cbf, fit_att, _, _, _, bounds = _fit(deltam, delays, is_casl, bolus, t1prime=T1PRIME[1])
+    # The bisection locates the ends of the range to a few microseconds
+    assert bounds['att_lower'][0] == pytest.approx(0.0, abs=1e-5)
+    assert bounds['att_upper'][0] == pytest.approx(delays[0], abs=1e-5)
+    assert fit_att[0] == pytest.approx(delays[0] / 2, abs=1e-5)
+    rate = 1 / T1PRIME[1] - 1 / T1BLOOD
+    assert fit_cbf[0] == pytest.approx(40.0 * np.exp(rate * (0.1 - fit_att[0])), rel=1e-3)
+
+
+def test_fit_tissue_t1_abv_beyond_bound():
+    """The aBV bound and its flag work with the tissue-T1 basis.
+
+    An arterial signal too large for the aBV bound puts aBAT at the bottom of its interval,
+    as with the consensus model, and the voxel is flagged.
+    """
+    is_casl, bolus = True, 1.8
+    delays = np.array([0.5, 1.0, 1.5, 2.0, 2.5])
+    abv_max = cbf.MULTIPLD_BOUNDS[3][1]
+    tissue = _simulate(is_casl, bolus, delays, [20.0], [1.7], T1PRIME[1:], [1.0])
+    arterial = cbf._gkm_arterial_basis(
+        np.array([[0.6]]),
+        delays[None],
+        bolus,
+        is_casl,
+        LABELEFF,
+        T1BLOOD,
+        np,
+    )[0]
+    deltam = tissue + (M0 / 0.9) * 2 * abv_max * arterial
+    _, _, fit_abat, fit_abv, failures, bounds = _fit(
+        deltam,
+        delays,
+        is_casl,
+        bolus,
+        t1prime=T1PRIME[1],
+    )
+    assert fit_abv[0] == pytest.approx(abv_max)
+    assert fit_abat[0] > 0.5
+    assert fit_abat[0] == pytest.approx(0.5, abs=1e-8)
+    assert bounds['abat_lower'][0] == pytest.approx(0.5)
+    assert cbf.abv_at_bound(fit_abv, failures)[0]
 
 
 def test_fit_tissue_t1_rejects_bad_t1prime():

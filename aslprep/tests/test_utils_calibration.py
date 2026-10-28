@@ -541,6 +541,9 @@ def test_resolve_calibration_tissue_t1_refusals():
 def test_describe_model_tissue_t1():
     """The sidecars name the tissue-T1 model, and BASIL's leave out its parameters."""
     calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True, kinetic_model='tissue-t1')
+    assert 'GrayMatterT1' in calibration['Parameters']['BASILTissueT1']['Description']
+    consensus_basil = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True)
+    assert 'T1 of blood' in consensus_basil['Parameters']['BASILTissueT1']['Description']
     models = {
         model: describe_model(calibration, model, asl_type='PCASL', multi_delay=True)
         for model in MODELS

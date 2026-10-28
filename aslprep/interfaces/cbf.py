@@ -751,7 +751,8 @@ class ComputeCBF(SimpleInterface):
                 )
                 masker.inverse_transform(bound).to_filename(self._results[name])
 
-            # The earliest ATT at which the tissue signal no longer depends on ATT
+            # The earliest ATT at which a single tissue's signal no longer depends on ATT, except,
+            # with the tissue-T1 model, by a scale factor that CBF absorbs
             earliest = np.min(plds, axis=1) if is_casl else np.min(plds, axis=1) - ti1
             self._results['earliest_delay'] = fname_presuffix(
                 self.inputs.deltam,

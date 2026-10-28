@@ -554,11 +554,15 @@ any spatial references.""",
         help=(
             "ASLPrep's kinetic model for multi-delay data. "
             "'consensus' (default): the general kinetic model of the ISMRM perfusion study group "
-            '(Woods et al., 2023), in which the label decays with the T1 of blood throughout. '
-            "'tissue-t1': the label decays with the apparent T1 of gray and white matter once it "
-            'reaches the tissue (Buxton et al., 1998), which locates ATT better at long delays '
-            'and changes CBF, especially in white matter. It uses default tissue T1s for the '
-            'field strength (Wright et al., 2008), and its results depend on them. '
+            '(Woods et al., 2023), in which the labeled water decays with the T1 of blood '
+            'throughout, even after it has left the blood for the tissue. '
+            "'tissue-t1': the labeled blood water decays with the T1 of blood until it reaches the "
+            'tissue, and with the apparent T1 of gray and white matter afterwards '
+            '(Buxton et al., 1998). This can reduce the bias in ATT and CBF that the consensus '
+            "model's blood-T1 decay causes at long delays, especially in white matter. "
+            'Experimental: on simulated data it currently overestimates white matter CBF. '
+            'It uses default tissue T1s for the field strength (Wright et al., 2008), '
+            'and its results depend on them. '
             'Only available for multi-delay data; single-delay runs stop with an error. '
             'BASIL always uses its own model.'
         ),

@@ -55,12 +55,12 @@ M0_RECOVERY_TR_THRESHOLD = 5.0
 CBF_UNIT_CONVERSION = 6000
 
 #: T1 of tissue, in seconds, that BASIL's kinetic model uses (the oxford_asl default).
-#: ASLPrep's own models describe the decay of the label with the T1 of blood alone.
+#: ASLPrep's consensus models describe the decay of the labeled water with the T1 of blood alone.
 BASIL_TISSUE_T1 = 1.3
 
-#: ASLPrep's kinetic models (``--kinetic-model``): the consensus models, in which the label
-#: decays with the T1 of blood throughout, and the multi-delay model in which it decays with the
-#: apparent T1 of tissue once it reaches the tissue.
+#: ASLPrep's kinetic models (``--kinetic-model``): the consensus models, in which the labeled
+#: water decays with the T1 of blood throughout, and the multi-delay model in which it decays
+#: with the apparent T1 of tissue once it has left the blood for the tissue.
 KINETIC_MODELS = ('consensus', 'tissue-t1')
 
 #: Calibration parameters that only the tissue-T1 kinetic model uses.
@@ -499,7 +499,8 @@ def resolve_calibration(
                 f'{tissue.capitalize()} matter T1 at {field_strength:g} T (Wright et al., 2008)',
                 (
                     f'T1 of {tissue} matter in the tissue-T1 kinetic model, '
-                    'in which the label decays with it once it reaches the tissue.'
+                    'in which the labeled water decays with it once it has left the blood for '
+                    'the tissue.'
                 ),
                 units='s',
             )
@@ -513,8 +514,9 @@ def resolve_calibration(
                 'ASLPrep default',
                 (
                     f'Nominal CBF of {tissue} matter in the tissue-T1 kinetic model. It sets the '
-                    'flow term of the apparent tissue T1, 1 / (1 / T1 + CBF / lambda), and the '
-                    "weight of the tissue's signal in voxels that mix gray and white matter."
+                    'flow term of the apparent tissue T1, 1 / (1 / T1 + (CBF / 6000) / lambda), '
+                    "with CBF / 6000 in mL/g/s, and the weight of the tissue's signal in voxels "
+                    'that mix gray and white matter.'
                 ),
                 units='mL/100 g/min',
             )
@@ -524,9 +526,11 @@ def resolve_calibration(
             BASIL_TISSUE_T1,
             'default',
             'oxford_asl default',
-            (
-                "T1 of tissue in BASIL's kinetic model. "
-                "ASLPrep's own models use the T1 of blood for the decay of the label."
+            "T1 of tissue in BASIL's kinetic model. "
+            + (
+                "ASLPrep's own tissue-T1 model uses GrayMatterT1 and WhiteMatterT1 instead."
+                if kinetic_model == 'tissue-t1'
+                else "ASLPrep's own models use the T1 of blood for the decay of the labeled water."
             ),
             units='s',
         )
@@ -748,9 +752,10 @@ def describe_model(calibration, model, *, asl_type, multi_delay):
     if calibration_kinetic_model(calibration) == 'tissue-t1':
         kinetic_model = (
             'two-compartment general kinetic model, with tissue and macrovascular terms '
-            '(Buxton et al., 1998; Woods et al., 2023), in which the label decays with the T1 of '
-            'blood until it reaches the tissue and with the apparent T1 of gray and white matter '
-            'afterwards, weighted by their partial volumes and nominal CBFs in mixed voxels'
+            '(Buxton et al., 1998; Woods et al., 2023), in which the labeled blood water decays '
+            'with the T1 of blood until it reaches the tissue and with the apparent T1 of gray and '
+            'white matter afterwards, weighted by their partial volumes and nominal CBFs in mixed '
+            'voxels'
         )
     elif multi_delay:
         kinetic_model = (

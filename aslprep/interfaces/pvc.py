@@ -502,7 +502,7 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             'wm': np.isin(fit['status'], (1, 3)) & (pv_wm >= self.inputs.min_pv) & calibratable,
         }
 
-        # Step 2: a kinetic fit of each tissue's curve, calibrated by the centre voxel's M0.
+        # Step 2: a kinetic fit of each tissue's curve, calibrated by the center voxel's M0.
         # With the tissue-T1 model, each curve decays with its own tissue's apparent T1.
         tissue_t1 = tissue_t1_kinetics(calibration)
         xp = get_array_module(self.inputs.use_gpu)
