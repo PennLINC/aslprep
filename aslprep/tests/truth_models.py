@@ -292,10 +292,11 @@ def gkm_pasl(ti, ti1, cbf, att, abat, abv, alpha, t1b, m0a, m0b):
 def tissue_t1_signal(t, att, bolus, t1b, t1prime, casl):
     """Tissue delta-M per unit ``2 a M0a f`` with tissue relaxation, by numerical integration.
 
-    The label delivered to the tissue at time ``s`` (from the start of labeling) has decayed with
-    blood T1 on its way, and then decays with the tissue's apparent T1 until ``t``
-    (Buxton et al. 1998), so the signal is the integral over ``s`` of
-    ``c(s) exp(-(t - s) / T1')``. For (P)CASL, label leaves the labeling plane at a steady rate
+    The labeled water delivered to the tissue at time ``s`` (from the start of labeling) has
+    decayed with blood T1 on its way, in the arterial blood, and then decays with the tissue's
+    apparent T1 until ``t`` (Buxton et al. 1998), so the signal is the integral over ``s`` of
+    ``c(s) exp(-(t - s) / T1')``. For (P)CASL, labeled blood water leaves the labeling plane at a
+    steady rate
     for ``bolus`` (tau) seconds and arrives ``att`` later, so ``c(s) = exp(-att / T1b)`` for
     ``att <= s < att + tau``; ``t`` is ``tau + PLD``. For PASL, the whole bolus is labeled at
     once, so blood arriving at ``s`` has decayed for ``s`` seconds:

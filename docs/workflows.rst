@@ -857,9 +857,9 @@ For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendat
 The Tissue-T1 Model (``--kinetic-model tissue-t1``)
 ---------------------------------------------------
 
-The consensus model above lets the label decay with the T1 of blood throughout,
-including after it has reached the tissue.
-In fact, once the label is in the tissue it decays with the tissue's apparent T1,
+The consensus model above lets the labeled water decay with the T1 of blood throughout,
+including after it has left the blood for the tissue.
+In fact, once the labeled water is in the tissue it decays with the tissue's apparent T1,
 :math:`T_1' = 1 / (1 / T_{1,tissue} + f / \lambda)`, which is shorter than the T1 of blood,
 especially in white matter :footcite:p:`buxton1998general`.
 With long delays this matters:
@@ -869,8 +869,8 @@ because it can only explain the faster decay of the signal with an earlier arriv
 less tissue signal, and some arterial signal.
 
 With ``--kinetic-model tissue-t1``, *ASLPrep* fits multi-delay data with the general kinetic model
-in which the label decays with the T1 of blood until it reaches the tissue (at ATT),
-and with :math:`T_1'` afterwards.
+in which the labeled blood water decays with the T1 of blood until it reaches the tissue
+(at ATT), and with :math:`T_1'` once it is in the tissue.
 For PCASL, with :math:`k = 1 / T_{1b} - 1 / T_1'`:
 
 .. math::

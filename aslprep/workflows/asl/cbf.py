@@ -332,10 +332,10 @@ Cerebral blood flow computation and denoising
         if tissue_t1 is not None:
             t1prime = tissue_t1['t1prime']
             tissue_t1_str = f"""
-Rather than assuming, as the consensus model does, that the label decays with the T1 of blood
-throughout, the label was modeled as decaying with the T1 of blood until it reached the tissue,
-and with the apparent T1 of the tissue, 1 / (1 / T1 + f / lambda), afterwards
-[@buxton1998general].
+Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
+blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
+reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
+1 / (1 / T1 + f / lambda) [@buxton1998general].
 The T1s of gray and white matter were set to
 {calibration_value(calibration, 'GrayMatterT1'):g} s and
 {calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for

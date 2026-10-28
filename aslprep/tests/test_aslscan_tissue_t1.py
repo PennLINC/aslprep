@@ -1,6 +1,7 @@
 """The tissue-T1 kinetic model on the long-delay 3D GRASE aslscan fixture (F3, gh-744).
 
-aslscan decays the label with the apparent T1 of tissue after it arrives, so on F3, whose delays
+aslscan decays the labeled water with the apparent T1 of tissue once it has left the blood for the
+tissue, so on F3, whose delays
 (0.5-4.0 s) bracket every voxel's ATT, the consensus model underestimates white matter ATT and
 CBF. These tests fit the fixture's delta-M directly, on nearly pure tissue voxels, so they check
 the kinetic model against the simulator's physics without the rest of the pipeline.

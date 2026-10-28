@@ -52,7 +52,7 @@ def _fit(deltam, delays, is_casl, bolus, **kwargs):
 
 @pytest.mark.parametrize('is_casl', [True, False])
 def test_relaxed_basis_matches_numerical_integration(is_casl):
-    """The closed-form tissue terms match direct integration of the delivered label."""
+    """The closed-form tissue terms match direct integration of the delivered labeled water."""
     rng = np.random.default_rng(0)
     bolus = 1.8 if is_casl else 0.8
     delays = np.linspace(0.3, 4.0, 15)
