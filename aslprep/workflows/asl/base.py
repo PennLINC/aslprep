@@ -20,6 +20,7 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.calibration import (
     DEFAULT_M0_SCALE,
     DEFAULT_SMOOTH_KERNEL,
+    calibration_kinetic_model,
     resolve_calibration,
 )
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
@@ -60,6 +61,7 @@ def init_asl_wf(
     fieldmap_id: str | None = None,
     jacobian: bool = False,
     asl2anat_init: str | None = None,
+    t1map: dict | None = None,
 ):
     """Perform the functional preprocessing stages of ASLPrep.
 
@@ -95,11 +97,17 @@ def init_asl_wf(
         coregistration (``'t1w'`` or ``'t2w'``).
         If :obj:`None`, ``config.workflow.asl2anat_init`` is used,
         with ``'auto'`` resolved to ``'t1w'``.
+    t1map
+        The participant's T1 map (see :func:`~aslprep.utils.bids.collect_t1map`), whose measured
+        tissue T1s the tissue-T1 kinetic model uses, or :obj:`None`.
 
     Inputs
     ------
     asl_file
         asl series NIfTI file
+    tissue_t1_updates, tissue_t1_warnings
+        The tissue T1s measured from ``t1map``, as calibration updates, and warnings about them
+        (see :func:`~aslprep.workflows.t1map.init_t1map_wf`). Only used with ``t1map``.
     t1w_preproc
         Bias-corrected structural template image
     t1w_mask
@@ -296,6 +304,15 @@ def init_asl_wf(
 
     with_model = calibration is not None
 
+    # The T1 map's tissue T1s only enter the tissue-T1 kinetic model, and T1 depends on the field
+    if calibration is None or calibration_kinetic_model(calibration) != 'tissue-t1':
+        t1map = None
+
+    if t1map is not None:
+        from aslprep.utils.t1map import check_t1map_field_strength
+
+        check_t1map_field_strength(t1map, metadata['MagneticFieldStrength'], asl_file)
+
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
     gradwarp = gradwarp_plan is not None and gradwarp_plan.warp_dim is not None
@@ -398,6 +415,11 @@ def init_asl_wf(
 
     # Build workflow
     workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
+    # The run's field strength if it uses the T1 map's tissue T1s, otherwise None:
+    # the subject workflow only measures them if a run uses them.
+    workflow.t1map_field_strength = (
+        None if t1map is None else float(metadata['MagneticFieldStrength'])
+    )
     workflow.__desc__ = f"""
 ASL acquisition
 
@@ -432,6 +454,9 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 't1w_mask',
                 't1w_dseg',
                 't1w_tpms',
+                # Tissue T1s measured from the participant's T1 map
+                'tissue_t1_updates',
+                'tissue_t1_warnings',
                 # FreeSurfer outputs
                 'subjects_dir',
                 'subject_id',
@@ -555,8 +580,16 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         pvc_kernel_size=tuple(config.workflow.pvc_kernel_size),
         asl_effective_resolution=config.workflow.asl_effective_resolution,
         calibration=calibration,
+        t1map=t1map,
         name='cbf_wf',
     )
+    if t1map is not None:
+        workflow.connect([
+            (inputnode, cbf_wf, [
+                ('tissue_t1_updates', 'inputnode.tissue_t1_updates'),
+                ('tissue_t1_warnings', 'inputnode.tissue_t1_warnings'),
+            ]),
+        ])  # fmt:skip
 
     if calibration is not None:
         # The calibration parameters and their report are always written, in every mode.

@@ -931,6 +931,10 @@ class _ResolveRuntimeCalibrationInputSpec(BaseInterfaceInputSpec):
             "specification's Parameters (see aslprep.utils.calibration.update_calibration)."
         ),
     )
+    warnings = traits.List(
+        traits.Str,
+        desc="Warnings about the run-time values, added to the specification's Warnings.",
+    )
     asl_type = traits.Str(mandatory=True, desc='The ArterialSpinLabelingType.')
     multi_delay = traits.Bool(mandatory=True, desc='Whether the data have several delays.')
 
@@ -967,6 +971,9 @@ class ResolveRuntimeCalibration(SimpleInterface):
             self.inputs.calibration,
             self.inputs.updates if isdefined(self.inputs.updates) else {},
         )
+        if isdefined(self.inputs.warnings):
+            calibration['Warnings'] = list(calibration['Warnings']) + list(self.inputs.warnings)
+
         self._results['calibration'] = calibration
         self._results['model_metadata'] = {
             model: describe_model(

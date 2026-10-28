@@ -360,10 +360,13 @@ def _build_parser():
             'gradwarp-jacobian',
             'cbf',
             'deltam',
+            't1map',
         ],
         help=(
             'ignore selected aspects of the input dataset to disable corresponding '
             'parts of the workflow (a space delimited list)\n'
+            " * t1map: Ignore the participant's T1 map, so the tissue-T1 kinetic model uses the "
+            'default tissue T1s for the field strength\n'
             ' * cbf: Ignore CBF volumes in the ASL file (for example, maps calculated '
             'on the scanner). They are neither processed nor used for the reference image\n'
             ' * deltam: Ignore delta-M volumes in the ASL file, in the same way\n'
@@ -561,8 +564,10 @@ any spatial references.""",
             '(Buxton et al., 1998). This can reduce the bias in ATT and CBF that the consensus '
             "model's blood-T1 decay causes at long delays, especially in white matter. "
             'Experimental: on simulated data it currently overestimates white matter CBF. '
-            'It uses default tissue T1s for the field strength (Wright et al., 2008), '
-            'and its results depend on them. '
+            'Its results depend on the tissue T1s: they are measured from the T1 map of the '
+            'participant (an anat/*_T1map image, in a --derivatives dataset or the raw dataset) when '
+            'there is one, and otherwise are the defaults for the field strength '
+            '(Wright et al., 2008). See --ignore t1map. '
             'Only available for multi-delay data; single-delay runs stop with an error. '
             'BASIL always uses its own model.'
         ),

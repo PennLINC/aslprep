@@ -244,6 +244,182 @@ def collect_haematocrit(layout, asl_file, metadata):
     return None, None
 
 
+#: Suffixes of a T1-weighted image that may share a T1 map's grid (as MP2RAGE's UNIT1 does),
+#: in order of preference.
+T1MAP_COMPANION_SUFFIXES = ('UNIT1', 'T1w')
+
+
+def _same_grid(file1, file2, atol=1e-3):
+    import nibabel as nb
+    import numpy as np
+
+    img1, img2 = nb.load(file1), nb.load(file2)
+    return img1.shape[:3] == img2.shape[:3] and np.allclose(img1.affine, img2.affine, atol=atol)
+
+
+#: Prefixes of the names of template spaces, in addition to TemplateFlow's templates.
+TEMPLATE_SPACE_PREFIXES = ('MNI', 'fsLR', 'fsaverage', 'onavg')
+
+
+def _is_template_space(space):
+    """Whether a ``space`` entity names a template, rather than a space of the participant."""
+    from templateflow.api import templates
+
+    return space in templates() or space.startswith(TEMPLATE_SPACE_PREFIXES)
+
+
+def _warn_uncollected_t1maps(datasets, subject_id, session_id):
+    """Warn about a participant's T1 maps that the T1 map query did not select."""
+    query = {
+        'subject': subject_id,
+        'datatype': 'anat',
+        'suffix': 'T1map',
+        'extension': ['.nii', '.nii.gz'],
+    }
+    if session_id is not None:
+        query['session'] = session_id
+
+    present = [
+        f'bids:{label}:'
+        + Path(os.path.relpath(os.path.abspath(path), os.path.abspath(dataset.root))).as_posix()
+        for label, dataset in datasets
+        for path in dataset.get(return_type='file', **query)
+    ]
+    if not present:
+        return
+
+    shown = ', '.join(present[:10]) + (
+        f', and {len(present) - 10} more' if len(present) > 10 else ''
+    )
+    config.loggers.workflow.warning(
+        f'sub-{subject_id} has {len(present)} T1 map(s) that were not used ({shown}), so the '
+        'tissue-T1 kinetic model uses the default tissue T1s. By default, only maps without a '
+        'space entity (in their own acquisition space) are used, and the "t1map" key of '
+        '--bids-filter-file may exclude others. To use one of these maps, select it with that '
+        'key, for example {"t1map": {"space": "T1w", "desc": "B1corrected"}}; '
+        'maps in a template space cannot be used.'
+    )
+
+
+def collect_t1map(layout, derivatives, subject_id, session_id=None, bids_filters=None):
+    """Find a participant's quantitative T1 map, and a T1-weighted image on its grid.
+
+    Each derivatives dataset is searched first, in order, and then the raw dataset, because a
+    derivative T1 map may have been corrected (for example, for the transmit field) where a map
+    written by the scanner was not. The first dataset with a map is used.
+    Only maps without a ``space`` entity, in their own acquisition space, are used, unless the
+    ``t1map`` filter selects a space; maps in a template space are refused, as a rigid registration
+    cannot bring them back to the participant. If the participant has T1 maps but none is
+    selected, a warning lists them.
+
+    Parameters
+    ----------
+    layout : :obj:`bids.layout.BIDSLayout`
+        The layout of the raw dataset.
+    derivatives : :obj:`dict`
+        Derivatives datasets, as ``{name: path}`` (``config.execution.derivatives``).
+    subject_id : :obj:`str`
+        The participant label, without ``sub-``.
+    session_id : :obj:`str`, :obj:`list` of :obj:`str` or None, optional
+        The session(s) to search, or None for every session.
+    bids_filters : :obj:`dict` or None, optional
+        The ``--bids-filter-file`` filters. A ``t1map`` entry narrows the query.
+
+    Returns
+    -------
+    :obj:`dict` or None
+        None if there is no T1 map. Otherwise, ``t1map`` (the path), ``metadata`` (its sidecar),
+        ``uri`` (a BIDS URI naming it), and ``companion`` (a ``UNIT1`` or ``T1w`` image on the same
+        grid, or None).
+
+    Raises
+    ------
+    ValueError
+        If the first dataset with a T1 map has more than one, or the map is in a template space.
+    """
+    from bids.layout import Query
+
+    query = {
+        'subject': subject_id,
+        'datatype': 'anat',
+        'suffix': 'T1map',
+        'extension': ['.nii', '.nii.gz'],
+        # Only maps in their own acquisition space: a map resampled to a template (space-*)
+        # cannot be brought back to the participant by a rigid registration.
+        'space': Query.NONE,
+        **((bids_filters or {}).get('t1map') or {}),
+    }
+    if session_id is not None:
+        query['session'] = session_id
+
+    datasets = [(name, _get_layout(Path(path))) for name, path in derivatives.items()]
+    datasets.append(('raw', layout))
+    t1map = None
+    for label, dataset in datasets:
+        found = dataset.get(return_type='file', **query)
+        if len(found) > 1:
+            raise ValueError(
+                f'Found {len(found)} T1 maps for sub-{subject_id} in {dataset.root}: '
+                f'{sorted(found)}. Use the "t1map" key of --bids-filter-file to select one.'
+            )
+
+        if found:
+            t1map, uri_label = found[0], label
+            break
+
+    if t1map is None:
+        _warn_uncollected_t1maps(datasets, subject_id, session_id)
+        return None
+
+    entities = dataset.parse_file_entities(t1map)
+    space = entities.get('space')
+    if space is not None and _is_template_space(space):
+        raise ValueError(
+            f'The T1 map {t1map} is in the template space {space}, which a rigid registration '
+            'cannot bring back to the participant. Select a map in the space of the participant '
+            'with the "t1map" key of --bids-filter-file.'
+        )
+
+    # Not resolved, so that a DataLad (git-annex) symlink still lies inside its dataset
+    relpath = Path(os.path.relpath(os.path.abspath(t1map), os.path.abspath(dataset.root)))
+    relpath = relpath.as_posix()
+    companion = None
+    candidates = []
+    for suffix in T1MAP_COMPANION_SUFFIXES:
+        for companion_layout in dict.fromkeys([dataset, layout]):
+            candidates += companion_layout.get(
+                return_type='file',
+                subject=subject_id,
+                datatype='anat',
+                suffix=suffix,
+                extension=['.nii', '.nii.gz'],
+                # In the same space as the map, so that a T1w-space map finds its T1w-space UNIT1
+                space=space if space is not None else Query.NONE,
+                **({'session': entities['session']} if entities.get('session') else {}),
+            )
+
+    # Prefer images whose acquisition and run match the map's
+    matching = [
+        candidate
+        for candidate in candidates
+        if all(
+            layout.parse_file_entities(candidate).get(key) == entities.get(key)
+            for key in ('acquisition', 'run')
+        )
+    ]
+    for candidate in dict.fromkeys(matching + candidates):
+        if _same_grid(candidate, t1map):
+            companion = candidate
+            break
+
+    return {
+        't1map': t1map,
+        'metadata': dataset.get_metadata(t1map),
+        'uri': f'bids:{uri_label}:{relpath}',
+        'companion': companion,
+    }
+
+
 def explain_missing_asl(layout, subject_id):
     """Explain why no ASL runs were found, when the dataset's location is the cause.
 
