@@ -857,6 +857,15 @@ For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendat
 The Tissue-T1 Model (``--kinetic-model tissue-t1``)
 ---------------------------------------------------
 
+.. warning::
+
+   The tissue-T1 model is experimental.
+   On simulated long-delay 3D GRASE data (aslscan), it currently overestimates white matter CBF,
+   by about 30% in nearly pure white matter, for reasons not yet understood.
+   Its CBF also depends on the default tissue T1s and, where ATT is shorter than every delay,
+   on the reported ATT (see :ref:`multidelay_identifiability`).
+   Use the consensus model (the default) for CBF that is comparable across studies.
+
 The consensus model above lets the labeled water decay with the T1 of blood throughout,
 including after it has left the blood for the tissue.
 In fact, once the labeled water is in the tissue it decays with the tissue's apparent T1,
