@@ -915,6 +915,14 @@ Choices this model makes:
 - **Tissue T1.** The T1s of gray and white matter are those of :footcite:t:`wright2008water`
   for the field strength (1.5, 3 or 7 T; other field strengths are not supported).
   The results depend on them: in gray matter, a 10% error in T1 changes CBF by about 10%.
+  These values come from a dedicated measurement of gray and white matter T1 at all three field
+  strengths, and are the ones *ASLPrep* already uses to correct short-TR M0 images.
+  Other ASL software uses a shorter gray matter T1 at 3 T:
+  1.3 s in BASIL (and so in ``--basil``), and 1.33 s in osipy and in the aslscan and ASLDRO
+  simulations, against 1.607 s here.
+  The tissue-T1 model's gray matter CBF is therefore about 20% lower than BASIL's would be
+  for the same data, from this choice alone.
+  White matter T1 does not differ in this way (0.838 s here, 0.83 s in aslscan).
 - **Flow in** :math:`T_1'`. :math:`T_1'` depends on CBF itself, which would make the model
   nonlinear. It is instead calculated with a nominal CBF of 60 mL/100 g/min for gray matter and
   20 mL/100 g/min for white matter. The flow term is small (about 2% of the relaxation rate in
