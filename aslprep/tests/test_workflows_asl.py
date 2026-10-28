@@ -998,7 +998,7 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
             basil=True,
             m0_scale=0.001,
         )
-        calibration = wf.get_node('compute_cbf').inputs.calibration
+        calibration = wf.get_node('runtime_calibration').inputs.calibration
         basil_node = wf.get_node('basilcbf')
         basil = basil_node.inputs
         to_basil = wf._graph.get_edge_data(wf.get_node('extract_deltam'), basil_node)['connect']
@@ -1141,18 +1141,30 @@ def test_init_asl_wf_calibration_outputs():
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
         wf = init_asl_wf(asl_file=str(asl_file))
         ds_calibration = wf.get_node('ds_calibration_wf.ds_calibration')
-        write_calibration = wf.get_node('ds_calibration_wf.write_calibration')
-        compute_cbf = wf.get_node('cbf_wf.compute_cbf')
+        cbf_wf = wf.get_node('cbf_wf')
+        ds_calibration_wf = wf.get_node('ds_calibration_wf')
+        ds_native_wf = wf.get_node('ds_asl_native_wf')
         ds_mean_cbf = wf.get_node('ds_asl_native_wf.ds_mean_cbf')
+        to_ds_calibration = wf._graph.get_edge_data(cbf_wf, ds_calibration_wf)['connect']
+        to_ds_native = wf._graph.get_edge_data(cbf_wf, ds_native_wf)['connect']
+        to_ds_mean_cbf = ds_native_wf._graph.get_edge_data(
+            ds_native_wf.get_node('inputnode'),
+            ds_mean_cbf,
+        )['connect']
 
     assert ds_calibration.inputs.desc == 'calibration'
     assert ds_calibration.inputs.suffix == 'parameters'
     assert wf.get_node('ds_calibration_wf.ds_report_calibration') is not None
-    calibration = write_calibration.inputs.calibration
-    assert calibration == compute_cbf.inputs.calibration
-    model = ds_mean_cbf.interface._metadata['Model']
-    assert 'ASLPrep' in model['Description']
-    assert model['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']['Value']
+    # The file, report and sidecars record the specification completed at run time
+    assert ('outputnode.calibration', 'inputnode.calibration') in to_ds_calibration
+    assert ('outputnode.model_metadata', 'inputnode.model_metadata') in to_ds_native
+    # The Model metadata reaches the sidecar at run time, not as a fixed sink argument
+    assert 'Model' not in ds_mean_cbf.interface._metadata
+    (source, _, args), _ = next(
+        connection for connection in to_ds_mean_cbf if connection[1] == 'meta_dict'
+    )
+    assert source == 'model_metadata'
+    assert args == ('mean_cbf',)
 
 
 def test_calibration_summary(tmp_path):

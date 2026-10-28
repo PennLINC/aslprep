@@ -20,8 +20,6 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.calibration import (
     DEFAULT_M0_SCALE,
     DEFAULT_SMOOTH_KERNEL,
-    MODELS,
-    describe_model,
     resolve_calibration,
 )
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
@@ -271,9 +269,11 @@ def init_asl_wf(
     n_reduced_vols = count_reduced_volumes(run_data['aslcontext'], processing_target)
 
     # Resolve the calibration and physiological parameters once, for every model and output.
-    # Pre-calculated CBF is not quantified, so it has none.
+    # Pre-calculated CBF is not quantified, so it has none. The CBF workflow completes this
+    # specification at run time, and its outputs carry the version every output records,
+    # with the "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives
+    # (BEP 016).
     calibration = None
-    model_metadata = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
             metadata,
@@ -293,16 +293,8 @@ def init_asl_wf(
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')
-        # The "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives (BEP 016)
-        model_metadata = {
-            model: describe_model(
-                calibration,
-                model,
-                asl_type=metadata['ArterialSpinLabelingType'],
-                multi_delay=determine_multi_pld(metadata=metadata),
-            )
-            for model in MODELS
-        }
+
+    with_model = calibration is not None
 
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
@@ -571,9 +563,18 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         ds_calibration_wf = init_ds_calibration_wf(
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
-            calibration=calibration,
         )
-        workflow.add_nodes([ds_calibration_wf])
+        workflow.connect([
+            (cbf_wf, ds_calibration_wf, [('outputnode.calibration', 'inputnode.calibration')]),
+        ])  # fmt:skip
+
+    def give_model_metadata(output_wf):
+        """Give an output workflow the run-time Model metadata of each model."""
+        if with_model:
+            workflow.connect([
+                (cbf_wf, output_wf, [('outputnode.model_metadata', 'inputnode.model_metadata')]),
+            ])  # fmt:skip
+
     workflow.connect([
         (inputnode, cbf_wf, [
             ('t1w_tpms', 'inputnode.t1w_tpms'),
@@ -620,7 +621,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     write_native = (config.workflow.level in ('minimal', 'resampling')) or aslref_out
     if write_native:
         ds_asl_native_wf = init_ds_asl_native_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -630,6 +631,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             att=att_derivs + native_att_derivs,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
+        give_model_metadata(ds_asl_native_wf)
 
         workflow.connect([
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
@@ -650,13 +652,14 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
             multi_delay=is_multi_pld,
         )
         ds_pvc_native_wf.inputs.inputnode.source_files = [asl_file]
+        give_model_metadata(ds_pvc_native_wf)
         workflow.connect([
             (cbf_wf, ds_pvc_native_wf, [
                 (f'outputnode.{field}', f'inputnode.{field}')
@@ -883,7 +886,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -895,6 +898,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='ds_asl_t1_wf',
         )
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
+        give_model_metadata(ds_asl_t1_wf)
 
         workflow.connect([
             (merge_asl_sources, ds_asl_t1_wf, [('out', 'inputnode.source_files')]),
@@ -939,7 +943,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -950,6 +954,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             asl_output=output_timeseries,
             name='ds_asl_std_wf',
         )
+        give_model_metadata(ds_asl_std_wf)
         workflow.connect([
             (merge_asl_sources, ds_asl_std_wf, [('out', 'inputnode.source_files')]),
             (asl_output_metadata, ds_asl_std_wf, [('out', 'inputnode.asl_metadata')]),
@@ -1045,7 +1050,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
         asl_surf_wf = init_asl_surf_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             mem_gb=mem_gb['resampled'],
             metadata=metadata,
             surface_spaces=freesurfer_spaces,
@@ -1057,6 +1062,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             name='asl_surf_wf',
         )
         asl_surf_wf.inputs.inputnode.source_file = asl_file
+        give_model_metadata(asl_surf_wf)
         workflow.connect([
             (merge_asl_sources, asl_surf_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_surf_wf, [
@@ -1123,7 +1129,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1135,6 +1141,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             asl_output=output_timeseries,
             name='ds_asl_cifti_wf',
         )
+        give_model_metadata(ds_asl_cifti_wf)
         workflow.connect([
             (merge_asl_sources, ds_asl_cifti_wf, [('out', 'inputnode.source_files')]),
             (inputnode, ds_asl_cifti_wf, [
@@ -1186,7 +1193,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
         asl_wb_surf_wf = init_asl_wb_surf_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             surface_spaces=surf_std,
             metadata=metadata,
@@ -1198,6 +1205,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             mem_gb=mem_gb['resampled'],
             name='asl_wb_surf_wf',
         )
+        give_model_metadata(asl_wb_surf_wf)
         workflow.connect([
             (merge_asl_sources, asl_wb_surf_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_wb_surf_wf, [

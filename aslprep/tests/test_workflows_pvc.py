@@ -181,10 +181,20 @@ def test_init_cbf_wf_lr_pvc_multidelay_calibration(tmp_path):
             metadata=metadata,
             aslcontext=pd.DataFrame({'volume_type': ['control', 'label'] * 6}),
         )
-        calibration = wf.get_node('compute_cbf').inputs.calibration
-        lr_calibration = wf.get_node('lr_pvc_wf').get_node('lr_pvc').inputs.calibration
+        runtime = wf.get_node('runtime_calibration')
+        calibration = runtime.inputs.calibration
+        to_compute = wf._graph.get_edge_data(runtime, wf.get_node('compute_cbf'))['connect']
+        to_lr = wf._graph.get_edge_data(runtime, wf.get_node('lr_pvc_wf'))['connect']
+        lr_wf = wf.get_node('lr_pvc_wf')
+        to_lr_pvc = lr_wf._graph.get_edge_data(
+            lr_wf.get_node('inputnode'),
+            lr_wf.get_node('lr_pvc'),
+        )['connect']
 
-    assert lr_calibration == calibration
+    # Both fits take the run-time specification from the same node
+    assert ('calibration', 'calibration') in to_compute
+    assert ('calibration', 'inputnode.calibration') in to_lr
+    assert ('calibration', 'calibration') in to_lr_pvc
     assert calibration_value(calibration, 'EffectiveLabelingEfficiency') == 0.7
     assert calibration['Parameters']['BloodT1']['Source'] == 'inferred'
 

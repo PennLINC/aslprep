@@ -47,7 +47,7 @@ def init_asl_surf_wf(
     cbf_4d: list[str],
     att: list[str],
     output_dir: str,
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name: str = 'asl_surf_wf',
 ):
     """Sample functional images to FreeSurfer surfaces.
@@ -92,9 +92,9 @@ def init_asl_surf_wf(
         native surface.
     medial_surface_nan : :obj:`bool`
         Replace medial wall values with NaNs on functional GIFTI files
-    model_metadata : :obj:`dict` or None
-        Added to the sidecars of the CBF and ATT maps
-        (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
+    with_model : :obj:`bool`
+        Whether to add the ``Model`` metadata from ``model_metadata`` to the sidecars of the
+        CBF and ATT maps (see :func:`~aslprep.workflows.asl.outputs.model_sidecar`).
 
     Inputs
     ------
@@ -102,6 +102,8 @@ def init_asl_surf_wf(
         Original ASL series
     source_files
         Files to list as Sources in the output metadata
+    model_metadata
+        The ``Model`` dictionary of each model (with ``with_model``).
     subjects_dir
         FreeSurfer SUBJECTS_DIR
     subject_id
@@ -121,7 +123,11 @@ def init_asl_surf_wf(
     from niworkflows.interfaces.surf import GiftiSetAnatomicalStructure
 
     from aslprep.interfaces.bids import BIDSURI
-    from aslprep.workflows.asl.outputs import output_fields, prepare_timing_parameters
+    from aslprep.workflows.asl.outputs import (
+        connect_model_metadata,
+        output_fields,
+        prepare_timing_parameters,
+    )
 
     timing_parameters = prepare_timing_parameters(metadata)
 
@@ -134,6 +140,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
     inputnode_fields = [
         'source_file',
         'source_files',
+        'model_metadata',
         'anat',
         'aslref2anat_xfm',
         'subject_id',
@@ -191,7 +198,7 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
     ])  # fmt:skip
 
     for cbf_deriv in cbf_4d + cbf_3d + att:
-        fields = output_fields(cbf_deriv, model_metadata)
+        fields = output_fields(cbf_deriv)
 
         kwargs = {}
         if cbf_deriv in cbf_4d:
@@ -278,6 +285,8 @@ The CBF maps were resampled onto the following surfaces (FreeSurfer reconstructi
             (itersource, ds_surfs, [('target', 'space')]),
             (update_metadata, ds_surfs, [('out_file', 'in_file')]),
         ])  # fmt:skip
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_surfs, cbf_deriv)
 
         # Refine if medial vertices should be NaNs
         medial_nans = pe.MapNode(
@@ -312,7 +321,7 @@ def init_asl_wb_surf_wf(
     att: list[str],
     omp_nthreads: int,
     mem_gb: float,
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name: str = 'asl_wb_surf_wf',
 ):
     """Resample CBF derivatives to surface templates using the Connectome Workbench.
@@ -363,9 +372,9 @@ def init_asl_wb_surf_wf(
         Maximum number of threads an individual process may use.
     mem_gb
         Size of the resampled ASL file in GB.
-    model_metadata
-        Added to the sidecars of the CBF and ATT maps
-        (see :func:`~aslprep.workflows.asl.outputs.output_fields`).
+    with_model
+        Whether to add the ``Model`` metadata from ``model_metadata`` to the sidecars of the
+        CBF and ATT maps (see :func:`~aslprep.workflows.asl.outputs.model_sidecar`).
     name
         Name of workflow (default: ``asl_wb_surf_wf``).
 
@@ -373,6 +382,8 @@ def init_asl_wb_surf_wf(
     ------
     source_files
         Files to list as Sources in the output metadata.
+    model_metadata
+        The ``Model`` dictionary of each model (with ``with_model``).
     anat_ref_file
         ASL-resolution reference image in anatomical space.
     aslref2anat_xfm
@@ -391,7 +402,11 @@ def init_asl_wb_surf_wf(
     from smriprep.workflows.surfaces import init_resample_surfaces_wf
 
     from aslprep.interfaces.bids import BIDSURI
-    from aslprep.workflows.asl.outputs import output_fields, prepare_timing_parameters
+    from aslprep.workflows.asl.outputs import (
+        connect_model_metadata,
+        output_fields,
+        prepare_timing_parameters,
+    )
 
     targets = []
     for ref in surface_spaces:
@@ -430,6 +445,7 @@ dilated by 10 mm, and then resampled to the following surface templates:
 
     inputnode_fields = [
         'source_files',
+        'model_metadata',
         'anat_ref_file',
         'aslref2anat_xfm',
         'white',
@@ -540,7 +556,7 @@ dilated by 10 mm, and then resampled to the following surface templates:
                     density=density,
                     extension='.func.gii',
                     **timing_parameters,
-                    **output_fields(cbf_deriv, model_metadata),
+                    **output_fields(cbf_deriv),
                 ),
                 iterfield=['in_file', 'hemi'],
                 name=f'ds_{cbf_deriv}_{template}_{density}',
@@ -563,5 +579,7 @@ dilated by 10 mm, and then resampled to the following surface templates:
                 (wb_surf_surf_wf, ds_cbf_surf, [('outputnode.bold_resampled', 'in_file')]),
                 (sources, ds_cbf_surf, [('out', 'Sources')]),
             ])  # fmt:skip
+            if with_model:
+                connect_model_metadata(workflow, inputnode, ds_cbf_surf, cbf_deriv)
 
     return workflow

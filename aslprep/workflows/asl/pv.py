@@ -170,7 +170,6 @@ def init_lr_pvc_wf(
     num_threads=1,
     use_gpu=False,
     mem_gb=None,
-    calibration=None,
     name='lr_pvc_wf',
 ):
     """Correct CBF maps for partial volume effects by local linear regression.
@@ -200,10 +199,6 @@ def init_lr_pvc_wf(
     mem_gb : :obj:`float` or None
         Memory to declare for the multi-delay node
         (see :func:`~aslprep.utils.pvc.estimate_lr_pvc_mem_gb`).
-    calibration : :obj:`dict` or None
-        Calibration specification for the multi-delay kinetic fits
-        (see :func:`~aslprep.utils.calibration.resolve_calibration`).
-        If None, it is resolved from the metadata of the delta-M series.
     name : :obj:`str`
         Workflow name.
 
@@ -219,6 +214,10 @@ def init_lr_pvc_wf(
     deltam, asl_metadata
         Multi-delay data only: the delta-M series that is unmixed, and its metadata (with
         the delays of the selected volumes).
+    calibration
+        Multi-delay data only: the calibration specification for the kinetic fits
+        (see :func:`~aslprep.utils.calibration.resolve_calibration`).
+        If not connected, it is resolved from the metadata of the delta-M series.
     att
         Multi-delay data only: the uncorrected ATT, which sets the shape of the CSF
         quality-control basis.
@@ -313,7 +312,7 @@ CSF was left out of the gray and white matter fit.
 
     in_fields = sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv']
     if multi_delay:
-        in_fields += ['deltam', 'asl_metadata', 'att']
+        in_fields += ['deltam', 'asl_metadata', 'att', 'calibration']
     inputnode = pe.Node(niu.IdentityInterface(fields=in_fields), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=out_fields), name='outputnode')
 
@@ -359,8 +358,6 @@ not estimated) gave an apparent CSF CBF, which should be near zero.
             mem_gb=mem_gb if mem_gb is not None else 2 + 0.1 * num_threads,
             n_procs=num_threads,
         )
-        if calibration is not None:
-            lr_pvc.inputs.calibration = calibration
         gm_cbf, wm_cbf = names['cbf']
         gm_att, wm_att = names['att']
         gm_lower, gm_upper, wm_lower, wm_upper = names['att_bounds']
@@ -379,6 +376,7 @@ not estimated) gave an apparent CSF CBF, which should be near zero.
                 ('csf_pv', 'csf_pv'),
                 ('mean_cbf', 'mean_cbf'),
                 ('att', 'att'),
+                ('calibration', 'calibration'),
             ]),
             (lr_pvc, outputnode, [
                 ('gm_cbf', gm_cbf),
