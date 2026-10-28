@@ -95,6 +95,41 @@ def test_check_t1map_field_strength():
     t1m.check_t1map_field_strength({**t1map, 'metadata': {}}, 3, 'sub-01_asl.nii.gz')
 
 
+def test_interface_defaults_can_be_documented():
+    """Every ASLPrep interface input with a default can be documented by nipype's Sphinx extension.
+
+    nipype's apidoc calls ``spec.default_value()`` on each such input. A ``default_value``
+    argument to a trait is stored as metadata that hides that method, which breaks the docs build.
+    """
+    import importlib
+    import pkgutil
+
+    from nipype.interfaces.base import BaseInterface
+
+    import aslprep.interfaces
+
+    checked = 0
+    for module_info in pkgutil.iter_modules(aslprep.interfaces.__path__):
+        module = importlib.import_module(f'aslprep.interfaces.{module_info.name}')
+        for obj in vars(module).values():
+            if not (
+                isinstance(obj, type)
+                and issubclass(obj, BaseInterface)
+                and obj.__module__ == module.__name__
+                and obj.input_spec
+            ):
+                continue
+
+            inputs = obj.input_spec()
+            for name, spec in inputs.traits(transient=None).items():
+                if spec.usedefault:
+                    assert callable(spec.default_value), f'{obj.__name__}.{name}'
+                    spec.default_value()
+                    checked += 1
+
+    assert checked
+
+
 def test_prepare_t1map(tmp_path):
     """A map in milliseconds is converted to seconds, with R1 and zeros where T1 is unusable."""
     from aslprep.interfaces.t1map import PrepareT1Map

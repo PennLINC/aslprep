@@ -82,10 +82,11 @@ class _MeasureTissueT1InputSpec(BaseInterfaceInputSpec):
         mandatory=True,
         desc='How the T1 map was aligned with the anatomical image, as named in the provenance.',
     )
+    # None first, so that it is the default. A default_value argument would be stored as trait
+    # metadata, which hides the trait's default_value method from nipype's documentation.
     field_strength = traits.Either(
-        traits.Float,
         None,
-        default_value=None,
+        traits.Float,
         usedefault=True,
         desc='Field strength of the T1 map, in tesla, to check the measured values against.',
     )
