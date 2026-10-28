@@ -781,8 +781,10 @@ so "aBAT" should not be read as a synonym of ATT.
 Both depend on where the labeling plane or slab was placed,
 so they are not directly comparable across studies.
 
-For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
-:footcite:t:`woods2023recommendations`.
+For multi-delay ASL, ASLPrep uses by default (``--kinetic-model consensus``)
+the two-compartment general kinetic model recommended by
+:footcite:t:`woods2023recommendations`, given below.
+The optional tissue-T1 model changes its tissue term (see :ref:`tissue_t1_model`).
 The two-compartment model predicts the :math:`\Delta{M}` signal as a sum of two components:
 a tissue compartment and an intravascular compartment.
 The tissue compartment reflects labeled blood water that has reached the capillary bed in the
@@ -795,7 +797,7 @@ overestimation of CBF at voxels near the arteries.
 Pseudo-Continuous ASL
 ---------------------
 
-The tissue compartment is modeled as:
+In the consensus model, the tissue compartment is modeled as:
 
 .. math::
    :label: woods_eq2
@@ -828,6 +830,8 @@ which already includes the loss of label caused by background suppression.
 
 Pulsed ASL
 ----------
+
+In the consensus model, the tissue compartment is modeled as:
 
 .. math::
    :label: woods_eq3
@@ -871,6 +875,8 @@ including after it has left the blood for the tissue.
 In fact, once the labeled water is in the tissue it decays with the tissue's apparent T1,
 :math:`T_1' = 1 / (1 / T_{1,tissue} + f / \lambda)`, which is shorter than the T1 of blood,
 especially in white matter :footcite:p:`buxton1998general`.
+Here :math:`f` is CBF in mL/g/s (:math:`CBF / 6000`, with CBF in mL/100 g/min)
+and :math:`\lambda` is the blood-brain partition coefficient (0.9 mL/g).
 With long delays this matters:
 on aslscan simulations, which model this relaxation,
 the consensus model underestimates white matter CBF and ATT,
@@ -884,7 +890,7 @@ For PCASL, with :math:`k = 1 / T_{1b} - 1 / T_1'`:
 
 .. math::
 
-   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot M_{0a} \cdot CBF \cdot T_1' \cdot e^{- \frac{ATT}{T_{1b}}}}{6000} \cdot \begin{cases}
+   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot T_1' \cdot e^{- \frac{ATT}{T_{1b}}}}{6000} \cdot \begin{cases}
       0 & \text{if } LD + PLD < ATT \\
       1 - e^{- \frac{LD + PLD - ATT}{T_1'}} & \text{if } ATT < LD + PLD < ATT + LD \\
       e^{- \frac{PLD - ATT}{T_1'}} \cdot \left(1 - e^{- \frac{LD}{T_1'}}\right) & \text{if } ATT < PLD \\
@@ -894,7 +900,7 @@ and for PASL:
 
 .. math::
 
-   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}}}{6000} \cdot \begin{cases}
+   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}}}{6000} \cdot \begin{cases}
       0 & \text{if } TI < ATT \\
       \frac{e^{k (TI - ATT)} - 1}{k} & \text{if } ATT < TI < ATT + TI_1 \\
       e^{k (TI - ATT - TI_1)} \cdot \frac{e^{k \cdot TI_1} - 1}{k} & \text{if } ATT + TI_1 < TI \\
@@ -914,14 +920,18 @@ Choices this model makes:
 
 - **Tissue T1.** The T1s of gray and white matter are those of :footcite:t:`wright2008water`
   for the field strength (1.5, 3 or 7 T; other field strengths are not supported).
-  The results depend on them: in gray matter, a 10% error in T1 changes CBF by about 10%.
+  The results depend on them: in gray matter, with delays of 0.5-4 s (PCASL) and an ATT of
+  1 s, a 10% error in T1 changes CBF by about 10%. The size of the change depends on the
+  delays, labeling duration and ATT.
   These values come from a dedicated measurement of gray and white matter T1 at all three field
-  strengths, and are the ones *ASLPrep* already uses to correct short-TR M0 images.
+  strengths, and the gray matter value is the one *ASLPrep* already uses to correct short-TR M0
+  images.
   Other ASL software uses a shorter gray matter T1 at 3 T:
   1.3 s in BASIL (and so in ``--basil``), and 1.33 s in osipy and in the aslscan and ASLDRO
   simulations, against 1.607 s here.
-  The tissue-T1 model's gray matter CBF is therefore about 20% lower than BASIL's would be
-  for the same data, from this choice alone.
+  The tissue-T1 model's gray matter CBF is therefore lower than BASIL's would be for the same
+  data, from this choice alone: on the long-delay 3D GRASE aslscan simulation (delays 0.5-4 s),
+  about 20% lower.
   White matter T1 does not differ in this way (0.838 s here, 0.83 s in aslscan).
 - **Flow in** :math:`T_1'`. :math:`T_1'` depends on CBF itself, which would make the model
   nonlinear. It is instead calculated with a nominal CBF of 60 mL/100 g/min for gray matter and
@@ -1012,8 +1022,9 @@ With the tissue-T1 model (``--kinetic-model tissue-t1``), this is different in t
 In a voxel of one tissue, the ATT range is the same, but CBF is not unaffected:
 it is scaled by :math:`e^{ATT (1 / T_1' - 1 / T_{1b})}`,
 so it depends on the ATT reported from the range.
-In white matter at 3 T, a range of 1 s spans a factor of about 1.8 in CBF,
-and with the true ATT at the low end of the range, CBF is about 20% low.
+In white matter at 3 T, a range of 1 s spans a factor of about 1.8 in CBF.
+ATT is reported at the middle of the range,
+so with the true ATT at the low end of the range, CBF is about 25% low.
 In a voxel that mixes gray and white matter, the two tissues' terms scale by different factors,
 so the fit can locate ATT from the shape of their sum alone.
 That estimate rests on the assumed tissue T1s, nominal CBFs and partial volumes,

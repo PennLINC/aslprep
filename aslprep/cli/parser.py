@@ -558,9 +558,11 @@ any spatial references.""",
             'throughout, even after it has left the blood for the tissue. '
             "'tissue-t1': the labeled blood water decays with the T1 of blood until it reaches the "
             'tissue, and with the apparent T1 of gray and white matter afterwards '
-            '(Buxton et al., 1998). This removes the bias the consensus model gives ATT and CBF '
-            'at long delays, especially in white matter. It uses default tissue T1s for the '
-            'field strength (Wright et al., 2008), and its results depend on them. '
+            '(Buxton et al., 1998). This can reduce the bias in ATT and CBF that the consensus '
+            "model's blood-T1 decay causes at long delays, especially in white matter. "
+            'Experimental: on simulated data it currently overestimates white matter CBF. '
+            'It uses default tissue T1s for the field strength (Wright et al., 2008), '
+            'and its results depend on them. '
             'Only available for multi-delay data; single-delay runs stop with an error. '
             'BASIL always uses its own model.'
         ),

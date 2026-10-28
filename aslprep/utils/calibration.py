@@ -514,8 +514,9 @@ def resolve_calibration(
                 'ASLPrep default',
                 (
                     f'Nominal CBF of {tissue} matter in the tissue-T1 kinetic model. It sets the '
-                    'flow term of the apparent tissue T1, 1 / (1 / T1 + CBF / lambda), and the '
-                    "weight of the tissue's signal in voxels that mix gray and white matter."
+                    'flow term of the apparent tissue T1, 1 / (1 / T1 + (CBF / 6000) / lambda), '
+                    "with CBF / 6000 in mL/g/s, and the weight of the tissue's signal in voxels "
+                    'that mix gray and white matter.'
                 ),
                 units='mL/100 g/min',
             )

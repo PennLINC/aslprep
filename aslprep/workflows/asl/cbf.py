@@ -335,7 +335,8 @@ Cerebral blood flow computation and denoising
 Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
 blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
 reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
-1 / (1 / T1 + f / lambda) [@buxton1998general].
+1 / (1 / T1 + f / lambda), with f the CBF in mL/g/s and lambda the blood-brain partition
+coefficient [@buxton1998general].
 The T1s of gray and white matter were set to
 {calibration_value(calibration, 'GrayMatterT1'):g} s and
 {calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
