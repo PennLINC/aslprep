@@ -1042,3 +1042,11 @@ FSL conversions, the fixture truth or the semi-synthetic expectation).
 | 6 | Reused results could be stale after an input changed | Direct registrations are fingerprinted (inputs and commands) and reused only on a match; ASLPrep runs are reused only for the same image, source, inputs and arguments; `--rescore` is documented as unfingerprinted |
 | 7 | The real-data table used only the axis calibration of the mask rule | Both calibrations reported |
 | - | The validation outputs live outside the repository | Rejected: the probe's data stay out of the repository by design, and the committed scripts regenerate them |
+
+**Final Codex code review of the fixes (`c3f2743`, 2026-10-29).** Two findings, both fixed. (1)
+ASLPrep reuse recorded the inputs' paths only, so an input or source edited in place would be
+reused. Each run now stores a stamp of every input file's path, size and modification time (the
+dataset's top-level files, the subject's directory, the mounted source), and reuse needs it to
+match. Runs recorded before the stamp match on the rest, since their inputs have not changed. (2)
+An R0 that failed its reproduction check was still scored. It is now excluded from every table and
+listed as excluded, not counted as a failure.

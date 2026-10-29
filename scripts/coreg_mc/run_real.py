@@ -176,7 +176,8 @@ def run_one(row, args):
     """Register every arm on one run (``--rescore``: reuse the work directory as it is).
 
     Returns a dict: ``row``, ``work``, ``arms`` ({arm: pull}), ``fallbacks``, ``missing`` (expected
-    arms with no transform: failures to run), ``key`` (``comparable_key``), ``anat`` and
+    arms with no transform: failures to run), ``excluded`` (R0, when its reproduction differs by
+    more than ``R0_REPRODUCTION_MM``), ``key`` (``comparable_key``), ``anat`` and
     ``subject_level`` (``anatomical_reference``), and ``r0_vs_reproduction_mm``.
     """
     record = record_for(row)
@@ -207,8 +208,16 @@ def run_one(row, args):
     if 'R0 production' in arms and reproduction is not None:
         r0_vs = scoring.distance(arms['R0 production'], reproduction, brain_points(work))
 
+    # An R0 its reproduction does not match is not comparable with the other arms (the harness is
+    # not looking at the same anatomy or transform): it is excluded, not scored and not a failure.
+    excluded = []
+    if r0_vs > R0_REPRODUCTION_MM:
+        arms.pop('R0 production')
+        excluded.append('R0 production')
+
     stored = {k: np.asarray(v).tolist() for k, v in arms.items()}
-    stored |= {'fallbacks': sorted(fallbacks), 'missing': missing, 'anat': str(anat)}
+    stored |= {'fallbacks': sorted(fallbacks), 'missing': missing, 'excluded': excluded}
+    stored['anat'] = str(anat)
     stored['r0_vs_reproduction_mm'] = r0_vs
     (work / 'transforms.json').write_text(json.dumps(stored, indent=1) + '\n')
     return {
@@ -217,6 +226,7 @@ def run_one(row, args):
         'arms': arms,
         'fallbacks': fallbacks,
         'missing': missing,
+        'excluded': excluded,
         'key': comparable_key(row, work),
         'anat': anat,
         'subject_level': subject_level,
@@ -428,6 +438,7 @@ def gross_failures(runs, cons_rows):
                 | {
                     'arm': arm,
                     'no_transform': False,
+                    'excluded': False,
                     'dice': axes['dice'],
                     'best_dice': axes['best_dice'],
                     'best_arm': axes['best_arm'],
@@ -444,12 +455,14 @@ def gross_failures(runs, cons_rows):
 
         failed = {
             'no_transform': True,
+            'excluded': False,
             'gross_mask_axes': True,
             'gross_mask_rigid': True,
             'gross_any_partner': True,
             'gross_every_partner': True,
         }
         rows += [base | {'arm': arm} | failed for arm in run['missing']]
+        rows += [base | {'arm': arm, 'excluded': True} for arm in run['excluded']]
     return rows
 
 
@@ -486,8 +499,8 @@ def main(argv=None):
         runs.append(run)
         r0_vs = run['r0_vs_reproduction_mm']
         note = ''
-        if r0_vs > R0_REPRODUCTION_MM:
-            note = f'; R0 differs from its reproduction by {r0_vs:.2f} mm'
+        if run['excluded']:
+            note = f'; R0 excluded: {r0_vs:.2f} mm from its reproduction'
 
         print(f'{row["run"]}: {len(run["arms"])} arms, missing {run["missing"]}{note}', flush=True)
 

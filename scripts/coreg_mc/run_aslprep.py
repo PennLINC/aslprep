@@ -19,6 +19,7 @@ Usage (in WSL)::
 import argparse
 import base64
 import csv
+import hashlib
 import json
 import os
 import shutil
@@ -34,6 +35,32 @@ SITE = '/app/.pixi/envs/aslprep/lib/python3.12/site-packages/aslprep'
 LICENSE = (
     'bWF0dGhldy5jaWVzbGFrQHBzeWNoLnVjc2IuZWR1CjIwNzA2CipDZmVWZEg1VVQ4clkKRlNCWVouVWtlVElDdwo='
 )
+
+
+def tree_stamp(paths):
+    """A digest of the path, size and modification time of every file under ``paths``.
+
+    Cheap enough for whole BIDS subjects, and it changes when a file is edited in place.
+    """
+    digest = hashlib.sha256()
+    for root in paths:
+        root = Path(root)
+        files = sorted(root.rglob('*')) if root.is_dir() else [root]
+        for f in files:
+            if f.is_file():
+                stat = f.stat()
+                digest.update(f'{f}\0{stat.st_size}\0{stat.st_mtime_ns}\n'.encode())
+    return digest.hexdigest()
+
+
+def input_paths(job, args):
+    """What a run reads: the dataset's top-level files, the subject's directory, the source."""
+    root = Path(job['root'])
+    paths = [p for p in root.iterdir() if p.is_file()]
+    paths.append(root / f'sub-{job["subject"]}')
+    if args.src:
+        paths.append(args.src / 'aslprep')
+    return paths
 
 
 def identity_of(record):
@@ -104,7 +131,9 @@ def run_job(job, args):
         *extra,
     ]
     # A finished run is reused only if it was made by the same image, source mount, inputs and
-    # ASLPrep arguments (the shared TemplateFlow cache's location does not change the results).
+    # ASLPrep arguments (the shared TemplateFlow cache's location does not change the results),
+    # and its input files (and the mounted source) are unchanged since. Runs recorded before the
+    # stamp existed (the 2026-10-29 batch, whose inputs have not changed) match on the rest.
     identity = {
         'image': IMAGE,
         'src': str(args.src) if args.src else None,
@@ -112,9 +141,11 @@ def run_job(job, args):
         'filters': job.get('filters', ''),
         'arguments': cmd[cmd.index(IMAGE) + 1 :],
     }
+    stamp = tree_stamp(input_paths(job, args))
     if done.exists() and not args.rerun:
         previous = json.loads(done.read_text())
-        if previous.get('identity', identity_of(previous)) == identity:
+        same = previous.get('identity', identity_of(previous)) == identity
+        if same and previous.get('input_stamp', stamp) == stamp:
             return tag, previous['returncode']
 
     for d in (out, work):
@@ -139,6 +170,7 @@ def run_job(job, args):
         'seconds': round(time.time() - start),
         'cmd': cmd,
         'identity': identity,
+        'input_stamp': stamp,
     }
     done.write_text(json.dumps(record, indent=2) + '\n')
     if proc.returncode == 0:
