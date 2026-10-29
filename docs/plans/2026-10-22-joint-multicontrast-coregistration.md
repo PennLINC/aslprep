@@ -37,6 +37,22 @@ tag built from `072ee0f` itself, so no source is mounted). What changed on resum
   perfusion image: the series is what the HMC probe's D3 levels (P-robust, P-winsor), its
   eligibility statistic and its multi-delay pair selection need, so R2 stays the probe's design.
   Fixture run times with the series: 5.3-6.9 min (5.4-6.8 without).
+- ASLPrep batch finished 2026-10-29: all 31 panel and 91 extension subjects ran (median 57-62
+  min, four at a time; `ds007522` subjects, about eight runs over two sessions, took 3.5-15 h).
+  Five failed on the first pass:
+  - `ds007116_sub-20976` and `ds004146_sub-0387`: TemplateFlow S3 downloads (SSL EOF). Every
+    run set its own `HOME`, so none used the image's template cache; `run_aslprep.py
+    --templateflow` now mounts one shared cache seeded from it.
+  - `ds007522_sub-HML0197`: a worker reached 18.6 GB in sdcflows' B-spline fieldmap fit and was
+    killed by the kernel (global out-of-memory, four runs on 31 GB; `--mem 6500` did not bound
+    it), after which nipype's MultiProc hung on the broken pool for 19 h.
+  - `ds006148_sub-C00045`: FSL FAST.
+  - `ds007522_sub-HML0257`: parcellation and the CBF-by-tissue plot raise on mask and CBF
+    affines that differ at about 1e-8 (nilearn's exact check). An ASLPrep bug, not yet reported;
+    every run's series, transform and coregistration reference were written before it, so the
+    run is used as is.
+
+  The first four were rerun with the shared cache (HML0197 alone, 1.5 h) and all succeeded.
 
 **Engine pilot, simulation part (2026-10-27; `rc_pcasl`, `rc_grase`, `st_spiral`, `derivatives`
 anatomy, one seed).** RMS error in mm against the corrected series' truth (`F R^-1`):
