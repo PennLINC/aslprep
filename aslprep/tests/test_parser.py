@@ -394,6 +394,27 @@ def test_t1map_method_options(tmp_path, supp_args, method, kernel):
 
 
 @pytest.mark.parametrize(
+    ('supp_args', 'fill', 'ignored'),
+    [([], 'median', False), (['--att-fill', 'none', '--ignore', 'att'], 'none', True)],
+)
+def test_att_options(tmp_path, supp_args, fill, ignored):
+    """The external ATT options reach the config and survive a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.att_fill == fill
+    assert ('att' in config.workflow.ignore) == ignored
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.att_fill == fill
+    reset_config()
+
+
+@pytest.mark.parametrize(
     ('supp_args', 'message'),
     [
         (['--asl-effective-resolution', '3', '3'], 'three FWHM values'),
@@ -408,6 +429,7 @@ def test_t1map_method_options(tmp_path, supp_args, method, kernel):
         (['--t1map-kernel-size', 'nan'], 'at least 3 mm'),
         (['--t1map-kernel-size', 'inf'], 'at least 3 mm'),
         (['--t1map-method', 'mean'], 'invalid choice'),
+        (['--att-fill', 'mean'], 'invalid choice'),
     ],
 )
 def test_pvc_option_errors(tmp_path, capsys, supp_args, message):

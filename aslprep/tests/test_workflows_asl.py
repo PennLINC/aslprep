@@ -1073,7 +1073,7 @@ def test_init_cbf_wf_tissue_t1(tmp_path, pvc_method):
 
         single_delay = {**metadata, 'PostLabelingDelay': 1.8}
         config.workflow.kinetic_model = 'tissue-t1'
-        with pytest.raises(ValueError, match='only available for multi-delay data'):
+        with pytest.raises(ValueError, match='needs an arterial transit time map'):
             init_cbf_wf(
                 name_source=str(asl_file),
                 processing_target='control',

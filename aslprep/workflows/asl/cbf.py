@@ -90,6 +90,7 @@ def init_cbf_wf(
     asl_effective_resolution='nominal',
     calibration=None,
     t1map=None,
+    external_att=None,
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -149,6 +150,9 @@ def init_cbf_wf(
         The participant's T1 map (see :func:`~aslprep.utils.bids.collect_t1map`).
         With the tissue-T1 kinetic model, the tissue T1s measured from it (the
         ``tissue_t1_updates`` input) replace the defaults at run time.
+    external_att : :obj:`dict` or None
+        An ATT map from a multi-delay run (see :func:`~aslprep.utils.bids.collect_external_att`),
+        which the tissue-T1 kinetic model needs for single-delay data.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
@@ -177,6 +181,9 @@ def init_cbf_wf(
         t1w probability maps
     aslref2anat_xfm
         asl to t1w transformation file
+    t1w_preproc
+        The anatomical image, which must be the one the ``external_att`` run was registered to.
+        Only with ``external_att``.
 
     Outputs
     -------
@@ -209,6 +216,10 @@ def init_cbf_wf(
     gm_t1, wm_t1
         The per-voxel gray and white matter T1s used by the tissue-T1 model, on the ASL
         reference grid (with ``tissue_gm_r1`` and ``tissue_wm_r1``).
+    external_att, external_att_status, external_att_summary
+        The ATT the single-delay tissue-T1 model used, where it came from in each voxel
+        (see :data:`~aslprep.utils.att.EXTERNAL_ATT_STATUS`), and a summary (with
+        ``external_att``).
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -263,6 +274,7 @@ Cerebral blood flow computation and denoising
             smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
             basil=basil,
             kinetic_model=config.workflow.kinetic_model,
+            external_att=external_att is not None,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(warning)
@@ -274,6 +286,8 @@ Cerebral blood flow computation and denoising
     use_t1map = t1map is not None and tissue_t1 is not None
     # With the local-regression method, the T1 map also gives tissue T1s in each voxel
     tissue_t1_maps = use_t1map and config.workflow.t1map_method == 'local-regression'
+    # Single-delay data use each voxel's ATT from a multi-delay run in the tissue-T1 model
+    use_external_att = external_att is not None and tissue_t1 is not None and not is_multi_pld
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
         # The M0 image is smoothed as the specification records (absent for an M0Estimate).
@@ -336,6 +350,47 @@ Cerebral blood flow computation and denoising
             'treated as having no signal, and were given no CBF estimate.'
         )
 
+    tissue_t1_str = ''
+    if tissue_t1 is not None:
+        t1prime = tissue_t1['t1prime']
+        nominal_cbf_str = (
+            f'nominal CBFs of {calibration_value(calibration, "NominalGrayMatterCBF"):g} and '
+            f'{calibration_value(calibration, "NominalWhiteMatterCBF"):g} mL/100 g/min'
+        )
+        if tissue_t1_maps:
+            t1_values_str = f"""\
+The T1s of gray and white matter in each voxel were measured from the participant's T1 map by
+local regression, with the medians over pure-tissue voxels where a tissue could not be separated
+(the medians are recorded with the calibration parameters), and f was set to {nominal_cbf_str}.
+"""
+        elif use_t1map:
+            # The values are only known at run time; they are in the calibration file.
+            t1_values_str = f"""\
+The T1s of gray and white matter were measured from the participant's T1 map, as medians over
+pure-tissue voxels (the values are recorded with the calibration parameters), and f was set to
+{nominal_cbf_str}.
+"""
+        else:
+            t1_values_str = f"""\
+The T1s of gray and white matter were set to
+{calibration_value(calibration, 'GrayMatterT1'):g} s and
+{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
+{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
+and f to {nominal_cbf_str},
+which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
+"""
+        tissue_t1_str = f"""
+Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
+blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
+reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
+1 / (1 / T1 + f / lambda), with f the CBF in mL/g/s and lambda the blood-brain partition
+coefficient [@buxton1998general].
+{t1_values_str}\
+In voxels that mixed gray and white matter, the tissue term was the sum of the two tissues'
+terms, weighted by their partial volumes times their nominal CBFs, with one ATT and one CBF
+per voxel. CSF was not modeled as perfused.
+"""
+
     if processing_target == 'cbf':
         workflow.__desc__ += """\
 : *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
@@ -355,47 +410,6 @@ Cerebral blood flow computation and denoising
             if m0type == 'Estimate'
             else 'M0 divided by the blood-brain partition coefficient'
         )
-        tissue_t1_str = ''
-        if tissue_t1 is not None:
-            t1prime = tissue_t1['t1prime']
-            nominal_cbf_str = (
-                f'nominal CBFs of {calibration_value(calibration, "NominalGrayMatterCBF"):g} and '
-                f'{calibration_value(calibration, "NominalWhiteMatterCBF"):g} mL/100 g/min'
-            )
-            if tissue_t1_maps:
-                t1_values_str = f"""\
-The T1s of gray and white matter in each voxel were measured from the participant's T1 map by
-local regression, with the medians over pure-tissue voxels where a tissue could not be separated
-(the medians are recorded with the calibration parameters), and f was set to {nominal_cbf_str}.
-"""
-            elif use_t1map:
-                # The values are only known at run time; they are in the calibration file.
-                t1_values_str = f"""\
-The T1s of gray and white matter were measured from the participant's T1 map, as medians over
-pure-tissue voxels (the values are recorded with the calibration parameters), and f was set to
-{nominal_cbf_str}.
-"""
-            else:
-                t1_values_str = f"""\
-The T1s of gray and white matter were set to
-{calibration_value(calibration, 'GrayMatterT1'):g} s and
-{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
-{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
-and f to {nominal_cbf_str},
-which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
-"""
-            tissue_t1_str = f"""
-Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
-blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
-reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
-1 / (1 / T1 + f / lambda), with f the CBF in mL/g/s and lambda the blood-brain partition
-coefficient [@buxton1998general].
-{t1_values_str}\
-In voxels that mixed gray and white matter, the tissue term was the sum of the two tissues'
-terms, weighted by their partial volumes times their nominal CBFs, with one ATT and one CBF
-per voxel. CSF was not modeled as perfused.
-"""
-
         workflow.__desc__ += f"""\
 : *ASLPrep* calculated cerebral blood flow (CBF) from the multi-delay
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
@@ -432,6 +446,36 @@ ATT was considered located where this interval excluded zero
 and was at most {ATT_LOCATED_WIDTH:g} s wide.{abv_str}{
             ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
         }
+"""
+
+    elif use_external_att:
+        from aslprep.utils.att import MIN_LOCATED_WEIGHT, MIN_RELATIVE_BASIS
+
+        fill_str = (
+            "Where that run had not located ATT, the voxel's ATT was imputed as the medians of "
+            'the located ATTs in gray and white matter (weighted by partial volume), combined with '
+            'the same weights as the tissue terms, and clipped into the ATT interval of the '
+            'multi-delay fit when it had one, so that the CBF of those voxels is model-imputed.'
+            if config.workflow.att_fill == 'median'
+            else 'Voxels where that run had not located ATT were given no CBF.'
+        )
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+{metadata['ArterialSpinLabelingType']} data using a one-compartment general kinetic model
+[@buxton1998general] with the tissue-T1 extension described below, which needs the arterial
+transit time (ATT) of each voxel.
+ATT was taken from a multi-delay ASL run of the participant, processed with the same model, and
+brought onto this run's ASL reference grid through both runs' transforms to the anatomical
+reference, with linear interpolation of the voxels where that run had located ATT
+(a voxel counted as located when at least {100 * MIN_LOCATED_WEIGHT:g}% of its interpolation
+weight came from located voxels).
+{fill_str}
+With ATT known, the model is linear in CBF, so CBF was calculated for each volume by dividing
+the perfusion signal by M0 of blood times the model's tissue signal per unit CBF, without an
+arterial term. Voxels where that signal was below {100 * MIN_RELATIVE_BASIS:g}% of its value with
+all of the label arrived (ATT near or after the end of the bolus) were given no CBF.
+{tissue_t1_str}
+{m0_str}
 """
 
     elif is_casl:
@@ -544,6 +588,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'tissue_t1_warnings',
                 'tissue_gm_r1',
                 'tissue_wm_r1',
+                't1w_preproc',
             ],
         ),
         name='inputnode',
@@ -590,6 +635,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 # Per-voxel tissue T1s (--t1map-method local-regression)
                 'gm_t1',
                 'wm_t1',
+                # The external ATT of single-delay data with the tissue-T1 model
+                'external_att',
+                'external_att_status',
+                'external_att_summary',
             ]
             + pv_fields
             + lr_fields
@@ -798,6 +847,63 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 ('outputnode.gm_pv', 'gm_pv'),
                 ('outputnode.wm_pv', 'wm_pv'),
             ]),
+        ])  # fmt:skip
+
+    if use_external_att:
+        from aslprep.interfaces.att import ExternalATT
+
+        # Set here, rather than on the node, so that files are only checked when it runs
+        file_fields = [
+            'att',
+            'att_status',
+            'att_ci_lower',
+            'att_ci_upper',
+            'aslref2anat',
+            't1w_preproc',
+        ]
+        external_att_files = pe.Node(
+            niu.IdentityInterface(fields=file_fields),
+            name='external_att_files',
+        )
+        for field in file_fields:
+            setattr(external_att_files.inputs, field, external_att[field])
+
+        resample_external_att = pe.Node(
+            ExternalATT(
+                nominal_cbf=[float(value) for value in tissue_t1['nominal_cbf']],
+                fill=config.workflow.att_fill,
+                source_name=external_att['uri'],
+            ),
+            name='resample_external_att',
+            mem_gb=1.0,
+        )
+        workflow.connect([
+            (external_att_files, resample_external_att, [
+                ('att', 'att'),
+                ('att_status', 'att_status'),
+                ('att_ci_lower', 'att_ci_lower'),
+                ('att_ci_upper', 'att_ci_upper'),
+                ('aslref2anat', 'source_aslref2anat'),
+                ('t1w_preproc', 'source_t1w'),
+            ]),
+            (inputnode, resample_external_att, [
+                ('t1w_preproc', 't1w_preproc'),
+                ('aslref2anat_xfm', 'aslref2anat'),
+                ('asl_mask', 'reference'),
+            ]),
+            (asl_pv_wf, resample_external_att, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+            (resample_external_att, compute_cbf, [
+                ('att', 'external_att'),
+                ('att_status', 'external_att_status'),
+            ]),
+            (resample_external_att, outputnode, [
+                ('att', 'external_att'),
+                ('summary', 'external_att_summary'),
+            ]),
+            (compute_cbf, outputnode, [('external_att_status', 'external_att_status')]),
         ])  # fmt:skip
 
     if tissue_t1_maps:

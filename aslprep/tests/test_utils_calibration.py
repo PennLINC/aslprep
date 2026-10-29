@@ -523,9 +523,18 @@ def test_tissue_t1_kinetics_m0_estimate():
 
 
 def test_resolve_calibration_tissue_t1_refusals():
-    """The tissue-T1 model is refused for single-delay data and unknown models."""
-    with pytest.raises(ValueError, match='only available for multi-delay data'):
+    """The tissue-T1 model is refused for single-delay data without an ATT map, and unknown models."""
+    with pytest.raises(ValueError, match='needs an arterial transit time map'):
         resolve_calibration(PCASL, m0tr=6.0, kinetic_model='tissue-t1')
+
+    # With an ATT map from a multi-delay run, single-delay data can use it
+    calibration = resolve_calibration(
+        PCASL,
+        m0tr=6.0,
+        kinetic_model='tissue-t1',
+        external_att=True,
+    )
+    assert 'GrayMatterT1' in calibration['Parameters']
 
     with pytest.raises(ValueError, match='Unknown kinetic model'):
         resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='buxton')

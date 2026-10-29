@@ -361,12 +361,15 @@ def _build_parser():
             'cbf',
             'deltam',
             't1map',
+            'att',
         ],
         help=(
             'ignore selected aspects of the input dataset to disable corresponding '
             'parts of the workflow (a space delimited list)\n'
             " * t1map: Ignore the participant's T1 map, so the tissue-T1 kinetic model uses the "
             'default tissue T1s for the field strength\n'
+            ' * att: Do not look for an ATT map from a multi-delay run, which the tissue-T1 '
+            'kinetic model needs for single-delay runs\n'
             ' * cbf: Ignore CBF volumes in the ASL file (for example, maps calculated '
             'on the scanner). They are neither processed nor used for the reference image\n'
             ' * deltam: Ignore delta-M volumes in the ASL file, in the same way\n'
@@ -568,7 +571,8 @@ any spatial references.""",
             'participant (an anat/*_T1map image, in a --derivatives dataset or the raw dataset) when '
             'there is one, and otherwise are the defaults for the field strength '
             '(Wright et al., 2008). See --ignore t1map. '
-            'Only available for multi-delay data; single-delay runs stop with an error. '
+            'Single-delay runs need the ATT map of a multi-delay run (see --att-fill), and '
+            'stop with an error without one. '
             'BASIL always uses its own model. See also --t1map-method.'
         ),
     )
@@ -657,6 +661,30 @@ any spatial references.""",
             'Edge, in mm, of the cube in which --t1map-method local-regression separates the '
             'tissue T1s, rounded to an odd number of anatomical voxels, and at least 3, along '
             'each axis.'
+        ),
+    )
+
+    g_att = parser.add_argument_group(
+        'Options for using external ATT maps',
+        description=(
+            'These options are only used with --kinetic-model tissue-t1, for single-delay runs, '
+            'which that model can only quantify with the arterial transit time (ATT) of each '
+            'voxel: ASLPrep takes it from the native-space ATT map of a multi-delay run of the '
+            'participant, processed with --kinetic-model tissue-t1, in a --derivatives dataset. '
+            'Use --ignore att to not look for one (single-delay runs then stop with an error).'
+        ),
+    )
+    g_att.add_argument(
+        '--att-fill',
+        action='store',
+        choices=['median', 'none'],
+        default='median',
+        help=(
+            'How to fill the voxels where the multi-delay run did not locate ATT. '
+            "'median' (default): the medians of the located ATTs in gray and white matter, "
+            "combined as the tissue-T1 model weights the tissues, and clipped into the voxel's "
+            'ATT interval from the multi-delay fit when it has one. Their CBF is model-imputed. '
+            "'none': those voxels get no CBF."
         ),
     )
 
