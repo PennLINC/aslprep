@@ -150,7 +150,13 @@ def test_build_pv_maps_clip():
     np.testing.assert_allclose(maps[1][2:-2, 2:-2, 2:-2], 1.5)
     with pytest.raises(ValueError, match='clip values'):
         build_pv_maps(
-            [field], AFFINE, shape, AFFINE, np.eye(4), fwhm=(1, 1, 1), clip=[True, False]
+            [field],
+            AFFINE,
+            shape,
+            AFFINE,
+            np.eye(4),
+            fwhm=(1, 1, 1),
+            clip=[True, False],
         )
 
 
@@ -201,9 +207,8 @@ def test_partial_volume_maps_tissue_t1(tmp_path):
     inside = gm_pv > 0.05
     assert inside.sum() > 100
     # A constant R1 gives exactly its T1; a varying one gives a T1 within its range
-    np.testing.assert_allclose(
-        wm_t1[nb.load(out.wm_pv).get_fdata() > 0.05], 1 / R1['wm'], rtol=1e-5
-    )
+    wm_inside = nb.load(out.wm_pv).get_fdata() > 0.05
+    np.testing.assert_allclose(wm_t1[wm_inside], 1 / R1['wm'], rtol=1e-5)
     assert np.all(gm_t1[inside] >= 1 / gm_r1.max() - 1e-6)
     assert np.all(gm_t1[inside] <= 1 / gm_r1.min() + 1e-6)
     # Exactly the ratio of the responses to the PV-weighted R1 and to the PV
@@ -314,9 +319,8 @@ def test_compute_cbf_tissue_t1_maps(tmp_path):
         'gm_pv': write('gm_pv', gm_pv),
         'wm_pv': write('wm_pv', wm_pv),
     }
-    gm_t1, wm_t1 = (
-        calibration['Parameters'][n]['Value'] for n in ('GrayMatterT1', 'WhiteMatterT1')
-    )
+    gm_t1 = calibration['Parameters']['GrayMatterT1']['Value']
+    wm_t1 = calibration['Parameters']['WhiteMatterT1']['Value']
     half = np.full(shape, gm_t1)
     half[:2] = 1.0
 
@@ -344,7 +348,9 @@ def test_compute_cbf_tissue_t1_maps(tmp_path):
     )
     np.testing.assert_allclose(same, scalar, rtol=1e-6)
     changed = run(
-        'changed', gm_t1=write('gm_half', half), wm_t1=write('wm_t1', np.full(shape, wm_t1))
+        'changed',
+        gm_t1=write('gm_half', half),
+        wm_t1=write('wm_t1', np.full(shape, wm_t1)),
     )
     np.testing.assert_allclose(changed[2:], scalar[2:], rtol=1e-6)
     assert not np.allclose(changed[:2], scalar[:2], rtol=1e-3)
@@ -537,9 +543,8 @@ def test_init_t1map_wf_local_regression():
     edge = wf._graph.get_edge_data(unmix, wf.get_node('outputnode'))['connect']
     assert ('updates', 'updates') in edge
     assert ('gm_r1', 'gm_r1') in edge
-    measure_edge = wf._graph.get_edge_data(
-        wf.get_node('measure_tissue_t1'), wf.get_node('outputnode')
-    )
+    measure = wf.get_node('measure_tissue_t1')
+    measure_edge = wf._graph.get_edge_data(measure, wf.get_node('outputnode'))
     assert ('updates', 'updates') not in measure_edge['connect']
     assert '5 mm cube' in wf.__desc__
     assert 'sub-01' not in wf.__desc__

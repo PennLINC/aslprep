@@ -184,13 +184,19 @@ def kernel_voxels(kernel_mm, affine):
         raise ValueError(f'The kernel size must be finite and positive, got {kernel_mm}.')
 
     voxel_size = np.sqrt((np.asarray(affine)[:3, :3] ** 2).sum(axis=0))
-    return tuple(
-        max(int(2 * np.round((kernel_mm / v - 1) / 2) + 1), MIN_KERNEL_VOXELS) for v in voxel_size
-    )
+    # The odd number of voxels nearest the kernel's span along each axis
+    nearest = [int(2 * np.round((kernel_mm / v - 1) / 2) + 1) for v in voxel_size]
+    return tuple(max(n, MIN_KERNEL_VOXELS) for n in nearest)
 
 
 def local_regression_r1(
-    t1, gm_probability, wm_probability, csf_probability, mask, kernel_size, medians
+    t1,
+    gm_probability,
+    wm_probability,
+    csf_probability,
+    mask,
+    kernel_size,
+    medians,
 ):
     """Estimate the R1 (1 / T1) of gray and white matter in each voxel by local regression.
 
@@ -231,9 +237,8 @@ def local_regression_r1(
     from aslprep.utils.pvc import local_regression_subsets
 
     t1 = np.asarray(t1, dtype=np.float64)
-    tpms = [
-        np.asarray(p, dtype=np.float64) for p in (gm_probability, wm_probability, csf_probability)
-    ]
+    probabilities = (gm_probability, wm_probability, csf_probability)
+    tpms = [np.asarray(p, dtype=np.float64) for p in probabilities]
     mask = np.asarray(mask, dtype=bool)
     kernel_size = tuple(int(k) for k in kernel_size)
     shape = t1.shape
@@ -288,9 +293,8 @@ def local_regression_r1(
             status = fit['status'][inner]
             out['status'][target] = status
             for i_tissue, (key, tissue) in enumerate((('gm', 'gray'), ('wm', 'white'))):
-                included = np.isin(
-                    status, [code for code, subset in _R1_SUBSETS if i_tissue in subset]
-                )
+                codes = [code for code, subset in _R1_SUBSETS if i_tissue in subset]
+                included = np.isin(status, codes)
                 estimate = fit['beta'][inner][..., i_tissue]
                 estimated = (
                     included

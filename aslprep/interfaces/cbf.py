@@ -709,9 +709,8 @@ class ComputeCBF(SimpleInterface):
                 pvs = [_on_grid(pv_file) for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv)]
                 t1prime = tissue_t1['t1prime']
                 if isdefined(self.inputs.gm_t1) and isdefined(self.inputs.wm_t1):
-                    tissue_t1s = np.column_stack(
-                        [_on_grid(f) for f in (self.inputs.gm_t1, self.inputs.wm_t1)]
-                    )
+                    t1_files = (self.inputs.gm_t1, self.inputs.wm_t1)
+                    tissue_t1s = np.column_stack([_on_grid(f) for f in t1_files])
                     t1prime = voxelwise_tissue_t1prime(calibration, tissue_t1s)
 
                 tissue_kwargs = {
