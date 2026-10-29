@@ -151,6 +151,69 @@ deviations.
 - Known weaknesses carried into Task 4, not tuned further: the static MI term (0.7-1.0 mm on the
   stress fixtures whatever the bins, sampling or grid), and ANTs on the 2D EPI subject.
 
+**Scorer and gate 1 (Task 2, 2026-10-29).** `scripts/coreg_mc/scoring.py` (scores),
+`run_real.py` (cross-session pairs, semi-synthetic runner, per-run gross-failure table) and
+`validate_scoring.py` (the checks; outputs in `/home/tsalo/coreg-mc/validation/scorer`). Every
+arm now has a result on all eight development fixtures. All gate-1 checks pass:
+
+- Synthetic (random oblique rigid transforms): the truth scores zero; known errors score their size;
+  an inverted reading, a wrong composition order in the inconsistency, and the wrong semi-synthetic
+  convention (`C M` for `C M^-1`) all score far from zero.
+- Images (`ds004873/sub-p021` rest; ASL header 7.7 degrees oblique, T1w 5.3):
+  - a direct registration of the reference to itself is within 0.009 mm of the identity;
+  - against a copy with a known 6.1 mm moved header it recovers the move to 0.011 mm
+    (conventional frame) and 0.006 mm (perfusion);
+  - every arm's inconsistency over that pair equals the direct error to 1e-15.
+  - Semi-synthetic, T1w moved by 7.2 mm: production recovers the move to 0.32 mm and the ANTs
+    arms to 0.39-1.04 mm, against 14.4-14.7 mm under the wrong convention. P-winsor BBR falls
+    back with both signs (8.7 mm), the same breakdown this run showed in the pilot.
+  - The carried-mask Dice drops for a 5 mm shift (0.925 to 0.897). An inverted reading lowers it
+    only slightly (0.922), because this run's transform is close to the identity, so that part of
+    the check is weak.
+- Fixtures: the eight share one T1w, its maps and one offset, so the six 2D fixtures give 30
+  ordered pairs with a known direct registration `T_a T_b^-1`. The direct registration's error
+  against it is 0.01-1.01 mm (median 0.26); its noise-floor estimate tracks it (median 0.23), and
+  no pair exceeds twice its floor plus 0.2 mm. The largest errors involve `rc_pcasl_flip`.
+
+The gross-failure rules, against the truth (above 5 mm) on the fixtures. Real arms are joined
+by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or 12 mm RMS.
+
+| Rule | Case | Caught | Missed | False alarms |
+|---|---|---|---|---|
+| Mask, plan's calibration (5 mm axis shifts) | all arms, 8 fixtures | 18 | 9 (6-8 mm) | 1 |
+| Mask, calibrated on random rigid 5 mm errors | all arms, 8 fixtures | 23 | 4 (6-8 mm) | 1 |
+| Inconsistency > 5 mm with any partner (plan) | one run wrong at a time | 18 | 0 | 90 |
+| Inconsistency > 5 mm with every partner | one run wrong at a time | 18 | 0 | 0 |
+| Inconsistency, every partner | an arm wrong on every run | 16 | 2 (12 mm) | 1 |
+| Inconsistency, either rule | the real arms | 1 | 0 | 5 (any) / 0 (every) |
+
+- The mask rule as written detects errors of about twice the limit, not the limit. Dice barely
+  responds to rotation about the brain's centre, and axis shifts are the kind of error it sees
+  best. Calibrating with random rigid errors of the limit's size matches it to the errors it must
+  catch; it still misses some 6-8 mm errors, so it stays a backstop.
+- "Any partner" flags every partner of a failed run. "Every partner" names the failed run
+  exactly when the other runs are good, but it needs two or more partners; with one partner the
+  two rules coincide and the pair is ambiguous. When an arm fails on every run, two errors in
+  similar directions can look consistent, so neither inconsistency rule is complete on its own.
+- Proposed for Task 3, which freezes the rules: flag a run by inconsistency with every partner
+  (two or more partners), report a single-partner pair as an ambiguous failure of both runs, and
+  keep the mask rule with the rigid calibration as a backstop for runs without partners.
+- One real gross failure exists on the fixtures (P-winsor BBR, opposite sign, `st_noperf`, 11.8
+  mm); both rules catch it. Production on `st_spiral` (10.3 mm) has no 2D partner, and the mask
+  rule catches it.
+- Cross-session pairs, first use (`ds003823/sub-5023`, pre and post sessions; direct registration
+  from the centres of mass): noise floors 0.28 mm (conventional) and 0.39 mm (perfusion), against
+  0.04 and 0.07 within the session. Inconsistency across sessions: production 0.72 / 0.95 mm,
+  S2 0.45 / 0.50, Q1 0.56 / 0.50, S1 1.07 / 1.15.
+- A consistently wrong arm on real data, on the same subject (background-suppressed 3D). FSL BBR
+  with the opposite sign is the most consistent arm within the session (0.23 mm), yet it is
+  7.2-7.8 mm from production on every run, and the mask rule flags it on two of three runs. One
+  of the two signs is wrong by about 7.5 mm on every run, and consistency cannot say which; in
+  simulation the opposite sign was right for this family (`rc_grase`). This is the case the
+  blinded review exists for, and it bears directly on R1's per-family sign rule (Task 3).
+- Not yet built: the capture-range protocol (metric 3) and its test that `C0 = C*` scores zero,
+  which belong with Task 3's fixtures.
+
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
 so better motion correction gives more useful inputs. Done before the pause: the panel extension
