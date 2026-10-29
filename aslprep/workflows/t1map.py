@@ -3,6 +3,9 @@
 from nipype.interfaces import utility as niu
 from nipype.pipeline import engine as pe
 from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+from niworkflows.interfaces.reportlets.registration import (
+    SimpleBeforeAfterRPT as SimpleBeforeAfter,
+)
 
 from aslprep import config
 from aslprep.interfaces.ants import ApplyTransforms
@@ -71,6 +74,10 @@ def init_t1map_wf(*, t1map, identity, output_dir, field_strength=None, name='t1m
         Warnings about the measured values.
     t1map2anat_xfm
         The transform from the T1 map to the anatomical image.
+
+    The workflow also writes a reportlet (``desc-coreg_T1map.svg``) comparing the anatomical image
+    with the map's R1 (1/T1) after the same resampling as the T1s, with the white matter
+    probability map's contour, so the alignment can be checked.
     """
     from aslprep.data import load as load_data
 
@@ -180,13 +187,51 @@ below 5%, eroded by one voxel.
             mode='image',
             suffix='xfm',
             extension='.txt',
-            dismiss_entities=('desc',),
+            # A selected map may carry the space and desc of its pipeline (e.g., space-T1w)
+            dismiss_entities=('desc', 'space'),
             **{'from': 'T1map'},
         ),
         name='ds_t1map2anat_xfm',
         run_without_submitting=True,
         mem_gb=config.DEFAULT_MEMORY_MIN_GB,
     )
+
+    # Registration reportlet: the anatomical reference and the map's R1 (1/T1), which has a
+    # T1-weighted contrast, after resampling with the same transform as the T1s
+    resample_r1 = pe.Node(
+        ApplyTransforms(interpolation='Linear', float=True, input_image_type=0),
+        name='resample_r1',
+    )
+    t1map_report = pe.Node(
+        SimpleBeforeAfter(before_label='T1w', after_label='T1 map (R1)'),
+        name='t1map_report',
+        mem_gb=0.1,
+    )
+    ds_t1map_report = pe.Node(
+        DerivativesDataSink(
+            base_directory=output_dir,
+            desc='coreg',
+            suffix='T1map',
+            datatype='figures',
+            dismiss_entities=('desc', 'space'),
+        ),
+        name='ds_t1map_report',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    workflow.connect([
+        (prepare, resample_r1, [('r1', 'input_image')]),
+        (inputnode, resample_r1, [('t1w_preproc', 'reference_image')]),
+        (xfm, resample_r1, [('xfm', 'transforms')]),
+        (inputnode, t1map_report, [
+            ('t1w_preproc', 'before'),
+            (('t1w_tpms', _second), 'wm_seg'),
+        ]),
+        (resample_r1, t1map_report, [('output_image', 'after')]),
+        (t1map_report, ds_t1map_report, [('out_report', 'in_file')]),
+        (inputnode, ds_t1map_report, [('t1map', 'source_file')]),
+    ])  # fmt:skip
+
     workflow.connect([
         (prepare, resample, [('t1', 'input_image')]),
         (inputnode, resample, [('t1w_preproc', 'reference_image')]),
@@ -208,3 +253,7 @@ below 5%, eroded by one voxel.
 
 def _first(in_list):
     return in_list[0]
+
+
+def _second(in_list):
+    return in_list[1]

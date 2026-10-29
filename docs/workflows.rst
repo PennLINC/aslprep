@@ -990,8 +990,10 @@ participant's quantitative T1 map, when there is one, instead of using the defau
   T1w input of the anatomical workflow, the reference shares its scanner space, and no
   registration is needed. Otherwise, it is rigidly registered to the reference. Without such an
   image, the map's R1 (1/T1), whose contrast resembles a T1-weighted image's, is registered
-  instead; check that registration. The transform is written as a
-  ``from-T1map_to-T1w_mode-image_xfm.txt`` derivative.
+  instead. The transform is written as a ``from-T1map_to-T1w_mode-image_xfm.txt`` derivative,
+  and the anatomical section of the report shows the alignment: the anatomical reference and the
+  map's R1, resampled with the same transform, with the white matter contour.
+  Check it, above all when the map itself was registered.
 - **Measuring the T1s.** The map is resampled onto the anatomical reference, and each tissue's T1
   is the median over voxels with a tissue probability of at least 95% and a CSF probability
   below 5%, eroded by one voxel so that blurring across tissue boundaries is left out.

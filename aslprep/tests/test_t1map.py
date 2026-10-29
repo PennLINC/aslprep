@@ -434,32 +434,73 @@ def test_init_t1map_wf(identity, companion):
         assert (('companion' if companion else 'r1'), 'moving_image') in edge
 
 
-@pytest.mark.parametrize('name', ['sub-01_T1map.nii.gz', 'sub-01_desc-b1corrected_T1map.nii.gz'])
-def test_t1map_xfm_sink(tmp_path, name):
-    """The transform sink, as the T1 map workflow configures it, writes an anat derivative."""
+@pytest.mark.parametrize(
+    ('name', 'prefix'),
+    [
+        ('sub-01/anat/sub-01_T1map.nii.gz', 'sub-01'),
+        ('sub-01/anat/sub-01_desc-b1corrected_T1map.nii.gz', 'sub-01'),
+        # A pymp2rage map selected with --bids-filter-file
+        (
+            'sub-01/ses-01/anat/sub-01_ses-01_run-01_space-T1w_desc-B1corrected_T1map.nii.gz',
+            'sub-01_ses-01_run-01',
+        ),
+    ],
+)
+def test_t1map_sinks(tmp_path, name, prefix):
+    """The transform and reportlet sinks, as the T1 map workflow configures them, name outputs."""
     from aslprep.tests.tests import mock_config
     from aslprep.workflows.t1map import init_t1map_wf
 
-    anat = tmp_path / 'sub-01' / 'anat'
-    anat.mkdir(parents=True)
-    source = _write(np.ones(SHAPE), anat / name)
+    source = tmp_path / name
+    source.parent.mkdir(parents=True)
+    source = _write(np.ones(SHAPE), source)
     xfm = tmp_path / 'identity.txt'
     xfm.write_text('#Insight Transform File V1.0\n')
+    svg = tmp_path / 'report.svg'
+    svg.write_text('<svg></svg>')
     with mock_config():
         wf = init_t1map_wf(
             t1map={'t1map': source, 'metadata': {}, 'uri': 'x', 'companion': None},
             identity=True,
             output_dir=str(tmp_path / 'out'),
         )
-        sink = wf.get_node('ds_t1map2anat_xfm')
-        sink.inputs.source_file = source
-        sink.inputs.in_file = str(xfm)
-        sink.base_dir = str(tmp_path / 'work')
-        result = sink.run()
+        out_files = {}
+        for node_name, in_file in (('ds_t1map2anat_xfm', xfm), ('ds_t1map_report', svg)):
+            sink = wf.get_node(node_name)
+            sink.inputs.source_file = source
+            sink.inputs.in_file = str(in_file)
+            sink.base_dir = str(tmp_path / 'work')
+            out_files[node_name] = Path(sink.run().outputs.out_file)
 
-    out_file = Path(result.outputs.out_file)
-    assert out_file.name == 'sub-01_from-T1map_to-T1w_mode-image_xfm.txt'
-    assert out_file.parent.name == 'anat'
+    xfm_out = out_files['ds_t1map2anat_xfm']
+    assert xfm_out.name == f'{prefix}_from-T1map_to-T1w_mode-image_xfm.txt'
+    assert xfm_out.parent.name == 'anat'
+    report_out = out_files['ds_t1map_report']
+    assert report_out.name == f'{prefix}_desc-coreg_T1map.svg'
+    assert report_out.parent.name == 'figures'
+
+
+def test_t1map_report(tmp_path):
+    """The registration reportlet compares the anatomical reference with the map's R1."""
+    from aslprep.tests.tests import mock_config
+    from aslprep.workflows.t1map import init_t1map_wf
+
+    t1, _, wm, _ = _anatomy()
+    with mock_config():
+        wf = init_t1map_wf(
+            t1map={'t1map': 'x.nii.gz', 'metadata': {}, 'uri': 'x', 'companion': None},
+            identity=True,
+            output_dir=str(tmp_path / 'out'),
+        )
+        report = wf.get_node('t1map_report')
+        report.inputs.before = _write(1 / t1, tmp_path / 't1w.nii.gz')
+        report.inputs.after = _write(1 / t1, tmp_path / 'r1.nii.gz')
+        report.inputs.wm_seg = _write(wm, tmp_path / 'wm.nii.gz')
+        report.base_dir = str(tmp_path / 'work')
+        out_report = Path(report.run().outputs.out_report)
+
+    assert out_report.suffix == '.svg'
+    assert 'T1 map (R1)' in out_report.read_text()
 
 
 @pytest.mark.skipif(
