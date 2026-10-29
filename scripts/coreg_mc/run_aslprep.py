@@ -13,7 +13,7 @@ filter JSON, may be empty).
 Usage (in WSL)::
 
     python run_aslprep.py --jobs-file jobs.tsv --src <dir> --out <dir> --label <label> \\
-        [--only tag ...] [--parallel 4]
+        [--only tag ...] [--parallel 4] [--templateflow <dir>]
 """
 
 import argparse
@@ -57,12 +57,18 @@ def run_job(job, args):
     if args.src:
         mounts.append((args.src / 'aslprep', SITE, 'ro'))
 
+    env = ['-e', 'HOME=/work/home']
+    if args.templateflow:
+        # A cache shared by every run, so each one does not download the templates again.
+        mounts.append((args.templateflow, '/templateflow', 'rw'))
+        env += ['-e', 'TEMPLATEFLOW_HOME=/templateflow']
+
     extra = job['extra'].split()
     if job.get('filters'):
         (work / 'bids_filters.json').write_text(job['filters'] + '\n')
         extra += ['--bids-filter-file', '/work/bids_filters.json']
 
-    cmd = ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', '-e', 'HOME=/work/home']
+    cmd = ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', *env]
     for host, container, mode in mounts:
         cmd += ['-v', f'{host}:{container}:{mode}']
     cmd += [
@@ -123,8 +129,13 @@ def main(argv=None):
     parser.add_argument('--nprocs', type=int, default=6)
     parser.add_argument('--mem-mb', type=int, default=6500)
     parser.add_argument('--rerun', action='store_true')
+    parser.add_argument('--templateflow', type=Path, help='Shared TemplateFlow cache to mount.')
     args = parser.parse_args(argv)
     args.out = args.out.resolve()
+    if args.templateflow:
+        args.templateflow = args.templateflow.resolve()
+        args.templateflow.mkdir(parents=True, exist_ok=True)
+
     (args.out / args.label).mkdir(parents=True, exist_ok=True)
     (args.out / 'license.txt').write_text(base64.b64decode(LICENSE).decode())
 
