@@ -1151,7 +1151,9 @@ def test_init_cbf_wf_tissue_t1_from_t1map(tmp_path):
     reset_config()
     assert ('tissue_t1_updates', 'updates') in to_runtime
     assert ('tissue_t1_warnings', 'warnings') in to_runtime
-    assert 'bids:raw:sub-01/anat/sub-01_T1map.nii.gz' in desc
+    assert "measured from the participant's T1 map" in desc
+    # The boilerplate is a methods description, so it names no files
+    assert 'sub-01' not in desc
     # The default values are not described, as the measured ones replace them
     assert '[@wright2008water]' not in desc
     assert consensus_edge is None

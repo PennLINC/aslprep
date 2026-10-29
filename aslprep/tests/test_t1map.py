@@ -426,7 +426,9 @@ def test_init_t1map_wf(identity, companion):
 
     register = wf.get_node('register_t1map')
     assert (register is None) == identity
-    assert 'bids:raw:sub-01/anat/sub-01_T1map.nii.gz' in wf.__desc__
+    # The boilerplate is a methods description, so it names no files
+    assert "participant's T1 map, which" in wf.__desc__
+    assert 'sub-01' not in wf.__desc__
     if register is not None:
         # The companion if there is one, otherwise the map's R1
         source = wf.get_node('inputnode') if companion else wf.get_node('prepare_t1map')

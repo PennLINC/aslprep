@@ -356,9 +356,9 @@ Cerebral blood flow computation and denoising
             if use_t1map:
                 # The values are only known at run time; they are in the calibration file.
                 t1_values_str = f"""\
-The T1s of gray and white matter were measured from the participant's T1 map
-({t1map['uri']}), as medians over pure-tissue voxels (the values are recorded with the
-calibration parameters), and f was set to {nominal_cbf_str}.
+The T1s of gray and white matter were measured from the participant's T1 map, as medians over
+pure-tissue voxels (the values are recorded with the calibration parameters), and f was set to
+{nominal_cbf_str}.
 """
             else:
                 t1_values_str = f"""\

@@ -115,7 +115,7 @@ def init_t1map_wf(*, t1map, identity, output_dir, field_strength=None, name='t1m
 
     workflow.__desc__ = f"""\
 The T1s of gray and white matter in the tissue-T1 kinetic model were measured from the
-participant's T1 map ({t1map['uri']}), {registration_desc}.
+participant's T1 map, {registration_desc}.
 The map was resampled onto the anatomical reference with linear interpolation, and each tissue's
 T1 was the median over the voxels with a tissue probability of at least 95% and a CSF probability
 below 5%, eroded by one voxel.
