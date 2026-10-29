@@ -51,6 +51,9 @@ T1W_MOVE = {'translation': (-4.0, 3.0, 2.0), 'rotation_deg': (-4.0, 3.0, 3.0)}
 #: Sizes (RMS mm) of the deliberately wrong arms of the fixture checks, either side of the 5 mm
 #: gross-failure limit.
 PLANTED_MM = (2.0, 4.0, 6.0, 8.0, 12.0)
+#: How close each direct-registration engine must come to a known answer on the real run. FLIRT
+#: lands 0.2 mm from the identity even for an image registered to itself (ANTs 0.009 mm).
+DIRECT_TOLERANCE_MM = {'ANTs': 0.05, 'FLIRT': 0.5}
 
 
 class Checks:
@@ -135,11 +138,8 @@ def obliquity_deg(affine):
 
 def images(checks, args):
     work = args.work
-    arms = {
-        k: np.asarray(v)
-        for k, v in json.loads((work / 'transforms.json').read_text()).items()
-        if k != 'fallbacks'
-    }
+    stored = json.loads((work / 'transforms.json').read_text())
+    arms = {k: np.asarray(v) for k, v in stored.items() if np.shape(v) == (4, 4)}
     asl = nb.load(work / 'conventional.nii.gz')
     t1 = nb.load(work / 't1w_brain.nii.gz')
     points = run_real.brain_points(work)
@@ -149,12 +149,22 @@ def images(checks, args):
         asl_obliquity_deg=obliquity_deg(asl.affine),
         t1w_obliquity_deg=obliquity_deg(t1.affine),
     )
+    # The semi-synthetic check below reruns the harness's reproduction of production, so the
+    # reproduction must first equal ASLPrep's stored transform on this run.
+    r0_vs = scoring.distance(arms['R0 production'], arms['FSL conventional default'], points)
+    checks.add(
+        "the harness reproduces ASLPrep's stored transform",
+        r0_vs < run_real.R0_REPRODUCTION_MM,
+        rms_mm=r0_vs,
+    )
     out = args.out / 'images'
     shutil.rmtree(out, ignore_errors=True)
 
-    d_self = run_real.direct(work, work, out / 'self', 'conventional')
-    err = scoring.distance(d_self, np.eye(4), points)
-    checks.add('direct registration to itself is the identity', err < 0.05, rms_mm=err)
+    to_self = run_real.direct(work, work, out / 'self', 'conventional')
+    for engine, d_self in zip(('ANTs', 'FLIRT'), to_self, strict=True):
+        err = scoring.distance(d_self, np.eye(4), points)
+        name = f'direct registration to itself is the identity ({engine})'
+        checks.add(name, err < DIRECT_TOLERANCE_MM[engine], rms_mm=err)
 
     # Run b: run a's ASL images with the header M A (world moved by M); the pull b -> a is M^-1.
     centre = points.mean(0)
@@ -167,16 +177,18 @@ def images(checks, args):
     points_b = points @ m_asl[:3, :3].T + m_asl[:3, 3]
     start = scoring.distance(np.eye(4), np.linalg.inv(m_asl), points_b)
     for frame, image in run_real.FRAMES.items():
-        d_ab = run_real.direct(work, moved, out / f'{frame}_ab', image)
-        d_ba = run_real.direct(moved, work, out / f'{frame}_ba', image)
+        d_ab, d_ab_flirt = run_real.direct(work, moved, out / f'{frame}_ab', image)
+        d_ba, _ = run_real.direct(moved, work, out / f'{frame}_ba', image)
         err = scoring.distance(d_ab, np.linalg.inv(m_asl), points_b)
+        err_flirt = scoring.distance(d_ab_flirt, np.linalg.inv(m_asl), points_b)
         floor = scoring.noise_floor(d_ab, d_ba, points)
         checks.add(
             f'direct registration recovers a known move ({frame})',
-            err < 0.2,
-            rms_mm=err,
+            err < DIRECT_TOLERANCE_MM['ANTs'] and err_flirt < DIRECT_TOLERANCE_MM['FLIRT'],
+            ants_mm=err,
+            flirt_mm=err_flirt,
             start_mm=start,
-            floor_mm=floor,
+            closure_mm=floor,
         )
         spread = [scoring.inconsistency(d_ab, c, m_asl @ c, points_b) - err for c in arms.values()]
         checks.add(
@@ -265,7 +277,10 @@ def fixtures(checks, args):
         fixture_dir = args.fixtures / name
         truth, points, production, voxel = run_ants.fixture_truth(fixture_dir, args.runs / name)
         arms, _fallbacks = run_real.collect(work, list(run_ants.ARMS))
-        arms = {'R0 production': production} | arms | planted(truth, points, rng)
+        arms = {'R0 production': production} | arms
+        missing = sorted(set(run_real.expected_arms(list(run_ants.ARMS))) - set(arms))
+        checks.add(f'every arm has a transform ({name})', not missing, missing=missing)
+        arms |= planted(truth, points, rng)
         errors = {arm: scoring.distance(c, truth, points) for arm, c in arms.items()}
         sidecar = next((fixture_dir / 'sub-01' / 'perf').glob('*_asl.json'))
         meta = json.loads(sidecar.read_text())
@@ -296,15 +311,20 @@ def fixtures(checks, args):
         points_b = run_real.brain_points(db['work'])
         forward = args.out / 'fixtures' / f'{a}__to__{b}'
         reverse = args.out / 'fixtures' / f'{b}__to__{a}'
-        d_ab = run_real.direct(da['work'], db['work'], forward, 'conventional', reuse=True)
-        d_ba = run_real.direct(db['work'], da['work'], reverse, 'conventional', reuse=True)
+        d_ab, d_ab_flirt = run_real.direct(da['work'], db['work'], forward, 'conventional')
+        d_ba, _ = run_real.direct(db['work'], da['work'], reverse, 'conventional')
         directs[(a, b)] = d_ab
+        closure = scoring.noise_floor(d_ab, d_ba, points_a)
+        engines = scoring.distance(d_ab, d_ab_flirt, points_b)
         pair_rows.append(
             {
                 'run_a': a,
                 'run_b': b,
                 'direct_error_mm': scoring.distance(d_ab, d_true, points_b),
-                'floor_mm': scoring.noise_floor(d_ab, d_ba, points_a),
+                'flirt_error_mm': scoring.distance(d_ab_flirt, d_true, points_b),
+                'floor_closure_mm': closure,
+                'floor_engines_mm': engines,
+                'floor_mm': max(closure, engines),
             },
         )
         cons_rows += [
@@ -326,12 +346,26 @@ def fixtures(checks, args):
     pairs.to_csv(args.out / 'fixtures_direct.tsv', sep='\t', index=False)
     pd.DataFrame(cons_rows).to_csv(args.out / 'fixtures_consistency.tsv', sep='\t', index=False)
     print(pairs.round(3).to_string(index=False))
+    # The closure alone is judged here: the combined floor also carries FLIRT's own imprecision,
+    # which would make the check easy to pass.
     checks.add(
-        'direct registration error is within twice its noise floor plus 0.2 mm',
-        bool((pairs['direct_error_mm'] <= 2 * pairs['floor_mm'] + 0.2).all()),
+        'ANTs direct registration error is within twice its closure plus 0.2 mm',
+        bool((pairs['direct_error_mm'] <= 2 * pairs['floor_closure_mm'] + 0.2).all()),
         worst_error_mm=float(pairs['direct_error_mm'].max()),
         median_error_mm=float(pairs['direct_error_mm'].median()),
+        median_closure_mm=float(pairs['floor_closure_mm'].median()),
+    )
+    # The second engine must itself be sane (a mirrored FLIRT solution is 100+ mm off); how often
+    # the combined floor covers the true error is reported, since a floor is an estimate, not a
+    # bound.
+    checks.add(
+        'FLIRT direct registration is within 1 mm of the truth on every pair',
+        bool((pairs['flirt_error_mm'] <= 1.0).all()),
+        median_flirt_error_mm=float(pairs['flirt_error_mm'].median()),
+        worst_flirt_error_mm=float(pairs['flirt_error_mm'].max()),
         median_floor_mm=float(pairs['floor_mm'].median()),
+        median_engines_mm=float(pairs['floor_engines_mm'].median()),
+        floor_covers_error=float((pairs['direct_error_mm'] <= pairs['floor_mm']).mean()),
     )
 
     rule_rows = mask_rule_rows(data)
@@ -343,6 +377,38 @@ def fixtures(checks, args):
     summary = rules.groupby(['scenario', 'rule']).apply(confusion, include_groups=False)
     summary.to_csv(args.out / 'fixtures_rules.tsv', sep='\t')
     print(summary.to_string())
+
+    # How well the rules detect is for Task 3 to judge; these are the mechanics any version of
+    # them must keep, so a regression in the rules fails gate 1.
+    def flagged(scenario, rule, arm_pattern, run=None):
+        sel = rules[(rules['scenario'] == scenario) & (rules['rule'] == rule)]
+        sel = sel[sel['arm'].str.contains(arm_pattern, regex=False)]
+        if run is not None:
+            sel = sel[sel['fixture'] == run]
+        return sel['flag']
+
+    for kind in ('axes', 'rigid'):
+        caught = flagged('all arms', f'mask ({kind})', 'planted 12 mm')
+        name = f'mask rule ({kind}) flags every 12 mm error'
+        checks.add(name, bool(caught.all()), n=len(caught))
+        clean = flagged('all arms', f'mask ({kind})', 'planted 2 mm')
+        checks.add(f'mask rule ({kind}) never flags a 2 mm error', not clean.any(), n=len(clean))
+
+    one = rules[rules['scenario'] == 'one run wrong']
+    one = one[one['rule'] == 'inconsistency (every partner)']
+    target = one.apply(lambda r: r['arm'].startswith(f'{r["fixture"]} '), axis=1)
+    size = one['arm'].str.extract(r'planted (\d+) mm', expand=False).astype(float)
+    big = size > scoring.GROSS_INCONSISTENCY_MM
+    checks.add(
+        'every-partner rule: a lone run wrong by 6 mm or more is flagged',
+        bool(one.loc[target & big, 'flag'].all()),
+        n=int((target & big).sum()),
+    )
+    checks.add(
+        'every-partner rule: good runs beside a wrong one are never flagged',
+        not one.loc[~target, 'flag'].any(),
+        n=int((~target).sum()),
+    )
 
 
 def confusion(df):

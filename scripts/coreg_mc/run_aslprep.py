@@ -36,18 +36,24 @@ LICENSE = (
 )
 
 
+def identity_of(record):
+    """The identity of a run recorded before ``identity`` was stored, from its command."""
+    cmd = record.get('cmd', [])
+    return {
+        'image': record.get('image'),
+        'src': record.get('src'),
+        'root': record.get('root'),
+        'filters': record.get('filters', ''),
+        'arguments': cmd[cmd.index(record['image']) + 1 :] if record.get('image') in cmd else None,
+    }
+
+
 def run_job(job, args):
     tag = job['tag']
     out = args.out / args.label / tag
     work = args.out / 'work' / args.label / tag
     log = args.out / args.label / f'{tag}.log'
     done = out / 'DONE.json'
-    if done.exists() and not args.rerun:
-        return tag, json.loads(done.read_text())['returncode']
-    for d in (out, work):
-        shutil.rmtree(d, ignore_errors=True)
-        d.mkdir(parents=True)
-    (work / 'home').mkdir()
     mounts = [
         (Path(job['root']), '/data', 'ro'),
         (out, '/out', 'rw'),
@@ -65,7 +71,6 @@ def run_job(job, args):
 
     extra = job['extra'].split()
     if job.get('filters'):
-        (work / 'bids_filters.json').write_text(job['filters'] + '\n')
         extra += ['--bids-filter-file', '/work/bids_filters.json']
 
     cmd = ['docker', 'run', '--rm', '-u', f'{os.getuid()}:{os.getgid()}', *env]
@@ -98,6 +103,28 @@ def run_job(job, args):
         '--output-timeseries',
         *extra,
     ]
+    # A finished run is reused only if it was made by the same image, source mount, inputs and
+    # ASLPrep arguments (the shared TemplateFlow cache's location does not change the results).
+    identity = {
+        'image': IMAGE,
+        'src': str(args.src) if args.src else None,
+        'root': job['root'],
+        'filters': job.get('filters', ''),
+        'arguments': cmd[cmd.index(IMAGE) + 1 :],
+    }
+    if done.exists() and not args.rerun:
+        previous = json.loads(done.read_text())
+        if previous.get('identity', identity_of(previous)) == identity:
+            return tag, previous['returncode']
+
+    for d in (out, work):
+        shutil.rmtree(d, ignore_errors=True)
+        d.mkdir(parents=True)
+
+    (work / 'home').mkdir()
+    if job.get('filters'):
+        (work / 'bids_filters.json').write_text(job['filters'] + '\n')
+
     start = time.time()
     with log.open('w') as fobj:
         fobj.write(' '.join(cmd) + '\n\n')
@@ -111,6 +138,7 @@ def run_job(job, args):
         'returncode': proc.returncode,
         'seconds': round(time.time() - start),
         'cmd': cmd,
+        'identity': identity,
     }
     done.write_text(json.dumps(record, indent=2) + '\n')
     if proc.returncode == 0:

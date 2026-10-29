@@ -9,13 +9,15 @@ ASLPrep's own segmentation of the T1w. Every arm's pull transform (T1w point -> 
 ASLPrep's convention) is saved to ``<work>/transforms.json``. The scores are in ``scoring``.
 
 Consistency (plan: "Real data", designs 1 and 2). For runs a and b of one subject with the same
-phase-encoding direction, an image of run a (moving) is registered directly to the same image of
-run b (fixed) with ANTs (MI, rigid), giving the pull ``D_ab``; pairs within a session start from
-the identity, pairs across sessions (the head was repositioned) from the images' centres of mass.
-Every session of a subject is coregistered to one anatomical reference (ASLPrep's subject-level
-T1w template). The direct registration is done in two frames (``FRAMES``): the conventional
-reference, which depicts the M0 (or first volume) at its own pose, and the perfusion image built
-from the corrected series.
+acquisition (``comparable_key``) and anatomical reference (``pairable``), an image of run a
+(moving) is registered directly to the same image of run b (fixed) with ANTs (MI, rigid), giving
+the pull ``D_ab``, and with FLIRT as a second engine; pairs within a session start ANTs from the
+identity, pairs across sessions (the head was repositioned) from the images' centres of mass.
+Cross-session pairs need the subject-level T1w template, which every session's
+``from-aslref_to-T1w`` refers to. The direct registration is done in two frames (``FRAMES``): the
+conventional reference, which depicts the M0 (or first volume) at its own pose, and the perfusion
+image built from the corrected series. Expected arms with no transform are failures to run
+(``missing``) and count as gross failures.
 
 Gross failure (plan: "Gross failure"), per run and arm: the carried-mask rule of ``scoring``, and
 inconsistency above ``scoring.GROSS_INCONSISTENCY_MM`` in the conventional frame, recorded two
@@ -35,6 +37,7 @@ Usage (in WSL, ``aslprep-pvc`` environment, from the repository root)::
 
 import argparse
 import csv
+import hashlib
 import itertools
 import json
 import os
@@ -44,6 +47,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import nibabel as nb
 import numpy as np
 import pandas as pd
 
@@ -76,10 +80,61 @@ T1W_SIDE = (
 ASL_SIDE = ('conventional', 'mask', 'P-mean', 'P-robust', 'P-winsor')
 
 
-def comparable_key(run):
-    """Runs of one subject that can be paired: the same phase-encoding direction."""
-    pe = re.search(r'_dir-([A-Za-z]+)', run)
-    return pe.group(1) if pe else ''
+#: R0 (ASLPrep's stored transform) and the harness's reproduction of production's FSL path agree
+#: to within this on every run checked; a larger distance means the harness is not looking at the
+#: same anatomy or transform as ASLPrep, and the run's R0 is not comparable.
+R0_REPRODUCTION_MM = 0.05
+
+
+def comparable_key(row, work):
+    """Runs of one subject that can be paired: the same acquisition, judged from the data.
+
+    The phase-encoding direction and acquisition type from the ASL sidecar, the manifest's readout
+    and background suppression, and the reference's grid (shape and voxel size). Runs that differ
+    in any of these differ in distortion or contrast, which a direct registration would count as
+    inconsistency.
+    """
+    record = record_for(row)
+    sidecar = Path(record['root']) / record['asl_path']
+    sidecar = sidecar.with_name(re.sub(r'\.nii(\.gz)?$', '.json', sidecar.name))
+    meta = json.loads(sidecar.read_text()) if sidecar.exists() else {}
+    ref = nb.load(work / 'conventional.nii.gz')
+    zooms = tuple(round(float(z), 2) for z in ref.header.get_zooms()[:3])
+    return (
+        meta.get('PhaseEncodingDirection'),
+        meta.get('MRAcquisitionType'),
+        row['readout'],
+        row['background_suppression'],
+        ref.shape[:3],
+        zooms,
+    )
+
+
+def anatomical_reference(run_dir):
+    """The anatomical outputs the harness registers to: the subject-level T1w when there is one.
+
+    ``coreg_experiment.run_real`` takes the first of these directories; with several sessions,
+    ASLPrep writes one subject-level template (``sub-X/anat``) that every session's
+    ``from-aslref_to-T1w`` refers to. Returns (directory, whether it is subject-level).
+    """
+    anat = sorted(run_dir.glob('sub-*/anat')) + sorted(run_dir.glob('sub-*/ses-*/anat'))
+    if not anat:
+        raise FileNotFoundError(f'no anat outputs in {run_dir}')
+    return anat[0], not anat[0].parent.name.startswith('ses-')
+
+
+def expected_arms(ants_arms):
+    """Every arm a run should have: R0, the FSL arms and the ANTs arms."""
+    fsl = [f'FSL {s} {sign}' for s in FSL_SOURCES for sign in ('default', 'opposite')]
+    return ['R0 production', *fsl, *(f'ANTs {a}' for a in ants_arms)]
+
+
+def fingerprint(paths, command):
+    """A digest of input files and a command, to decide whether a stored result is current."""
+    digest = hashlib.sha256(command.encode())
+    for path in paths:
+        digest.update(Path(path).read_bytes())
+    return digest.hexdigest()
 
 
 def record_for(row):
@@ -118,15 +173,20 @@ def collect(work, ants_arms):
 
 
 def run_one(row, args):
-    """Register every arm on one run; returns its work directory, {arm: pull}, FSL fallbacks."""
+    """Register every arm on one run (``--rescore``: reuse the work directory as it is).
+
+    Returns a dict: ``row``, ``work``, ``arms`` ({arm: pull}), ``fallbacks``, ``missing`` (expected
+    arms with no transform: failures to run), ``key`` (``comparable_key``), ``anat`` and
+    ``subject_level`` (``anatomical_reference``), and ``r0_vs_reproduction_mm``.
+    """
     record = record_for(row)
     work = args.work / f'{row["dataset"]}__{row["run"]}'
     run_dir = args.runs / f'{record["dataset"]}_sub-{record["subject"]}'
+    anat, subject_level = anatomical_reference(run_dir)
     if not args.rescore:
         shutil.rmtree(work, ignore_errors=True)
         coreg_experiment.run_real(record, args.runs, args.adapted, work, args.license)
-        anat = sorted(run_dir.glob('sub-*/anat')) + sorted(run_dir.glob('sub-*/ses-*/anat'))
-        gm = next(p for p in anat[0].glob('*_label-GM_probseg.nii.gz') if '_space-' not in p.name)
+        gm = next(p for p in anat.glob('*_label-GM_probseg.nii.gz') if '_space-' not in p.name)
         run_ants.gm_target(work, gm)
         run_ants.lowres(work)
         run_ants.write_init(work)
@@ -141,10 +201,27 @@ def run_one(row, args):
 
     found, fallbacks = collect(work, args.arms)
     arms |= found
-    record = {k: np.asarray(v).tolist() for k, v in arms.items()}
-    record['fallbacks'] = sorted(fallbacks)
-    (work / 'transforms.json').write_text(json.dumps(record, indent=1) + '\n')
-    return work, arms, fallbacks
+    missing = sorted(set(expected_arms(args.arms)) - set(arms))
+    r0_vs = np.nan
+    reproduction = arms.get('FSL conventional default')
+    if 'R0 production' in arms and reproduction is not None:
+        r0_vs = scoring.distance(arms['R0 production'], reproduction, brain_points(work))
+
+    stored = {k: np.asarray(v).tolist() for k, v in arms.items()}
+    stored |= {'fallbacks': sorted(fallbacks), 'missing': missing, 'anat': str(anat)}
+    stored['r0_vs_reproduction_mm'] = r0_vs
+    (work / 'transforms.json').write_text(json.dumps(stored, indent=1) + '\n')
+    return {
+        'row': row,
+        'work': work,
+        'arms': arms,
+        'fallbacks': fallbacks,
+        'missing': missing,
+        'key': comparable_key(row, work),
+        'anat': anat,
+        'subject_level': subject_level,
+        'r0_vs_reproduction_mm': r0_vs,
+    }
 
 
 def brain_points(work, every=5):
@@ -153,20 +230,15 @@ def brain_points(work, every=5):
 
 
 def direct(work_a, work_b, out, image, reuse=False, centre_init=False):
-    """ANTs rigid MI of run a's ``image`` (moving) to run b's (fixed): the pull b -> a.
+    """Run a's ``image`` (moving) registered directly to run b's (fixed) by two engines.
 
-    ``centre_init`` starts from the images' centres of mass instead of the identity.
+    Returns the pulls b -> a from ANTs (rigid MI, masked) and FLIRT (6 dof, normalized MI);
+    their disagreement is part of the noise floor.
+    ``centre_init`` starts ANTs from the images' centres of mass instead of the identity (FLIRT
+    runs its own search). With ``reuse``, a stored result is used only if its fingerprint (the four
+    input images and the commands) matches.
     """
     import nitransforms as nt
-
-    result = out / 'direct_0GenericAffine.mat'
-    if reuse and result.exists():
-        return np.asarray(nt.linear.load(result, fmt='itk').matrix)
-
-    out.mkdir(parents=True, exist_ok=True)
-    for name, src in (('a', work_a), ('b', work_b)):
-        shutil.copyfile(src / f'{image}.nii.gz', out / f'{name}_image.nii.gz')
-        shutil.copyfile(src / 'mask.nii.gz', out / f'{name}_mask.nii.gz')
 
     init = '--initial-moving-transform [/w/b_image.nii.gz,/w/a_image.nii.gz,1] '
     cmd_ants = (
@@ -178,7 +250,35 @@ def direct(work_a, work_b, out, image, reuse=False, centre_init=False):
         '--convergence [500x250,1e-6,10] --shrink-factors 2x1 --smoothing-sigmas 1x0vox '
         '--masks [/w/b_mask.nii.gz,/w/a_mask.nii.gz] > /w/direct.log 2>&1'
     )
-    (out / 'direct.sh').write_text(f'export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1\n{cmd_ants}\n')
+    # FLIRT's default +-90 degree search found mirrored solutions (117 mm from the identity for an
+    # image registered to itself), and brain-mask weights made one pair worse (1.6 mm from ANTs,
+    # against 0.6 without), so the search is limited to +-15 degrees and the images are unweighted.
+    search = ' '.join(f'-searchr{axis} -15 15' for axis in 'xyz')
+    cmd_flirt = (
+        f'flirt -in /w/a_image.nii.gz -ref /w/b_image.nii.gz -dof 6 -cost normmi {search} '
+        '-omat /w/flirt.mat > /w/flirt.log 2>&1'
+    )
+    script = f'export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1\n{cmd_ants}\n{cmd_flirt}\n'
+    inputs = [src / f for src in (work_a, work_b) for f in (f'{image}.nii.gz', 'mask.nii.gz')]
+    stamp = fingerprint(inputs, script + run_ants.IMAGE)
+    ants_file, flirt_file = out / 'direct_0GenericAffine.mat', out / 'flirt.mat'
+
+    def read():
+        d_ants = np.asarray(nt.linear.load(ants_file, fmt='itk').matrix)
+        a_img, b_img = nb.load(out / 'a_image.nii.gz'), nb.load(out / 'b_image.nii.gz')
+        return d_ants, coreg_experiment._pull(flirt_file, a_img, b_img)
+
+    stamp_file = out / 'fingerprint.txt'
+    if reuse and stamp_file.exists() and stamp_file.read_text().strip() == stamp:
+        return read()
+
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    for name, src in (('a', work_a), ('b', work_b)):
+        shutil.copyfile(src / f'{image}.nii.gz', out / f'{name}_image.nii.gz')
+        shutil.copyfile(src / 'mask.nii.gz', out / f'{name}_mask.nii.gz')
+
+    (out / 'direct.sh').write_text(script)
     cmd = [
         'docker',
         'run',
@@ -195,7 +295,8 @@ def direct(work_a, work_b, out, image, reuse=False, centre_init=False):
         '/w/direct.sh',
     ]
     subprocess.run(cmd, check=True, capture_output=True)
-    return np.asarray(nt.linear.load(result, fmt='itk').matrix)
+    stamp_file.write_text(stamp + '\n')
+    return read()
 
 
 def semi_synthetic(work, m, out, ants_arms, license_file):
@@ -219,44 +320,69 @@ def semi_synthetic(work, m, out, ants_arms, license_file):
     return collect(out, ants_arms)
 
 
+def pairable(a, b):
+    """Whether runs a and b form a pair, and of which type (``None`` when they do not).
+
+    Same subject, the same acquisition (``comparable_key``) and the same anatomical reference;
+    across sessions, that reference must be the subject-level T1w that every session refers to.
+    """
+    row_a, row_b = a['row'], b['row']
+    if (row_a['dataset'], row_a['subject']) != (row_b['dataset'], row_b['subject']):
+        return None
+
+    if a['key'] != b['key'] or a['anat'] != b['anat']:
+        return None
+
+    if row_a['session'] == row_b['session']:
+        return 'cross-run'
+    return 'cross-session' if a['subject_level'] else None
+
+
 def consistency(runs, args):
-    """Inconsistency of every arm over every comparable pair of a subject's runs."""
+    """Inconsistency of every arm over every pair of a subject's runs (see ``pairable``).
+
+    The noise floor is the larger of the forward-reverse closure of the ANTs direct registration
+    and the disagreement between the ANTs and FLIRT direct registrations.
+    """
     rows = []
-    for (row_a, work_a, arms_a, fb_a), (row_b, work_b, arms_b, fb_b) in itertools.permutations(
-        runs,
-        2,
-    ):
-        same_subject = (row_a['dataset'], row_a['subject']) == (row_b['dataset'], row_b['subject'])
-        if not same_subject or comparable_key(row_a['run']) != comparable_key(row_b['run']):
+    for a, b in itertools.permutations(runs, 2):
+        pair_type = pairable(a, b)
+        if pair_type is None:
             continue
 
-        pair_type = 'cross-run' if row_a['session'] == row_b['session'] else 'cross-session'
+        work_a, work_b = a['work'], b['work']
         points_a = brain_points(work_a)
         points_b = brain_points(work_b)
         options = {'reuse': args.rescore, 'centre_init': pair_type == 'cross-session'}
         for frame, image in FRAMES.items():
             forward = args.work / 'direct' / frame / f'{work_a.name}__to__{work_b.name}'
             reverse = args.work / 'direct' / frame / f'{work_b.name}__to__{work_a.name}'
-            d_ab = direct(work_a, work_b, forward, image, **options)
-            d_ba = direct(work_b, work_a, reverse, image, **options)
-            floor = scoring.noise_floor(d_ab, d_ba, points_a)
+            d_ab, d_ab_flirt = direct(work_a, work_b, forward, image, **options)
+            d_ba, _ = direct(work_b, work_a, reverse, image, **options)
+            closure = scoring.noise_floor(d_ab, d_ba, points_a)
+            engines = scoring.distance(d_ab, d_ab_flirt, points_b)
+            base = {
+                'dataset': a['row']['dataset'],
+                'subject': a['row']['subject'],
+                'session_a': a['row']['session'],
+                'session_b': b['row']['session'],
+                'run_a': a['row']['run'],
+                'run_b': b['row']['run'],
+                'pair_type': pair_type,
+                'frame': frame,
+                'floor_closure_mm': closure,
+                'floor_engines_mm': engines,
+                'floor_mm': max(closure, engines),
+            }
             rows += [
-                {
-                    'dataset': row_a['dataset'],
-                    'subject': row_a['subject'],
-                    'session_a': row_a['session'],
-                    'session_b': row_b['session'],
-                    'run_a': row_a['run'],
-                    'run_b': row_b['run'],
-                    'pair_type': pair_type,
-                    'frame': frame,
+                base
+                | {
                     'arm': arm,
-                    'inconsistency_mm': scoring.inconsistency(d_ab, c_a, arms_b[arm], points_b),
-                    'floor_mm': floor,
-                    'fallback': arm in fb_a or arm in fb_b,
+                    'inconsistency_mm': scoring.inconsistency(d_ab, c_a, b['arms'][arm], points_b),
+                    'fallback': arm in a['fallbacks'] or arm in b['fallbacks'],
                 }
-                for arm, c_a in sorted(arms_a.items())
-                if arm in arms_b
+                for arm, c_a in sorted(a['arms'].items())
+                if arm in b['arms']
             ]
     return rows
 
@@ -276,26 +402,54 @@ def partner_inconsistency(rows, dataset, run, arm):
 
 
 def gross_failures(runs, cons_rows):
-    """Per run and arm: the carried-mask rule and the two inconsistency rules."""
+    """Per run and arm: the carried-mask rule (both calibrations) and the inconsistency rules.
+
+    An expected arm with no transform (it failed or timed out) is a gross failure under every
+    rule (``no_transform``), so failures to run are counted, not dropped.
+    """
     limit = scoring.GROSS_INCONSISTENCY_MM
     rows = []
-    for row, work, arms, _fallbacks in runs:
+    for run in runs:
+        row, work, arms = run['row'], run['work'], run['arms']
+        base = {
+            'dataset': row['dataset'],
+            'run': row['run'],
+            'r0_vs_reproduction_mm': run['r0_vs_reproduction_mm'],
+        }
         carried = scoring.CarriedMask(work / 'mask.nii.gz', work / 't1w_mask.nii.gz')
-        for arm, result in scoring.gross_by_mask(carried, arms).items():
+        kinds = ('axes', 'rigid')
+        by_kind = {kind: scoring.gross_by_mask(carried, arms, kind=kind) for kind in kinds}
+        for arm in arms:
             partners = partner_inconsistency(cons_rows, row['dataset'], row['run'], arm)
             values = list(partners.values())
+            axes, rigid = by_kind['axes'][arm], by_kind['rigid'][arm]
             rows.append(
-                {
-                    'dataset': row['dataset'],
-                    'run': row['run'],
+                base
+                | {
                     'arm': arm,
-                    **result,
+                    'no_transform': False,
+                    'dice': axes['dice'],
+                    'best_dice': axes['best_dice'],
+                    'best_arm': axes['best_arm'],
+                    'limit_axes': axes['limit'],
+                    'limit_rigid': rigid['limit'],
+                    'gross_mask_axes': axes['gross_mask'],
+                    'gross_mask_rigid': rigid['gross_mask'],
                     'n_partners': len(values),
                     'max_inconsistency_mm': max(values, default=np.nan),
                     'gross_any_partner': any(v > limit for v in values),
                     'gross_every_partner': bool(values) and all(v > limit for v in values),
                 },
             )
+
+        failed = {
+            'no_transform': True,
+            'gross_mask_axes': True,
+            'gross_mask_rigid': True,
+            'gross_any_partner': True,
+            'gross_every_partner': True,
+        }
+        rows += [base | {'arm': arm} | failed for arm in run['missing']]
     return rows
 
 
@@ -309,7 +463,15 @@ def main(argv=None):
     p.add_argument('--out', type=Path, required=True, help='Output prefix for the TSVs.')
     p.add_argument('--subjects', nargs='+', required=True, help='dataset/sub-XX')
     p.add_argument('--arms', nargs='+', default=list(run_ants.ARMS))
-    p.add_argument('--rescore', action='store_true')
+    p.add_argument(
+        '--rescore',
+        action='store_true',
+        help=(
+            'Score the work directories as they are, without registering again (they are not '
+            'fingerprinted: rerun without this after any change to the inputs or arms); direct '
+            'registrations are reused only when their fingerprint matches.'
+        ),
+    )
     args = p.parse_args(argv)
 
     with args.manifest.open() as f:
@@ -320,17 +482,23 @@ def main(argv=None):
         if (row['dataset'], row['subject']) not in wanted:
             continue
 
-        work, arms, fallbacks = run_one(row, args)
-        runs.append((row, work, arms, fallbacks))
-        print(f'{row["run"]}: {len(arms)} arms', flush=True)
+        run = run_one(row, args)
+        runs.append(run)
+        r0_vs = run['r0_vs_reproduction_mm']
+        note = ''
+        if r0_vs > R0_REPRODUCTION_MM:
+            note = f'; R0 differs from its reproduction by {r0_vs:.2f} mm'
+
+        print(f'{row["run"]}: {len(run["arms"])} arms, missing {run["missing"]}{note}', flush=True)
 
     # Agreement of every arm with every other on each run (RMS over the run's brain, mm).
     agree = []
-    for row, work, arms, _fallbacks in runs:
-        points = brain_points(work)
+    for run in runs:
+        arms = run['arms']
+        points = brain_points(run['work'])
         for a, b in itertools.combinations(sorted(arms), 2):
             dist = scoring.distance(arms[a], arms[b], points)
-            agree.append({'run': row['run'], 'arm_a': a, 'arm_b': b, 'distance_mm': dist})
+            agree.append({'run': run['row']['run'], 'arm_a': a, 'arm_b': b, 'distance_mm': dist})
     pd.DataFrame(agree).to_csv(f'{args.out}_agreement.tsv', sep='\t', index=False)
 
     cons_rows = consistency(runs, args)
@@ -347,10 +515,18 @@ def main(argv=None):
                 aggfunc='median',
             )
             print(table.round(2))
-            floors = cons.groupby(['pair_type', 'frame'])['floor_mm'].median()
-            print('noise floor (median):', floors.round(2).to_dict())
+            floor_columns = ['floor_closure_mm', 'floor_engines_mm', 'floor_mm']
+            floors = cons.groupby(['pair_type', 'frame'])[floor_columns].median()
+            print('noise floor (median):')
+            print(floors.round(2))
 
-        rules = ['gross_mask', 'gross_any_partner', 'gross_every_partner']
+        rules = [
+            'no_transform',
+            'gross_mask_axes',
+            'gross_mask_rigid',
+            'gross_any_partner',
+            'gross_every_partner',
+        ]
         print(gross.groupby('arm')[rules].sum())
 
 

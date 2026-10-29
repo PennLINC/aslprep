@@ -171,9 +171,18 @@ arm now has a result on all eight development fixtures. All gate-1 checks pass:
     only slightly (0.922), because this run's transform is close to the identity, so that part of
     the check is weak.
 - Fixtures: the eight share one T1w, its maps and one offset, so the six 2D fixtures give 30
-  ordered pairs with a known direct registration `T_a T_b^-1`. The direct registration's error
-  against it is 0.01-1.01 mm (median 0.26); its noise-floor estimate tracks it (median 0.23), and
-  no pair exceeds twice its floor plus 0.2 mm. The largest errors involve `rc_pcasl_flip`.
+  ordered pairs with a known direct registration `T_a T_b^-1`.
+  - ANTs: error against it 0.01-1.01 mm (median 0.26). Its forward-reverse closure tracks the
+    error (median 0.23), and no pair exceeds twice its closure plus 0.2 mm. The largest errors
+    involve `rc_pcasl_flip`.
+  - FLIRT, the second engine (review finding 5): error 0.26 mm median, 0.50 at worst. The
+    combined floor (the larger of the closure and the ANTs-FLIRT disagreement; median 0.34)
+    covers the ANTs error on 25 of 30 pairs. A floor is an estimate, not a bound.
+  - FLIRT's default +-90 degree search found mirrored solutions: 117 mm from the identity for an
+    image registered to itself, and 150-190 mm on half the pairs. Brain-mask weights also made one
+    pair worse. The search is now limited to +-15 degrees, without weights. Even so, FLIRT lands
+    0.20 mm from the identity on an image registered to itself (ANTs 0.009). So the engine term
+    of the floor is partly FLIRT's own imprecision, and the combined floor is conservative.
 
 The gross-failure rules, against the truth (above 5 mm) on the fixtures. Real arms are joined
 by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or 12 mm RMS.
@@ -201,9 +210,12 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
 - One real gross failure exists on the fixtures (P-winsor BBR, opposite sign, `st_noperf`, 11.8
   mm); both rules catch it. Production on `st_spiral` (10.3 mm) has no 2D partner, and the mask
   rule catches it.
-- Cross-session pairs, first use (`ds003823/sub-5023`, pre and post sessions; direct registration
-  from the centres of mass): noise floors 0.28 mm (conventional) and 0.39 mm (perfusion), against
-  0.04 and 0.07 within the session. Inconsistency across sessions: production 0.72 / 0.95 mm,
+- Cross-session pairs, first use (`ds003823/sub-5023`, pre and post sessions; ANTs from the
+  centres of mass). Medians, conventional / perfusion frame:
+  - ANTs closure: 0.28 / 0.39 mm, against 0.04 / 0.07 within the session.
+  - Combined floor, with FLIRT: 1.55 / 0.97 mm, against 0.42 / 0.58.
+  - The two engines disagree most across sessions. This is where Task 3's floor limit, which
+    excludes pairs, will matter. Inconsistency across sessions: production 0.72 / 0.95 mm,
   S2 0.45 / 0.50, Q1 0.56 / 0.50, S1 1.07 / 1.15.
 - A consistently wrong arm on real data, on the same subject (background-suppressed 3D). FSL BBR
   with the opposite sign is the most consistent arm within the session (0.23 mm), yet it is
@@ -1014,3 +1026,19 @@ enrichment set. Computed outcomes added alongside: cross-session consistency, a
 direct-registration noise floor (which also sets the tie distance), automatic gross-failure
 rules, and an automated check of the T2w-to-T1w registrations in place of a visual one. The panel
 needs repeat-scan subjects for the consistency part of gate 4 to have ten held-out subjects.
+
+**Codex adversarial review of the harness and scorer (Task 2 checkpoint, 2026-10-29).** Eight
+findings on `scripts/coreg_mc` at `bd8ec38`, each checked against the code; seven fixed (the
+semi-synthetic check testing the reproduction instead of R0 is folded into 4), one rejected. Codex found no error in the transform algebra (directions, compositions, the ITK and
+FSL conversions, the fixture truth or the semi-synthetic expectation).
+
+| # | Finding | Change |
+|---|---|---|
+| 1 | An arm that fails or times out has no transform and silently drops out of every table | `run_real` lists each run's expected arms; a missing one is a gross failure under every rule (`no_transform`); the fixture checks require every arm |
+| 2 | The fixture evaluation of the gross-failure rules can never fail gate 1 | Detection rates stay a reported result for Task 3, but the mechanics are now checks: both mask calibrations flag every 12 mm error and no 2 mm one, and the every-partner rule flags a lone wrong run at 6 mm or more and never a good partner |
+| 3 | Pairing used only the optional `dir-` entity, so different acquisitions could be paired | `comparable_key` takes the sidecar's phase-encoding direction and acquisition type, the manifest's readout and background suppression, and the reference's shape and voxel size |
+| 4 | A common anatomical reference across sessions was assumed, and R0 was never checked against the anatomy the harness uses | Each run records its anatomical directory; pairs need the same one, and cross-session pairs the subject-level template; each run records R0's distance from the harness's reproduction of production, and the image check requires it below 0.05 mm before the semi-synthetic test |
+| 5 | The noise floor used one engine, against the plan's two | The direct registration also runs FLIRT (6 dof, normalized MI, mask-weighted); the floor is the larger of the ANTs closure and the ANTs-FLIRT disagreement; the exclusion limit is Task 3's |
+| 6 | Reused results could be stale after an input changed | Direct registrations are fingerprinted (inputs and commands) and reused only on a match; ASLPrep runs are reused only for the same image, source, inputs and arguments; `--rescore` is documented as unfingerprinted |
+| 7 | The real-data table used only the axis calibration of the mask rule | Both calibrations reported |
+| - | The validation outputs live outside the repository | Rejected: the probe's data stay out of the repository by design, and the committed scripts regenerate them |
