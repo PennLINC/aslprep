@@ -1090,6 +1090,75 @@ def test_init_cbf_wf_tissue_t1(tmp_path, pvc_method):
     assert not any(name.startswith('asl_pv_wf') for name in consensus_nodes)
 
 
+def test_init_cbf_wf_tissue_t1_from_t1map(tmp_path):
+    """Tissue T1s measured from a T1 map replace the defaults at run time."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    plds = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MRAcquisitionType': '3D',
+        'PostLabelingDelay': [delay for delay in plds for _ in range(2)],
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+    }
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    volume_types = ['control', 'label'] * len(plds)
+    pd.DataFrame({'volume_type': volume_types}).to_csv(aslcontext, sep='\t', index=False)
+    t1map = {
+        't1map': 'sub-01_T1map.nii.gz',
+        'metadata': {},
+        'uri': 'bids:raw:sub-01/anat/sub-01_T1map.nii.gz',
+        'companion': None,
+    }
+    reset_config()
+    with mock_config():
+        config.workflow.kinetic_model = 'tissue-t1'
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            t1map=t1map,
+        )
+        to_runtime = wf._graph.get_edge_data(
+            wf.get_node('inputnode'),
+            wf.get_node('runtime_calibration'),
+        )['connect']
+        desc = wf.__desc__
+
+        # With the consensus model, the T1 map is not used
+        config.workflow.kinetic_model = 'consensus'
+        consensus = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            t1map=t1map,
+        )
+        consensus_edge = consensus._graph.get_edge_data(
+            consensus.get_node('inputnode'),
+            consensus.get_node('runtime_calibration'),
+        )
+
+    reset_config()
+    assert ('tissue_t1_updates', 'updates') in to_runtime
+    assert ('tissue_t1_warnings', 'warnings') in to_runtime
+    assert "measured from the participant's T1 map" in desc
+    # The boilerplate is a methods description, so it names no files
+    assert 'sub-01' not in desc
+    # The default values are not described, as the measured ones replace them
+    assert '[@wright2008water]' not in desc
+    assert consensus_edge is None
+
+
 def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
     """The M0 image is smoothed with the kernel the given specification records."""
     import pandas as pd

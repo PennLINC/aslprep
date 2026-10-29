@@ -918,8 +918,10 @@ This has consequences when ATT is shorter than every delay
 
 Choices this model makes:
 
-- **Tissue T1.** The T1s of gray and white matter are those of :footcite:t:`wright2008water`
-  for the field strength (1.5, 3 or 7 T; other field strengths are not supported).
+- **Tissue T1.** The T1s of gray and white matter are measured from the participant's T1 map
+  when there is one (see :ref:`tissue_t1_from_t1map`), and are otherwise those of
+  :footcite:t:`wright2008water` for the field strength (1.5, 3 or 7 T; other field strengths
+  are not supported).
   The results depend on them: in gray matter, with delays of 0.5-4 s (PCASL) and an ATT of
   1 s, a 10% error in T1 changes CBF by about 10%. The size of the change depends on the
   delays, labeling duration and ATT.
@@ -951,6 +953,58 @@ Local-regression partial volume correction fits each tissue's curve with that ti
 :math:`T_1'` alone. BASIL always uses its own model.
 The model is only available for multi-delay data:
 at a single delay, it would need a separate estimate of ATT.
+
+
+.. _tissue_t1_from_t1map:
+
+Tissue T1s from a T1 Map
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+With ``--kinetic-model tissue-t1``, *ASLPrep* measures the T1s of gray and white matter from the
+participant's quantitative T1 map, when there is one, instead of using the defaults.
+``--ignore t1map`` turns this off.
+
+- **Finding the map.** *ASLPrep* looks for an ``anat/*_T1map.nii[.gz]`` image of the participant
+  (and session) in each ``--derivatives`` dataset, then in the raw dataset, and uses the first one
+  it finds. A derivative map is preferred because it may have been corrected for the transmit
+  field, which a map written by the scanner (such as MP2RAGE's) may not have been;
+  MP2RAGE T1s depend on the transmit field, especially at 7 T.
+  Several maps in one dataset are an error; the ``t1map`` key of ``--bids-filter-file``
+  selects one. Its ``Units`` (``s`` or ``ms``) set its scale; without them, a map whose median
+  exceeds 100 is read as milliseconds. A map acquired at another field strength than an ASL run
+  (from the ``MagneticFieldStrength`` of its sidecar) is refused.
+- **Maps with a space entity.** By default, only maps without a ``space`` entity, in their own
+  acquisition space, are used. Pipelines such as pymp2rage write every map with one
+  (for example ``space-MP2RAGE``, ``space-T1w`` and ``space-MNI152NLin2009cAsym``, with and
+  without ``desc-B1corrected``), so *ASLPrep* warns that it found maps it did not use, and lists
+  them. Select one with the ``t1map`` key of ``--bids-filter-file``, for example::
+
+      {"t1map": {"space": "T1w", "desc": "B1corrected", "session": "01"}}
+
+  The session is only needed when there are maps in several sessions and the anatomical
+  reference spans them. The map's T1-weighted companion is then looked for in the same space
+  (pymp2rage's ``space-T1w`` UNIT1, here). Maps in a template space are refused, as a rigid
+  registration cannot bring them back to the participant.
+- **Aligning it with the anatomical image.** A T1-weighted image on the map's grid (MP2RAGE's
+  ``UNIT1``, or a ``T1w``) aligns the map with the anatomical reference. If that image is the only
+  T1w input of the anatomical workflow, the reference shares its scanner space, and no
+  registration is needed. Otherwise, it is rigidly registered to the reference. Without such an
+  image, the map's R1 (1/T1), whose contrast resembles a T1-weighted image's, is registered
+  instead. The transform is written as a ``from-T1map_to-T1w_mode-image_xfm.txt`` derivative,
+  and the anatomical section of the report shows the alignment: the anatomical reference and the
+  map's R1, resampled with the same transform, with the white matter contour.
+  Check it, above all when the map itself was registered.
+- **Measuring the T1s.** The map is resampled onto the anatomical reference, and each tissue's T1
+  is the median over voxels with a tissue probability of at least 95% and a CSF probability
+  below 5%, eroded by one voxel so that blurring across tissue boundaries is left out.
+  At least 100 such voxels are needed in each tissue. Values far from the defaults
+  (outside 0.6-1.5 times them) are reported as warnings, as they usually mean wrong units or a
+  misregistered map.
+- **Where the values go.** They replace ``GrayMatterT1`` and ``WhiteMatterT1`` in the calibration
+  parameters when the workflow runs, with the source ``measured``, so the CBF fit, local-regression
+  partial volume correction, the ``desc-calibration_parameters.json`` file and the ``Model``
+  metadata of the CBF and ATT maps all use them. BASIL keeps its own tissue T1, and the
+  correction of the M0 image for incomplete T1 recovery keeps the default gray matter T1.
 
 
 .. _multidelay_identifiability:

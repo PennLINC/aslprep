@@ -89,6 +89,7 @@ def init_cbf_wf(
     pvc_kernel_size=(5, 5, 1),
     asl_effective_resolution='nominal',
     calibration=None,
+    t1map=None,
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -144,11 +145,18 @@ def init_cbf_wf(
         completed at run time (the ``calibration`` output).
         If None, it is resolved from ``metadata``, ``m0_scale`` and ``smooth_kernel``.
         Not used for pre-calculated CBF data.
+    t1map : :obj:`dict` or None
+        The participant's T1 map (see :func:`~aslprep.utils.bids.collect_t1map`).
+        With the tissue-T1 kinetic model, the tissue T1s measured from it (the
+        ``tissue_t1_updates`` input) replace the defaults at run time.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
     Inputs
     ------
+    tissue_t1_updates, tissue_t1_warnings
+        The tissue T1s measured from ``t1map``, as calibration updates, and warnings about them.
+        Only with ``t1map`` and the tissue-T1 kinetic model.
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
@@ -255,6 +263,8 @@ Cerebral blood flow computation and denoising
     m0_str = ''
     # The tissue-T1 kinetic model's parameters, if the calibration was resolved for it
     tissue_t1 = None if calibration is None else tissue_t1_kinetics(calibration)
+    # The T1 map's tissue T1s replace the defaults at run time
+    use_t1map = t1map is not None and tissue_t1 is not None
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
         # The M0 image is smoothed as the specification records (absent for an M0Estimate).
@@ -339,19 +349,33 @@ Cerebral blood flow computation and denoising
         tissue_t1_str = ''
         if tissue_t1 is not None:
             t1prime = tissue_t1['t1prime']
+            nominal_cbf_str = (
+                f'nominal CBFs of {calibration_value(calibration, "NominalGrayMatterCBF"):g} and '
+                f'{calibration_value(calibration, "NominalWhiteMatterCBF"):g} mL/100 g/min'
+            )
+            if use_t1map:
+                # The values are only known at run time; they are in the calibration file.
+                t1_values_str = f"""\
+The T1s of gray and white matter were measured from the participant's T1 map, as medians over
+pure-tissue voxels (the values are recorded with the calibration parameters), and f was set to
+{nominal_cbf_str}.
+"""
+            else:
+                t1_values_str = f"""\
+The T1s of gray and white matter were set to
+{calibration_value(calibration, 'GrayMatterT1'):g} s and
+{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
+{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
+and f to {nominal_cbf_str},
+which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
+"""
             tissue_t1_str = f"""
 Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
 blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
 reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
 1 / (1 / T1 + f / lambda), with f the CBF in mL/g/s and lambda the blood-brain partition
 coefficient [@buxton1998general].
-The T1s of gray and white matter were set to
-{calibration_value(calibration, 'GrayMatterT1'):g} s and
-{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
-{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
-and f to nominal CBFs of {calibration_value(calibration, 'NominalGrayMatterCBF'):g} and
-{calibration_value(calibration, 'NominalWhiteMatterCBF'):g} mL/100 g/min,
-which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
+{t1_values_str}\
 In voxels that mixed gray and white matter, the tissue term was the sum of the two tissues'
 terms, weighted by their partial volumes times their nominal CBFs, with one ATT and one CBF
 per voxel. CSF was not modeled as perfused.
@@ -501,6 +525,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'asl_mask',
                 't1w_tpms',
                 'aslref2anat_xfm',
+                'tissue_t1_updates',
+                'tissue_t1_warnings',
             ],
         ),
         name='inputnode',
@@ -678,8 +704,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     )
     if calibration is not None:
         # The specification built here decides the workflow and its description.
-        # This node completes it with any values found at run time (none yet), and every
-        # model and output that records it reads its outputs.
+        # This node completes it with the values found at run time (the tissue T1s measured
+        # from a T1 map), and every model and output that records it reads its outputs.
         runtime_calibration = pe.Node(
             ResolveRuntimeCalibration(
                 calibration=calibration,
@@ -697,6 +723,13 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 ('model_metadata', 'model_metadata'),
             ]),
         ])  # fmt:skip
+        if use_t1map:
+            workflow.connect([
+                (inputnode, runtime_calibration, [
+                    ('tissue_t1_updates', 'updates'),
+                    ('tissue_t1_warnings', 'warnings'),
+                ]),
+            ])  # fmt:skip
 
     workflow.connect([
         (extract_deltam, compute_cbf, [

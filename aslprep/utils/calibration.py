@@ -13,12 +13,12 @@ The specification is a JSON-serializable dictionary::
 
     {
         "Description": "...",
-        "SourcePrecedence": ["user", "metadata", "inferred", "default"],
+        "SourcePrecedence": ["user", "measured", "metadata", "inferred", "default"],
         "Parameters": {
             "<name>": {
                 "Value": ...,
                 "Units": "...",          # None for unitless values
-                "Source": "user" | "metadata" | "inferred" | "default",
+                "Source": "user" | "measured" | "metadata" | "inferred" | "default",
                 "Origin": "...",         # what the value was taken or calculated from
                 "Description": "...",
             },
@@ -28,8 +28,10 @@ The specification is a JSON-serializable dictionary::
     }
 
 For each parameter, the first available source in ``SourcePrecedence`` wins:
-a command-line value, then the BIDS metadata (including a haematocrit from a BIDS TSV file),
-then a documented inference from other acquisition parameters, then a documented default.
+a command-line value, then a value measured from the participant's images (such as tissue T1s
+from a T1 map, which are only known at run time; see :func:`update_calibration`), then the BIDS
+metadata (including a haematocrit from a BIDS TSV file), then a documented inference from other
+acquisition parameters, then a documented default.
 """
 
 from __future__ import annotations
@@ -39,7 +41,7 @@ from numbers import Number
 import numpy as np
 
 #: The order in which the sources of a parameter's value take precedence.
-SOURCE_PRECEDENCE = ('user', 'metadata', 'inferred', 'default')
+SOURCE_PRECEDENCE = ('user', 'measured', 'metadata', 'inferred', 'default')
 
 #: Default of ``--m0-scale``.
 DEFAULT_M0_SCALE = 1.0
@@ -621,6 +623,40 @@ def update_calibration(calibration, updates):
             units=entry['Units'],
         )
     return calibration
+
+
+def measured_tissue_t1_updates(gm_t1, wm_t1, origin):
+    """Build the run-time updates of the tissue-T1 model's T1s, measured from a T1 map.
+
+    Parameters
+    ----------
+    gm_t1, wm_t1 : :obj:`float`
+        The measured T1 of gray and white matter, in seconds.
+    origin : :obj:`dict`
+        For each of ``'gray'`` and ``'white'``, how the value was measured (the ``Origin``).
+
+    Returns
+    -------
+    :obj:`dict`
+        Entries for ``GrayMatterT1`` and ``WhiteMatterT1``, for :func:`update_calibration`.
+    """
+    return {
+        name: {
+            'Value': float(t1),
+            'Units': 's',
+            'Source': 'measured',
+            'Origin': origin[tissue],
+            'Description': (
+                f'T1 of {tissue} matter in the tissue-T1 kinetic model, '
+                "measured from the participant's T1 map. The labeled water decays with it once "
+                'it has left the blood for the tissue.'
+            ),
+        }
+        for tissue, name, t1 in (
+            ('gray', 'GrayMatterT1', gm_t1),
+            ('white', 'WhiteMatterT1', wm_t1),
+        )
+    }
 
 
 def calibration_kinetic_model(calibration):
