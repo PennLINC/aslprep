@@ -457,6 +457,10 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 # Tissue T1s measured from the participant's T1 map
                 'tissue_t1_updates',
                 'tissue_t1_warnings',
+                # Per-voxel tissue R1s, with --t1map-method local-regression
+                'tissue_gm_r1',
+                'tissue_wm_r1',
+                'tissue_r1_summary',
                 # FreeSurfer outputs
                 'subjects_dir',
                 'subject_id',
@@ -590,6 +594,37 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 ('tissue_t1_warnings', 'inputnode.tissue_t1_warnings'),
             ]),
         ])  # fmt:skip
+
+    if t1map is not None and config.workflow.t1map_method == 'local-regression':
+        workflow.connect([
+            (inputnode, cbf_wf, [
+                ('tissue_gm_r1', 'inputnode.tissue_gm_r1'),
+                ('tissue_wm_r1', 'inputnode.tissue_wm_r1'),
+            ]),
+        ])  # fmt:skip
+        # The per-voxel tissue T1s the run used, on the ASL reference grid. Like the partial
+        # volume maps, they are inputs of the model, so they are written in every mode.
+        for tissue, label in (('gm', 'GM'), ('wm', 'WM')):
+            ds_tissue_t1 = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    source_file=asl_file,
+                    label=label,
+                    suffix='T1map',
+                    compress=True,
+                    Units='s',
+                    dismiss_entities=('echo',),
+                ),
+                name=f'ds_{tissue}_t1map',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([
+                (cbf_wf, ds_tissue_t1, [(f'outputnode.{tissue}_t1', 'in_file')]),
+                (inputnode, ds_tissue_t1, [
+                    (('tissue_r1_summary', _tissue_t1_metadata, tissue), 'meta_dict'),
+                ]),
+            ])  # fmt:skip
 
     if calibration is not None:
         # The calibration parameters and their report are always written, in every mode.
@@ -1393,6 +1428,20 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             workflow.get_node(node).inputs.source_file = asl_file
 
     return workflow
+
+
+def _tissue_t1_metadata(summary, tissue):
+    """Describe a per-voxel tissue T1 map on the ASL reference grid, for its sidecar."""
+    name = {'gm': 'gray', 'wm': 'white'}[tissue]
+    return {
+        'Description': (
+            f'T1 of {name} matter in each voxel, used by the tissue-T1 kinetic model: 1 over the '
+            f'{name} matter R1 of the T1 map, averaged as the partial volume map averages the '
+            'tissue. Zero where there is no such tissue (the median T1 recorded with the '
+            f'calibration parameters is used there). {summary["Description"]}'
+        ),
+        'TissueT1Method': summary,
+    }
 
 
 def _read_json(in_file):

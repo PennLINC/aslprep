@@ -31,6 +31,7 @@ from aslprep.utils.calibration import (
     m0_partition_coefficient,
     resolve_calibration,
     tissue_t1_kinetics,
+    voxelwise_tissue_t1prime,
 )
 from aslprep.utils.cbf import (
     _getcbfscore,
@@ -378,6 +379,18 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
             'Required by the tissue-T1 kinetic model, to weight the tissues in mixed voxels.'
         ),
     )
+    gm_t1 = File(
+        exists=True,
+        desc=(
+            'Gray matter T1 (s) in each voxel, on the grid of deltam, for the tissue-T1 kinetic '
+            'model (--t1map-method local-regression). Where it is zero, and without it, the '
+            "calibration's GrayMatterT1 is used."
+        ),
+    )
+    wm_t1 = File(
+        exists=True,
+        desc='White matter T1 (s) in each voxel, on the grid of deltam, likewise.',
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -681,23 +694,28 @@ class ComputeCBF(SimpleInterface):
                         'volume maps (gm_pv and wm_pv).'
                     )
 
-                pvs = []
-                for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv):
+                def _on_grid(in_file):
                     # The masker samples by array index, so the grids must be the same.
-                    pv_img = nb.load(pv_file)
-                    if pv_img.shape != dims or not np.allclose(
-                        pv_img.affine,
+                    img = nb.load(in_file)
+                    if img.shape != dims or not np.allclose(
+                        img.affine,
                         deltam_img.affine,
                         atol=1e-3,
                     ):
-                        raise ValueError(
-                            f'Partial volume map {pv_file} does not match the delta-M grid '
-                            f'({dims}).'
-                        )
-                    pvs.append(np.ravel(masker.transform(pv_file)))
+                        raise ValueError(f'{in_file} does not match the delta-M grid ({dims}).')
+
+                    return np.ravel(masker.transform(in_file))
+
+                pvs = [_on_grid(pv_file) for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv)]
+                t1prime = tissue_t1['t1prime']
+                if isdefined(self.inputs.gm_t1) and isdefined(self.inputs.wm_t1):
+                    tissue_t1s = np.column_stack(
+                        [_on_grid(f) for f in (self.inputs.gm_t1, self.inputs.wm_t1)]
+                    )
+                    t1prime = voxelwise_tissue_t1prime(calibration, tissue_t1s)
 
                 tissue_kwargs = {
-                    't1prime': tissue_t1['t1prime'],
+                    't1prime': t1prime,
                     'tissue_weights': tissue_mixing_weights(*pvs, *tissue_t1['nominal_cbf']),
                 }
 

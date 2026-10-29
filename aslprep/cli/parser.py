@@ -569,7 +569,34 @@ any spatial references.""",
             'there is one, and otherwise are the defaults for the field strength '
             '(Wright et al., 2008). See --ignore t1map. '
             'Only available for multi-delay data; single-delay runs stop with an error. '
-            'BASIL always uses its own model.'
+            'BASIL always uses its own model. See also --t1map-method.'
+        ),
+    )
+    g_conf.add_argument(
+        '--t1map-method',
+        action='store',
+        choices=['median', 'local-regression'],
+        default='median',
+        help=(
+            "How --kinetic-model tissue-t1 uses the participant's T1 map. "
+            "'median' (default): one T1 per tissue, the median over its pure voxels. "
+            "'local-regression': a gray and a white matter T1 in each voxel, separated by local "
+            'regression of R1 (1/T1) on the gray matter, white matter and CSF probability maps '
+            '(see --t1map-kernel-size), with the medians where a tissue cannot be separated. '
+            'Experimental: it assumes that R1 mixes linearly across the tissues in a voxel, '
+            'which holds only approximately, and that the T1 map is well registered.'
+        ),
+    )
+    g_conf.add_argument(
+        '--t1map-kernel-size',
+        action='store',
+        type=float,
+        default=7.0,
+        metavar='MM',
+        help=(
+            'Edge, in mm, of the cube in which --t1map-method local-regression separates the '
+            'tissue T1s, rounded to an odd number of anatomical voxels, and at least 3, along '
+            'each axis (default: 7).'
         ),
     )
     g_conf.add_argument(
@@ -1016,6 +1043,13 @@ def parse_args(args=None, namespace=None):
     if any(k % 2 == 0 for k in config.workflow.pvc_kernel_size):
         parser.error(
             f'--pvc-kernel-size values must be odd, got {config.workflow.pvc_kernel_size}.'
+        )
+
+    t1map_kernel_size = config.workflow.t1map_kernel_size
+    if not (math.isfinite(t1map_kernel_size) and t1map_kernel_size >= 3):
+        parser.error(
+            '--t1map-kernel-size must be a finite size of at least 3 mm, so that each fit has '
+            f'neighbors, got {t1map_kernel_size}.'
         )
 
     # Initialize --output-spaces if not defined

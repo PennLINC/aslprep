@@ -20,6 +20,46 @@ PLAUSIBLE_T1_RATIO = (0.6, 1.5)
 #: Brain median above which a T1 map without ``Units`` is read as milliseconds.
 MILLISECONDS_THRESHOLD = 100
 
+#: Default edge, in mm, of the cube in which the local-regression method unmixes R1.
+DEFAULT_KERNEL_MM = 7.0
+
+#: Fewest voxels along each axis of that cube.
+MIN_KERNEL_VOXELS = 3
+
+#: Least support (sum of probabilities) of each tissue in a local-regression fit, as a fraction
+#: of the cube's voxels.
+MIN_SUPPORT_FRACTION = 0.05
+
+#: Largest condition number of a local-regression fit's normalized Gram matrix.
+MAX_CONDITION = 100.0
+
+#: Largest contamination of a gray or white matter R1 by a tissue left out of the fit.
+MAX_CONTAMINATION = 0.05
+
+#: A local gray or white matter R1 further than this factor from the tissue's median R1 is not
+#: used, and the median is used instead.
+MAX_R1_RATIO = 2.0
+
+#: Local-regression fit status codes of :func:`local_regression_r1`.
+#: Each says which tissues were fit; a tissue was left out only when its contamination of the
+#: gray and white matter estimates was below the limit.
+R1_FIT_STATUS = {
+    0: 'outside the brain mask',
+    1: 'gray matter, white matter and CSF fit',
+    2: 'gray and white matter fit',
+    3: 'gray matter and CSF fit',
+    4: 'white matter and CSF fit',
+    5: 'gray matter only fit',
+    6: 'white matter only fit',
+    7: 'not identifiable',
+}
+
+# Tissue indices (GM, WM, CSF) of each fit, in order of precedence, with its status code.
+_R1_SUBSETS = ((1, (0, 1, 2)), (2, (0, 1)), (3, (0, 2)), (4, (1, 2)), (5, (0,)), (6, (1,)))
+
+# Anatomical slices unmixed at once, which bounds the memory used.
+_SLAB = 24
+
 _UNITS = {
     's': 1.0,
     'second': 1.0,
@@ -121,6 +161,154 @@ def tissue_t1_medians(t1, gm_probability, wm_probability, csf_probability):
         q1, median, q3 = np.percentile(values, [25, 50, 75])
         results[tissue] = {'t1': float(median), 'iqr': float(q3 - q1), 'n': int(values.size)}
     return results
+
+
+def kernel_voxels(kernel_mm, affine):
+    """Find the odd number of voxels along each axis that best spans ``kernel_mm``.
+
+    At least :data:`MIN_KERNEL_VOXELS` voxels are used along each axis, so that every fit has
+    neighbors, even on a grid whose voxels are close to ``kernel_mm`` or larger.
+
+    Parameters
+    ----------
+    kernel_mm : :obj:`float`
+        The cube's edge, in mm.
+    affine : (4, 4) :obj:`numpy.ndarray`
+        The grid's voxel-to-RAS affine.
+
+    Returns
+    -------
+    :obj:`tuple` of :obj:`int`
+    """
+    if not np.isfinite(kernel_mm) or kernel_mm <= 0:
+        raise ValueError(f'The kernel size must be finite and positive, got {kernel_mm}.')
+
+    voxel_size = np.sqrt((np.asarray(affine)[:3, :3] ** 2).sum(axis=0))
+    return tuple(
+        max(int(2 * np.round((kernel_mm / v - 1) / 2) + 1), MIN_KERNEL_VOXELS) for v in voxel_size
+    )
+
+
+def local_regression_r1(
+    t1, gm_probability, wm_probability, csf_probability, mask, kernel_size, medians
+):
+    """Estimate the R1 (1 / T1) of gray and white matter in each voxel by local regression.
+
+    Under fast exchange, a voxel's R1 is approximately the sum of its tissues' R1s, weighted by
+    their fractions. So in a box around each voxel of ``mask``, the R1 of the voxels with a
+    finite, positive T1 is regressed on the tissue probability maps, without an intercept, and the
+    coefficients are the tissues' R1s there (as :func:`~aslprep.utils.pvc.local_regression_pvc`
+    does for perfusion, but with CSF, whose R1 is far from zero, as a regressor).
+    The fits are tried in the order of :data:`R1_FIT_STATUS`
+    (see :func:`~aslprep.utils.pvc.local_regression_subsets`), with :data:`MIN_SUPPORT_FRACTION`,
+    :data:`MAX_CONDITION` and :data:`MAX_CONTAMINATION`.
+
+    A tissue's local R1 is used where that tissue was in the fit and the R1 is within a factor of
+    :data:`MAX_R1_RATIO` of the tissue's median R1. Elsewhere, including outside ``mask``, the
+    median is used.
+
+    Parameters
+    ----------
+    t1 : :obj:`numpy.ndarray`
+        T1, in seconds, on the grid of the tissue probability maps.
+    gm_probability, wm_probability, csf_probability : :obj:`numpy.ndarray`
+        Tissue probability maps.
+    mask : :obj:`numpy.ndarray` of :obj:`bool`
+        The brain mask.
+    kernel_size : :obj:`tuple` of :obj:`int`
+        The box size along each array axis, in voxels. All values must be odd.
+    medians : :obj:`dict`
+        The tissues' median T1s, from :func:`tissue_t1_medians`.
+
+    Returns
+    -------
+    :obj:`dict`
+        ``gm_r1`` and ``wm_r1`` (1/s), ``status`` (see :data:`R1_FIT_STATUS`), the boolean maps
+        ``gm_estimated`` and ``wm_estimated`` of where the local R1s were used, and
+        ``estimated_fraction``, the fraction of each tissue (``'gray'``, ``'white'``), by
+        probability within ``mask``, whose R1 was estimated locally.
+    """
+    from aslprep.utils.pvc import local_regression_subsets
+
+    t1 = np.asarray(t1, dtype=np.float64)
+    tpms = [
+        np.asarray(p, dtype=np.float64) for p in (gm_probability, wm_probability, csf_probability)
+    ]
+    mask = np.asarray(mask, dtype=bool)
+    kernel_size = tuple(int(k) for k in kernel_size)
+    shape = t1.shape
+    with np.errstate(divide='ignore', invalid='ignore'):
+        r1 = np.where(np.isfinite(t1) & (t1 > 0), 1 / t1, np.nan)
+
+    median_r1 = {tissue: 1 / medians[tissue]['t1'] for tissue in ('gray', 'white')}
+    out = {
+        'gm_r1': np.full(shape, median_r1['gray']),
+        'wm_r1': np.full(shape, median_r1['white']),
+        'status': np.zeros(shape, dtype=np.uint8),
+        'gm_estimated': np.zeros(shape, dtype=bool),
+        'wm_estimated': np.zeros(shape, dtype=bool),
+    }
+    tau = MIN_SUPPORT_FRACTION * float(np.prod(kernel_size))
+
+    # Unmix the mask's bounding box, in slabs along the first axis, each with a halo of half the
+    # kernel, so that every box sum is the same as over the whole image.
+    if mask.any():
+        lo = [int(idx.min()) for idx in np.nonzero(mask)]
+        hi = [int(idx.max()) + 1 for idx in np.nonzero(mask)]
+        half = [k // 2 for k in kernel_size]
+        for start in range(lo[0], hi[0], _SLAB):
+            stop = min(start + _SLAB, hi[0])
+            outer = (
+                slice(max(start - half[0], 0), min(stop + half[0], shape[0])),
+                *(
+                    slice(max(lo[ax] - half[ax], 0), min(hi[ax] + half[ax], shape[ax]))
+                    for ax in (1, 2)
+                ),
+            )
+            fit = local_regression_subsets(
+                r1[outer],
+                [tpm[outer] for tpm in tpms],
+                mask[outer],
+                np.isfinite(r1[outer]),
+                subsets=_R1_SUBSETS,
+                targets=(0, 1),
+                unidentified=7,
+                kernel_size=kernel_size,
+                tau=tau,
+                kappa_max=MAX_CONDITION,
+                c_max=MAX_CONTAMINATION,
+                residuals=False,
+            )
+            inner = (
+                slice(start - outer[0].start, stop - outer[0].start),
+                slice(None),
+                slice(None),
+            )
+            target = (slice(start, stop), outer[1], outer[2])
+            status = fit['status'][inner]
+            out['status'][target] = status
+            for i_tissue, (key, tissue) in enumerate((('gm', 'gray'), ('wm', 'white'))):
+                included = np.isin(
+                    status, [code for code, subset in _R1_SUBSETS if i_tissue in subset]
+                )
+                estimate = fit['beta'][inner][..., i_tissue]
+                estimated = (
+                    included
+                    & np.isfinite(estimate)
+                    & (estimate >= median_r1[tissue] / MAX_R1_RATIO)
+                    & (estimate <= median_r1[tissue] * MAX_R1_RATIO)
+                )
+                out[f'{key}_r1'][target] = np.where(estimated, estimate, median_r1[tissue])
+                out[f'{key}_estimated'][target] = estimated
+
+    out['estimated_fraction'] = {}
+    for key, tissue, tpm in (('gm', 'gray', tpms[0]), ('wm', 'white', tpms[1])):
+        weight = np.where(mask, np.clip(np.nan_to_num(tpm), 0, 1), 0.0)
+        total = weight.sum()
+        out['estimated_fraction'][tissue] = (
+            float((weight * out[f'{key}_estimated']).sum() / total) if total > 0 else 0.0
+        )
+    return out
 
 
 def check_t1map_field_strength(t1map, field_strength, asl_file):

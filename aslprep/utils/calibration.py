@@ -725,6 +725,47 @@ def tissue_t1_kinetics(calibration):
     }
 
 
+def voxelwise_tissue_t1prime(calibration, tissue_t1s):
+    """Get the apparent T1 of gray and white matter in each voxel, from per-voxel tissue T1s.
+
+    Used with the local-regression T1 map method, whose gray and white matter T1 maps replace the
+    specification's ``GrayMatterT1`` and ``WhiteMatterT1`` in each voxel.
+
+    Parameters
+    ----------
+    calibration : :obj:`dict`
+        The specification, from :func:`resolve_calibration`, for the tissue-T1 model.
+    tissue_t1s : :obj:`numpy.ndarray` of shape (n_voxels, 2)
+        Gray, then white matter T1, in seconds. Where a value is not finite and positive (where
+        the tissue is absent from the voxel), the specification's value is used.
+
+    Returns
+    -------
+    :obj:`numpy.ndarray` of shape (n_voxels, 2)
+        The apparent T1s (see :func:`tissue_t1_kinetics`).
+    """
+    from aslprep.utils.cbf import PARTITION_COEFFICIENT, apparent_tissue_t1
+
+    kinetics = tissue_t1_kinetics(calibration)
+    if kinetics is None:
+        raise ValueError('Per-voxel tissue T1s are only used by the tissue-T1 kinetic model.')
+
+    defaults = np.array(
+        [
+            calibration_value(calibration, 'GrayMatterT1'),
+            calibration_value(calibration, 'WhiteMatterT1'),
+        ]
+    )
+    tissue_t1s = np.asarray(tissue_t1s, dtype=float)
+    tissue_t1s = np.where(np.isfinite(tissue_t1s) & (tissue_t1s > 0), tissue_t1s, defaults)
+    partition_coefficient = calibration_value(
+        calibration,
+        'PartitionCoefficient',
+        PARTITION_COEFFICIENT,
+    )
+    return apparent_tissue_t1(tissue_t1s, kinetics['nominal_cbf'], partition_coefficient)
+
+
 def m0_partition_coefficient(calibration):
     """Get the factor the calibration image is divided by to give the M0 of arterial blood.
 

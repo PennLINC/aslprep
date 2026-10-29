@@ -958,6 +958,14 @@ tasks and sessions), the following preprocessing was performed.
                     ('outputnode.warnings', 'inputnode.tissue_t1_warnings'),
                 ]),
             ])  # fmt:skip
+            if config.workflow.t1map_method == 'local-regression':
+                workflow.connect([
+                    (get_t1map_wf(asl_wf.t1map_field_strength), asl_wf, [
+                        ('outputnode.gm_r1', 'inputnode.tissue_gm_r1'),
+                        ('outputnode.wm_r1', 'inputnode.tissue_wm_r1'),
+                        ('outputnode.r1_summary', 'inputnode.tissue_r1_summary'),
+                    ]),
+                ])  # fmt:skip
 
         workflow.connect([
             (anat_fit_wf, asl_wf, [

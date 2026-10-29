@@ -50,6 +50,7 @@ def init_asl_pv_wf(
     *,
     metadata,
     effective_resolution='nominal',
+    tissue_t1_maps=False,
     name='asl_pv_wf',
 ):
     """Build gray and white matter partial volume maps on the ASL reference grid.
@@ -74,6 +75,9 @@ def init_asl_pv_wf(
     effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
         ``'nominal'`` (the default), ``'auto'``, or the effective FWHM in mm
         (in-plane, in-plane, slice).
+    tissue_t1_maps : :obj:`bool`
+        Whether to also average per-voxel gray and white matter R1 maps (``gm_r1``, ``wm_r1``)
+        onto the ASL reference grid, as T1 maps (``gm_t1``, ``wm_t1``).
     name : :obj:`str`
         Workflow name.
 
@@ -85,6 +89,8 @@ def init_asl_pv_wf(
         ASL brain mask. Only its grid is used: the PV maps are built on it.
     aslref2anat_xfm
         Affine transform from the ASL reference to the anatomical image (ITK format).
+    gm_r1, wm_r1
+        With ``tissue_t1_maps``, gray and white matter R1 maps on the anatomical grid.
 
     Outputs
     -------
@@ -97,6 +103,9 @@ def init_asl_pv_wf(
     pv_metadata
         Dictionary describing how the maps were built (effective resolution and its source,
         slice-encoding axis, supersampling, Gaussian sigma), for the maps' sidecars.
+    gm_t1, wm_t1
+        With ``tissue_t1_maps``, gray and white matter T1 maps on the ASL reference grid:
+        1 over each tissue's R1, averaged as its PV map averages it (zero without the tissue).
 
     References
     ----------
@@ -128,12 +137,15 @@ by averaging the linearly interpolated tissue probability maps over each ASL vox
 Blurring from head motion and distortion correction resampling was not modelled.
 """
 
+    t1_fields = ['gm_r1', 'wm_r1'] if tissue_t1_maps else []
     inputnode = pe.Node(
-        niu.IdentityInterface(fields=['t1w_tpms', 'asl_mask', 'aslref2anat_xfm']),
+        niu.IdentityInterface(fields=['t1w_tpms', 'asl_mask', 'aslref2anat_xfm'] + t1_fields),
         name='inputnode',
     )
     outputnode = pe.Node(
-        niu.IdentityInterface(fields=['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata']),
+        niu.IdentityInterface(
+            fields=['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'gm_t1', 'wm_t1'],
+        ),
         name='outputnode',
     )
 
@@ -157,6 +169,23 @@ Blurring from head motion and distortion correction resampling was not modelled.
             ('pv_metadata', 'pv_metadata'),
         ]),
     ])  # fmt:skip
+    if tissue_t1_maps:
+        workflow.__desc__ += """\
+The gray and white matter T1 maps were brought onto the ASL reference grid in the same way:
+each tissue's R1 was averaged, weighted by its probability, over the same response as its partial
+volume map, so that each voxel's tissue T1s weighted the anatomical voxels as its partial volumes
+did.
+"""
+        workflow.connect([
+            (inputnode, pv_maps, [
+                ('gm_r1', 'gm_r1'),
+                ('wm_r1', 'wm_r1'),
+            ]),
+            (pv_maps, outputnode, [
+                ('gm_t1', 'gm_t1'),
+                ('wm_t1', 'wm_t1'),
+            ]),
+        ])  # fmt:skip
 
     return workflow
 
@@ -170,6 +199,7 @@ def init_lr_pvc_wf(
     num_threads=1,
     use_gpu=False,
     mem_gb=None,
+    tissue_t1_maps=False,
     name='lr_pvc_wf',
 ):
     """Correct CBF maps for partial volume effects by local linear regression.
@@ -199,6 +229,9 @@ def init_lr_pvc_wf(
     mem_gb : :obj:`float` or None
         Memory to declare for the multi-delay node
         (see :func:`~aslprep.utils.pvc.estimate_lr_pvc_mem_gb`).
+    tissue_t1_maps : :obj:`bool`
+        Multi-delay data only: whether the tissue-T1 model's kinetic fits use per-voxel gray and
+        white matter T1s (the ``gm_t1`` and ``wm_t1`` inputs).
     name : :obj:`str`
         Workflow name.
 
@@ -221,6 +254,9 @@ def init_lr_pvc_wf(
     att
         Multi-delay data only: the uncorrected ATT, which sets the shape of the CSF
         quality-control basis.
+    gm_t1, wm_t1
+        Multi-delay data with ``tissue_t1_maps`` only: gray and white matter T1 maps on the ASL
+        reference grid, for the tissue-T1 model's kinetic fits.
     m0_calib
         The M0 image the CBF maps were divided by (ComputeCBF's calibration image).
     quant_valid
@@ -313,6 +349,9 @@ CSF was left out of the gray and white matter fit.
     in_fields = sources + ['m0_calib', 'quant_valid', 'asl_mask', 'gm_pv', 'wm_pv', 'csf_pv']
     if multi_delay:
         in_fields += ['deltam', 'asl_metadata', 'att', 'calibration']
+        if tissue_t1_maps:
+            in_fields += ['gm_t1', 'wm_t1']
+
     inputnode = pe.Node(niu.IdentityInterface(fields=in_fields), name='inputnode')
     outputnode = pe.Node(niu.IdentityInterface(fields=out_fields), name='outputnode')
 
@@ -409,6 +448,18 @@ not estimated) gave an apparent CSF CBF, which should be near zero.
                 ('qc', 'pvc_qc'),
             ]),
         ])  # fmt:skip
+        if tissue_t1_maps:
+            workflow.__desc__ += """\
+With the tissue-T1 model, each tissue curve decayed with that tissue's apparent T1 in the voxel,
+from the per-voxel tissue T1s.
+"""
+            workflow.connect([
+                (inputnode, lr_pvc, [
+                    ('gm_t1', 'gm_t1'),
+                    ('wm_t1', 'wm_t1'),
+                ]),
+            ])  # fmt:skip
+
         return workflow
 
     for source in sources:
