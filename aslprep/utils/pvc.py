@@ -35,6 +35,9 @@ PVC_STATUS = {
     4: 'not identifiable',
 }
 
+# Tissue indices (GM, WM) of each fit, in order of precedence, with its status code.
+_PVC_SUBSETS = ((1, (0, 1)), (2, (0,)), (3, (1,)))
+
 #: Gaussian sigma per unit FWHM: 1 / (2 * sqrt(2 * ln 2)).
 _FWHM_TO_SIGMA = 0.42466090014400953
 #: Relative tolerance for an FWHM equal to the box width (float32 precision of voxel sizes).
@@ -365,6 +368,7 @@ def build_pv_maps(
     max_subvoxel=None,
     max_points=8_000_000,
     slice_axis=2,
+    clip=True,
 ):
     """Build tissue PV maps on the ASL reference grid that model its effective resolution.
 
@@ -394,6 +398,10 @@ def build_pv_maps(
         The number of supersampled points processed at once, which bounds the memory used.
     slice_axis : :obj:`int`
         The ASL reference axis along which slabs are processed.
+    clip : :obj:`bool` or :obj:`list` of :obj:`bool`
+        Whether to clip each map's samples to [0, 1], as probabilities (one value for every map,
+        or one per map). Maps of other quantities, such as a tissue probability times a tissue's
+        R1, are averaged in the same way without clipping.
 
     Returns
     -------
@@ -435,6 +443,10 @@ def build_pv_maps(
     slab = min(slab, ref_shape[slice_axis])
 
     tpms = [np.asarray(tpm, dtype=np.float64) for tpm in tpms]
+    clips = [clip] * len(tpms) if isinstance(clip, bool) else list(clip)
+    if len(clips) != len(tpms):
+        raise ValueError(f'Got {len(clips)} clip values for {len(tpms)} maps.')
+
     pv_maps = [np.zeros(ref_shape, dtype=np.float64) for _ in tpms]
 
     for start in range(0, ref_shape[slice_axis], slab):
@@ -466,7 +478,8 @@ def build_pv_maps(
             sampled = ndimage.map_coordinates(
                 tpm, anat_vox, order=1, mode='constant', cval=0.0, prefilter=False
             ).reshape(shape_ss)
-            np.clip(sampled, 0, 1, out=sampled)
+            if clips[i_tissue]:
+                np.clip(sampled, 0, 1, out=sampled)
 
             # Filter and decimate one axis at a time. The centre subvoxel of each ASL voxel
             # is at index (s - 1) / 2 within its block.
@@ -519,14 +532,14 @@ def local_regression_pvc(
     tau=0.5,
     kappa_max=100.0,
     c_max=0.05,
-    min_n_two=5,
-    min_n_one=4,
 ):
     """Estimate gray and white matter signal amplitudes by local linear regression.
 
     For each voxel in ``mask``, the signal ``y`` of the valid voxels in a box around it is
     regressed on the tissue PV maps, without an intercept (Asllani et al., 2008).
-    See Section 5 of the design spec for the status rules.
+    See Section 5 of the design spec for the status rules: a two-tissue fit
+    (:data:`PVC_STATUS` 1), then a gray or white matter only fit (2, 3), with
+    :func:`local_regression_subsets`, which needs at least five and four valid voxels for them.
 
     Parameters
     ----------
@@ -546,8 +559,6 @@ def local_regression_pvc(
     tau, kappa_max, c_max : :obj:`float`
         Minimum tissue support, maximum condition number of the normalized Gram matrix, and
         maximum contamination ratio for single-tissue fits.
-    min_n_two, min_n_one : :obj:`int`
-        Minimum valid voxels for two- and single-tissue fits.
 
     Returns
     -------
@@ -556,121 +567,31 @@ def local_regression_pvc(
         ``condition``, ``noise_gm``, ``noise_wm``, ``rmse`` and ``n``.
         For a series, ``rmse`` pools the residuals of every volume.
     """
-    kernel_size = tuple(int(k) for k in kernel_size)
-    if any(k < 1 or k % 2 == 0 for k in kernel_size):
-        raise ValueError(f'Kernel sizes must be odd and positive, got {kernel_size}.')
-
-    y = np.asarray(y, dtype=np.float64)
-    series = y.ndim == 4
-    y4 = y if series else y[..., None]
-    n_vol = y4.shape[-1]
-    pv_gm = np.asarray(pv_gm, dtype=np.float64)
-    pv_wm = np.asarray(pv_wm, dtype=np.float64)
-    mask = np.asarray(mask, dtype=bool)
-    valid = (
-        np.asarray(valid, dtype=bool)
-        & mask
-        & np.all(np.isfinite(y4), axis=-1)
-        & np.isfinite(pv_gm)
-        & np.isfinite(pv_wm)
-        & ((np.nan_to_num(pv_gm) + np.nan_to_num(pv_wm)) > 0)
+    fit = local_regression_subsets(
+        y,
+        [pv_gm, pv_wm],
+        mask,
+        valid,
+        subsets=_PVC_SUBSETS,
+        targets=(0, 1),
+        unidentified=4,
+        kernel_size=kernel_size,
+        tau=tau,
+        kappa_max=kappa_max,
+        c_max=c_max,
+        condition=True,
     )
-    v = valid.astype(np.float64)
-    yv = np.where(valid[..., None], y4, 0.0)
-    pg = np.where(valid, pv_gm, 0.0)
-    pw = np.where(valid, pv_wm, 0.0)
-
-    n = np.rint(_box_sum(v, kernel_size))
-    s_g = _box_sum(pg, kernel_size)
-    s_w = _box_sum(pw, kernel_size)
-    s_gg = _box_sum(pg * pg, kernel_size)
-    s_ww = _box_sum(pw * pw, kernel_size)
-    s_gw = _box_sum(pg * pw, kernel_size)
-    b_g = np.stack([_box_sum(pg * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
-    b_w = np.stack([_box_sum(pw * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
-
-    # The box filter can leave tiny negative values where the sums should be zero.
-    tiny = 1e-12
-    s_gg = np.where(s_gg > tiny, s_gg, 0.0)
-    s_ww = np.where(s_ww > tiny, s_ww, 0.0)
-
-    with np.errstate(divide='ignore', invalid='ignore'):
-        both = (s_gg > 0) & (s_ww > 0)
-        r = np.where(both, s_gw / np.sqrt(s_gg * s_ww), 1.0)
-        r = np.clip(np.abs(r), 0, 1)
-        kappa = np.where(r < 1, (1 + r) / (1 - r), np.inf)
-        c_g = np.where(s_gg > 0, s_gw / s_gg, np.inf)
-        c_w = np.where(s_ww > 0, s_gw / s_ww, np.inf)
-
-    centre_ok = mask & valid
-    shape = mask.shape
-    status = np.zeros(shape, dtype=np.uint8)
-    status[mask] = 4
-    two = centre_ok & (n >= min_n_two) & (s_g >= tau) & (s_w >= tau) & both & (kappa <= kappa_max)
-    gm_only = centre_ok & ~two & (n >= min_n_one) & (s_g >= tau) & (s_gg > 0) & (c_g <= c_max)
-    wm_only = (
-        centre_ok & ~two & ~gm_only & (n >= min_n_one) & (s_w >= tau) & (s_ww > 0) & (c_w <= c_max)
-    )
-    status[two] = 1
-    status[gm_only] = 2
-    status[wm_only] = 3
-
-    beta_gm = np.zeros((*shape, n_vol))
-    beta_wm = np.zeros((*shape, n_vol))
-    noise_gm = np.zeros(shape)
-    noise_wm = np.zeros(shape)
-
-    det = (s_gg[two] * s_ww[two] - s_gw[two] ** 2)[:, None]
-    beta_gm[two] = (s_ww[two][:, None] * b_g[two] - s_gw[two][:, None] * b_w[two]) / det
-    beta_wm[two] = (s_gg[two][:, None] * b_w[two] - s_gw[two][:, None] * b_g[two]) / det
-    noise_gm[two] = np.sqrt(s_ww[two] / det[:, 0])
-    noise_wm[two] = np.sqrt(s_gg[two] / det[:, 0])
-
-    beta_gm[gm_only] = b_g[gm_only] / s_gg[gm_only][:, None]
-    noise_gm[gm_only] = 1 / np.sqrt(s_gg[gm_only])
-    beta_wm[wm_only] = b_w[wm_only] / s_ww[wm_only][:, None]
-    noise_wm[wm_only] = 1 / np.sqrt(s_ww[wm_only])
-
-    # Residual sum of squares, computed directly rather than from the expansion,
-    # so near-exact fits are not lost to cancellation. Pooled over volumes for a series.
-    fitted = status > 0
-    fitted &= status < 4
-    pad = [k // 2 for k in kernel_size]
-    g_pad = np.pad(pg, [(p, p) for p in pad])
-    w_pad = np.pad(pw, [(p, p) for p in pad])
-    v_pad = np.pad(v, [(p, p) for p in pad])
-    rss = np.zeros(shape)
-    for i_vol in range(n_vol):
-        y_pad = np.pad(yv[..., i_vol], [(p, p) for p in pad])
-        for offset in np.ndindex(*kernel_size):
-            offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
-            resid = _shifted(y_pad, offset, pad, shape) - (
-                beta_gm[..., i_vol] * _shifted(g_pad, offset, pad, shape)
-                + beta_wm[..., i_vol] * _shifted(w_pad, offset, pad, shape)
-            )
-            rss += _shifted(v_pad, offset, pad, shape) * resid**2
-
-    n_params = np.where(status == 1, 2, 1)
-    rmse = np.zeros(shape)
-    rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
-
-    condition = np.zeros(shape)
-    defined = mask & both
-    condition[defined] = np.minimum(kappa[defined], 1e6)
-
-    if not series:
-        beta_gm = beta_gm[..., 0]
-        beta_wm = beta_wm[..., 0]
-
+    beta = fit['beta']
+    series = beta.ndim == 5
     return {
-        'beta_gm': beta_gm,
-        'beta_wm': beta_wm,
-        'status': status,
-        'condition': condition,
-        'noise_gm': noise_gm,
-        'noise_wm': noise_wm,
-        'rmse': rmse,
-        'n': n,
+        'beta_gm': beta[..., 0, :] if series else beta[..., 0],
+        'beta_wm': beta[..., 1, :] if series else beta[..., 1],
+        'status': fit['status'],
+        'condition': fit['condition'],
+        'noise_gm': fit['noise'][..., 0],
+        'noise_wm': fit['noise'][..., 1],
+        'rmse': fit['rmse'],
+        'n': fit['n'],
     }
 
 
@@ -766,6 +687,93 @@ def local_regression_csf(
         ``beta_csf`` (with the volume axis for a series), ``status`` (see
         :data:`CSF_FIT_STATUS`), ``noise_csf``, ``rmse`` and ``n``.
     """
+    fit = local_regression_subsets(
+        y,
+        [pv_gm, pv_wm, pv_csf],
+        mask,
+        valid,
+        subsets=_CSF_SUBSETS,
+        targets=(2,),
+        unidentified=4,
+        kernel_size=kernel_size,
+        tau=tau,
+        kappa_max=kappa_max,
+        c_max=c_max,
+    )
+    # A copy, so the GM and WM coefficients of this fit (which are not used) can be freed.
+    beta = fit.pop('beta')
+    beta_csf = (beta[..., 2, :] if beta.ndim == 5 else beta[..., 2]).copy()
+    del beta
+    return {
+        'beta_csf': beta_csf,
+        'status': fit['status'],
+        'noise_csf': fit['noise'][..., 2],
+        'rmse': fit['rmse'],
+        'n': fit['n'],
+    }
+
+
+def local_regression_subsets(
+    y,
+    pvs,
+    mask,
+    valid,
+    subsets,
+    targets,
+    unidentified,
+    kernel_size=(5, 5, 1),
+    tau=0.5,
+    kappa_max=100.0,
+    c_max=0.05,
+    residuals=True,
+    condition=False,
+):
+    """Estimate tissue amplitudes by local regression, choosing the tissues in each fit.
+
+    For each voxel in ``mask``, the signal ``y`` of the valid voxels in a box around it is
+    regressed on the PV maps of a subset of the tissues, without an intercept. The subsets are
+    tried in order, and the first one that qualifies is used. A subset qualifies if every tissue
+    in it has at least ``tau`` of support (the sum of its PV map over the box) and a nonzero
+    Gram diagonal, the box has at least three more valid voxels than the subset has tissues, the
+    normalized Gram matrix has a condition number of at most ``kappa_max``, and each tissue left
+    out contaminates the coefficient of each target tissue in the subset by at most ``c_max``
+    (the coefficient of its PV map on that estimate, ``[G_S^-1 X_S^T p_o]_t``).
+
+    Parameters
+    ----------
+    y : :obj:`numpy.ndarray`
+        The signal to unmix: 3D, or 4D with volumes on the last axis, sharing one design.
+    pvs : :obj:`list` of :obj:`numpy.ndarray`
+        One 3D PV map per tissue.
+    mask, valid : :obj:`numpy.ndarray` of :obj:`bool`
+        As for :func:`local_regression_pvc`.
+    subsets : sequence of (:obj:`int`, :obj:`tuple` of :obj:`int`)
+        The status code of each fit, and the indices (into ``pvs``) of its tissues,
+        in order of precedence.
+    targets : :obj:`tuple` of :obj:`int`
+        The tissues whose estimates matter, which the contamination limit protects.
+    unidentified : :obj:`int`
+        The status code of voxels in ``mask`` where no subset qualifies.
+    kernel_size : :obj:`tuple` of :obj:`int`
+        The box size along each array axis. All values must be odd.
+    tau, kappa_max, c_max : :obj:`float`
+        Minimum support, maximum condition number and maximum contamination.
+    residuals : :obj:`bool`
+        Whether to compute the residuals (``rmse``), which loops over the box's voxels.
+    condition : :obj:`bool`
+        Whether to compute the condition number of the normalized Gram matrix of all the
+        tissues (``condition``).
+
+    Returns
+    -------
+    :obj:`dict` of :obj:`numpy.ndarray`
+        ``beta`` (tissues on the axis after the spatial ones, then the volume axis for a series;
+        zero for tissues not in a voxel's fit), ``status``, ``noise`` (the noise amplification
+        of each target's estimate, by tissue, zero for the others), ``rmse`` (zero without
+        ``residuals``) and ``n``. With ``condition``, also ``condition``: in ``mask`` voxels
+        where every tissue has a nonzero Gram diagonal, the condition number of all the tissues'
+        normalized Gram matrix (at most 1e6), and zero elsewhere.
+    """
     kernel_size = tuple(int(k) for k in kernel_size)
     if any(k < 1 or k % 2 == 0 for k in kernel_size):
         raise ValueError(f'Kernel sizes must be odd and positive, got {kernel_size}.')
@@ -774,7 +782,8 @@ def local_regression_csf(
     series = y.ndim == 4
     y4 = y if series else y[..., None]
     n_vol = y4.shape[-1]
-    pvs = [np.asarray(p, dtype=np.float64) for p in (pv_gm, pv_wm, pv_csf)]
+    pvs = [np.asarray(p, dtype=np.float64) for p in pvs]
+    n_tissues = len(pvs)
     mask = np.asarray(mask, dtype=bool)
     shape = mask.shape
     finite = np.all(np.isfinite(y4), axis=-1)
@@ -789,11 +798,11 @@ def local_regression_csf(
 
     n = np.rint(_box_sum(v, kernel_size))
     support = [_box_sum(p, kernel_size) for p in ps]
-    gram = np.empty((*shape, 3, 3))
-    for i in range(3):
-        for j in range(i, 3):
+    gram = np.empty((*shape, n_tissues, n_tissues))
+    for i in range(n_tissues):
+        for j in range(i, n_tissues):
             gram[..., i, j] = gram[..., j, i] = _box_sum(ps[i] * ps[j], kernel_size)
-    # Right-hand sides: (*shape, 3 tissues, n_vol)
+    # Right-hand sides: (*shape, tissues, n_vol)
     rhs = np.stack(
         [
             np.stack([_box_sum(p * yv[..., i], kernel_size) for i in range(n_vol)], axis=-1)
@@ -803,15 +812,26 @@ def local_regression_csf(
     )
 
     status = np.zeros(shape, dtype=np.uint8)
-    status[mask] = 4
-    beta = np.zeros((*shape, 3, n_vol))
-    noise_csf = np.zeros(shape)
+    status[mask] = unidentified
+    beta = np.zeros((*shape, n_tissues, n_vol))
+    noise = np.zeros((*shape, n_tissues))
     undecided = mask & valid
     tiny = 1e-12
 
-    for code, subset in _CSF_SUBSETS:
+    out = {}
+    if condition:
+        defined = mask & np.all(np.einsum('...ii->...i', gram) > tiny, axis=-1)
+        g = gram[defined]
+        d = np.sqrt(np.einsum('...ii->...i', g))
+        eig = np.linalg.eigvalsh(g / (d[:, :, None] * d[:, None, :]))
+        with np.errstate(divide='ignore', invalid='ignore'):
+            kappa = np.where(eig[:, 0] > tiny, eig[:, -1] / eig[:, 0], np.inf)
+        out['condition'] = np.zeros(shape)
+        out['condition'][defined] = np.minimum(kappa, 1e6)
+
+    for code, subset in subsets:
         subset = list(subset)
-        omitted = [t for t in range(3) if t not in subset]
+        omitted = [t for t in range(n_tissues) if t not in subset]
         k = len(subset)
         candidate = undecided & (n >= k + 3)
         for t in subset:
@@ -819,7 +839,8 @@ def local_regression_csf(
         if not candidate.any():
             continue
 
-        g = gram[candidate][:, subset][:, :, subset]
+        g_all = gram[candidate]
+        g = g_all[:, subset][:, :, subset]
         d = np.sqrt(np.einsum('...ii->...i', g))
         normalized = g / (d[:, :, None] * d[:, None, :])
         eig = np.linalg.eigvalsh(normalized)
@@ -827,64 +848,57 @@ def local_regression_csf(
             kappa = np.where(eig[:, 0] > tiny, eig[:, -1] / eig[:, 0], np.inf)
         ok = kappa <= kappa_max
 
-        g_ok = g[ok]
-        g_inv = np.linalg.inv(g_ok) if g_ok.size else g_ok
-        csf_row = subset.index(2)
-        # Contamination of the CSF coefficient by each omitted tissue
+        g_inv = np.zeros_like(g)
+        if ok.any():
+            g_inv[ok] = np.linalg.inv(g[ok])
+
+        # Contamination of each target's coefficient by each omitted tissue
+        rows = [subset.index(t) for t in targets if t in subset]
         for o in omitted:
-            cross = gram[candidate][ok][:, subset, o]
-            leak = np.einsum('vij,vj->vi', g_inv, cross)[:, csf_row]
-            keep = np.abs(leak) <= c_max
-            ok_index = np.flatnonzero(ok)
-            ok[ok_index[~keep]] = False
-            g_inv = g_inv[keep]
+            leak = np.einsum('vij,vj->vi', g_inv, g_all[:, subset, o])[:, rows]
+            ok &= np.all(np.abs(leak) <= c_max, axis=1)
 
         voxels = tuple(idx[ok] for idx in np.nonzero(candidate))
-        b = rhs[voxels][:, subset, :]
-        coef = np.einsum('vij,vjt->vit', g_inv, b)
+        g_inv = g_inv[ok]
+        coef = np.einsum('vij,vjt->vit', g_inv, rhs[voxels][:, subset, :])
         for row, t in enumerate(subset):
             beta[(*voxels, np.full(len(voxels[0]), t))] = coef[:, row, :]
-        noise_csf[voxels] = np.sqrt(g_inv[:, csf_row, csf_row])
+            if t in targets:
+                noise[(*voxels, np.full(len(voxels[0]), t))] = np.sqrt(g_inv[:, row, row])
+
         status[voxels] = code
         undecided[voxels] = False
 
     del rhs  # only the coefficients are needed from here on
 
-    # Residuals, computed directly over the kernel offsets, pooled over volumes
-    fitted = np.isin(status, [code for code, _ in _CSF_SUBSETS])
-    pad = [kk // 2 for kk in kernel_size]
-    p_pad = [np.pad(p, [(q, q) for q in pad]) for p in ps]
-    v_pad = np.pad(v, [(q, q) for q in pad])
-    rss = np.zeros(shape)
-    for i_vol in range(n_vol):
-        y_pad = np.pad(yv[..., i_vol], [(p, p) for p in pad])
-        for offset in np.ndindex(*kernel_size):
-            offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
-            fit_value = sum(
-                beta[..., t, i_vol] * _shifted(p_pad[t], offset, pad, shape) for t in range(3)
-            )
-            resid = _shifted(y_pad, offset, pad, shape) - fit_value
-            rss += _shifted(v_pad, offset, pad, shape) * resid**2
-
-    n_params = np.zeros(shape)
-    for code, subset in _CSF_SUBSETS:
-        n_params[status == code] = len(subset)
+    fitted = np.isin(status, [code for code, _ in subsets])
     rmse = np.zeros(shape)
-    rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
+    if residuals:
+        # Residuals, computed directly over the kernel offsets, pooled over volumes
+        pad = [kk // 2 for kk in kernel_size]
+        p_pad = [np.pad(p, [(q, q) for q in pad]) for p in ps]
+        v_pad = np.pad(v, [(q, q) for q in pad])
+        rss = np.zeros(shape)
+        for i_vol in range(n_vol):
+            y_pad = np.pad(yv[..., i_vol], [(p, p) for p in pad])
+            for offset in np.ndindex(*kernel_size):
+                offset = tuple(o - p for o, p in zip(offset, pad, strict=True))
+                fit_value = sum(
+                    beta[..., t, i_vol] * _shifted(p_pad[t], offset, pad, shape)
+                    for t in range(n_tissues)
+                )
+                resid = _shifted(y_pad, offset, pad, shape) - fit_value
+                rss += _shifted(v_pad, offset, pad, shape) * resid**2
 
-    # A copy, so the GM and WM coefficients of this fit (which are not used) can be freed.
-    beta_csf = beta[..., 2, :].copy()
-    del beta
+        n_params = np.zeros(shape)
+        for code, subset in subsets:
+            n_params[status == code] = len(subset)
+        rmse[fitted] = np.sqrt(rss[fitted] / (n_vol * (n[fitted] - n_params[fitted])))
+
     if not series:
-        beta_csf = beta_csf[..., 0]
+        beta = beta[..., 0]
 
-    return {
-        'beta_csf': beta_csf,
-        'status': status,
-        'noise_csf': noise_csf,
-        'rmse': rmse,
-        'n': n,
-    }
+    return {'beta': beta, 'status': status, 'noise': noise, 'rmse': rmse, 'n': n, **out}
 
 
 def calibrate_csf(fit, m0, pv_csf, min_pv=0.1):
@@ -1091,8 +1105,9 @@ def fit_tissue_curves(
         Upper bound on CBF.
     abv_max : :obj:`float`
         Upper bound on aBV.
-    t1prime : :obj:`float` or None
-        The apparent T1 of the curves' tissue, for the tissue-T1 model.
+    t1prime : :obj:`float` or :obj:`numpy.ndarray` of shape (n_voxels, 1) or None
+        The apparent T1 of the curves' tissue (one value, or one per curve), for the tissue-T1
+        model.
         The curves are of one tissue each, so it is that tissue's alone, with no mixing.
         None for the consensus model.
 
@@ -1159,7 +1174,8 @@ def fit_tissue_curves(
             tau=tau,
             ti1=ti1,
             partition_coefficient=partition_coefficient,
-            t1prime=t1prime,
+            # One T1' per curve is subset with the curves; a single value applies to all
+            t1prime=t1prime[fitted] if np.ndim(t1prime) == 2 else t1prime,
         )
     norm = np.linalg.norm(curves, axis=1)
     kinres = np.zeros(n_voxels)

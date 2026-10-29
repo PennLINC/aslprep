@@ -157,6 +157,10 @@ def init_cbf_wf(
     tissue_t1_updates, tissue_t1_warnings
         The tissue T1s measured from ``t1map``, as calibration updates, and warnings about them.
         Only with ``t1map`` and the tissue-T1 kinetic model.
+    tissue_gm_r1, tissue_wm_r1
+        Gray and white matter R1 maps on the anatomical grid, from ``t1map``.
+        Only with ``t1map``, the tissue-T1 kinetic model and
+        ``--t1map-method local-regression``.
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
@@ -202,6 +206,9 @@ def init_cbf_wf(
         time, and the ``Model`` sidecar dictionary of each model
         (see :class:`~aslprep.interfaces.cbf.ResolveRuntimeCalibration`).
         Not defined for pre-calculated CBF data.
+    gm_t1, wm_t1
+        The per-voxel gray and white matter T1s used by the tissue-T1 model, on the ASL
+        reference grid (with ``tissue_gm_r1`` and ``tissue_wm_r1``).
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -265,6 +272,8 @@ Cerebral blood flow computation and denoising
     tissue_t1 = None if calibration is None else tissue_t1_kinetics(calibration)
     # The T1 map's tissue T1s replace the defaults at run time
     use_t1map = t1map is not None and tissue_t1 is not None
+    # With the local-regression method, the T1 map also gives tissue T1s in each voxel
+    tissue_t1_maps = use_t1map and config.workflow.t1map_method == 'local-regression'
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
         # The M0 image is smoothed as the specification records (absent for an M0Estimate).
@@ -353,7 +362,13 @@ Cerebral blood flow computation and denoising
                 f'nominal CBFs of {calibration_value(calibration, "NominalGrayMatterCBF"):g} and '
                 f'{calibration_value(calibration, "NominalWhiteMatterCBF"):g} mL/100 g/min'
             )
-            if use_t1map:
+            if tissue_t1_maps:
+                t1_values_str = f"""\
+The T1s of gray and white matter in each voxel were measured from the participant's T1 map by
+local regression, with the medians over pure-tissue voxels where a tissue could not be separated
+(the medians are recorded with the calibration parameters), and f was set to {nominal_cbf_str}.
+"""
+            elif use_t1map:
                 # The values are only known at run time; they are in the calibration file.
                 t1_values_str = f"""\
 The T1s of gray and white matter were measured from the participant's T1 map, as medians over
@@ -527,6 +542,8 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'aslref2anat_xfm',
                 'tissue_t1_updates',
                 'tissue_t1_warnings',
+                'tissue_gm_r1',
+                'tissue_wm_r1',
             ],
         ),
         name='inputnode',
@@ -570,6 +587,9 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 # The calibration specification the run used, and each model's sidecar metadata
                 'calibration',
                 'model_metadata',
+                # Per-voxel tissue T1s (--t1map-method local-regression)
+                'gm_t1',
+                'wm_t1',
             ]
             + pv_fields
             + lr_fields
@@ -762,6 +782,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
         asl_pv_wf = init_asl_pv_wf(
             metadata=metadata,
             effective_resolution=asl_effective_resolution,
+            tissue_t1_maps=tissue_t1_maps,
         )
         workflow.connect([
             (inputnode, asl_pv_wf, [
@@ -776,6 +797,22 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             (asl_pv_wf, compute_cbf, [
                 ('outputnode.gm_pv', 'gm_pv'),
                 ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+        ])  # fmt:skip
+
+    if tissue_t1_maps:
+        workflow.connect([
+            (inputnode, asl_pv_wf, [
+                ('tissue_gm_r1', 'inputnode.gm_r1'),
+                ('tissue_wm_r1', 'inputnode.wm_r1'),
+            ]),
+            (asl_pv_wf, compute_cbf, [
+                ('outputnode.gm_t1', 'gm_t1'),
+                ('outputnode.wm_t1', 'wm_t1'),
+            ]),
+            (asl_pv_wf, outputnode, [
+                ('outputnode.gm_t1', 'gm_t1'),
+                ('outputnode.wm_t1', 'wm_t1'),
             ]),
         ])  # fmt:skip
 
@@ -985,7 +1022,16 @@ rather than estimated.
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
+            tissue_t1_maps=tissue_t1_maps and is_multi_pld,
         )
+        if tissue_t1_maps and is_multi_pld:
+            workflow.connect([
+                (asl_pv_wf, lr_pvc_wf, [
+                    ('outputnode.gm_t1', 'inputnode.gm_t1'),
+                    ('outputnode.wm_t1', 'inputnode.wm_t1'),
+                ]),
+            ])  # fmt:skip
+
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the
             # metadata of the selected volumes, plus the uncorrected ATT for the CSF QC basis.

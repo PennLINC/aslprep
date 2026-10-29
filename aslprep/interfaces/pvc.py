@@ -34,6 +34,9 @@ from aslprep.utils.pvc import (
     summarize_csf_qc,
 )
 
+#: PV below which a tissue's T1 on the ASL grid is not defined (and the scalar T1 is used).
+MIN_T1_WEIGHT = 1e-6
+
 
 class _PartialVolumeMapsInputSpec(BaseInterfaceInputSpec):
     gm_tpm = File(exists=True, mandatory=True, desc='Gray matter probability map (anatomical).')
@@ -66,6 +69,14 @@ class _PartialVolumeMapsInputSpec(BaseInterfaceInputSpec):
         nohash=True,
         desc='Supersampled points processed at once. Bounds the memory used.',
     )
+    gm_r1 = File(
+        exists=True,
+        desc=(
+            'Gray matter R1 (1/s) in each anatomical voxel. If given with wm_r1, the tissue T1s '
+            'are averaged onto the ASL reference grid with the PV maps.'
+        ),
+    )
+    wm_r1 = File(exists=True, desc='White matter R1 (1/s) in each anatomical voxel.')
 
 
 class _PartialVolumeMapsOutputSpec(TraitedSpec):
@@ -73,6 +84,14 @@ class _PartialVolumeMapsOutputSpec(TraitedSpec):
     wm_pv = File(exists=True, desc='White matter PV map on the ASL reference grid.')
     csf_pv = File(exists=True, desc='CSF PV map on the ASL reference grid.')
     pv_metadata = traits.Dict(desc='How the PV maps were built, for their sidecars.')
+    gm_t1 = File(
+        exists=True,
+        desc=(
+            'Gray matter T1 (s) on the ASL reference grid: 1 over the mean gray matter R1, '
+            'weighted as the PV map weights the tissue. Zero where there is no gray matter.'
+        ),
+    )
+    wm_t1 = File(exists=True, desc='White matter T1 (s) on the ASL reference grid, likewise.')
 
 
 class PartialVolumeMaps(SimpleInterface):
@@ -118,8 +137,24 @@ class PartialVolumeMaps(SimpleInterface):
         if not all(np.allclose(img.affine, tpm_imgs[0].affine) for img in tpm_imgs[1:]):
             raise ValueError('The tissue probability maps must share a grid.')
 
+        maps = [img.get_fdata(dtype=np.float32) for img in tpm_imgs]
+        with_t1 = isdefined(self.inputs.gm_r1) and isdefined(self.inputs.wm_r1)
+        if with_t1:
+            # Each tissue's R1, weighted by its probability, is averaged with the same response
+            # as the PV map, so that the mean R1 weights the anatomical voxels as the PV map does.
+            for tpm, r1_file in zip(maps[:2], (self.inputs.gm_r1, self.inputs.wm_r1), strict=True):
+                r1_img = nb.load(r1_file)
+                if r1_img.shape[:3] != tpm.shape or not np.allclose(
+                    r1_img.affine,
+                    tpm_imgs[0].affine,
+                    atol=1e-3,
+                ):
+                    raise ValueError(f'{r1_file} is not on the grid of the tissue maps.')
+
+                maps.append(np.clip(tpm, 0, 1) * r1_img.get_fdata(dtype=np.float32))
+
         pv_maps, info = build_pv_maps(
-            [img.get_fdata(dtype=np.float32) for img in tpm_imgs],
+            maps,
             tpm_imgs[0].affine,
             ref_img.shape[:3],
             ref_affine,
@@ -127,9 +162,27 @@ class PartialVolumeMaps(SimpleInterface):
             fwhm=resolution['fwhm'],
             max_points=self.inputs.max_points,
             slice_axis=slice_axis,
+            clip=[True, True, True] + [False] * (len(maps) - 3),
         )
 
-        for name, data in zip(('gm_pv', 'wm_pv', 'csf_pv'), pv_maps, strict=True):
+        if with_t1:
+            for name, pv, weighted in (
+                ('gm_t1', pv_maps[0], pv_maps[3]),
+                ('wm_t1', pv_maps[1], pv_maps[4]),
+            ):
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    t1 = np.where((pv > MIN_T1_WEIGHT) & (weighted > 0), pv / weighted, 0.0)
+                out_img = nb.Nifti1Image(t1.astype(np.float32), ref_affine, ref_img.header)
+                out_img.set_data_dtype(np.float32)
+                self._results[name] = fname_presuffix(
+                    self.inputs.reference,
+                    suffix=f'_{name}',
+                    newpath=runtime.cwd,
+                    use_ext=True,
+                )
+                out_img.to_filename(self._results[name])
+
+        for name, data in zip(('gm_pv', 'wm_pv', 'csf_pv'), pv_maps[:3], strict=True):
             out_img = nb.Nifti1Image(data.astype(np.float32), ref_affine, ref_img.header)
             out_img.set_data_dtype(np.float32)
             self._results[name] = fname_presuffix(
@@ -375,6 +428,15 @@ class _MultiDelayLocalRegressionPVCInputSpec(BaseInterfaceInputSpec):
     )
     num_threads = traits.Int(1, usedefault=True, nohash=True, desc='Threads for the kinetic fits.')
     use_gpu = traits.Bool(False, usedefault=True, desc='Run the kinetic fits on a GPU, with CuPy.')
+    gm_t1 = File(
+        exists=True,
+        desc=(
+            'Gray matter T1 (s) in each voxel, for the tissue-T1 kinetic model '
+            "(--t1map-method local-regression). Where it is zero, and without it, the calibration's "
+            'GrayMatterT1 is used.'
+        ),
+    )
+    wm_t1 = File(exists=True, desc='White matter T1 (s) in each voxel, likewise.')
 
 
 class _MultiDelayLocalRegressionPVCOutputSpec(TraitedSpec):
@@ -433,6 +495,7 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
             m0_partition_coefficient,
             resolve_calibration,
             tissue_t1_kinetics,
+            voxelwise_tissue_t1prime,
         )
         from aslprep.utils.cbf import (
             get_array_module,
@@ -505,17 +568,38 @@ class MultiDelayLocalRegressionPVC(SimpleInterface):
         # Step 2: a kinetic fit of each tissue's curve, calibrated by the center voxel's M0.
         # With the tissue-T1 model, each curve decays with its own tissue's apparent T1.
         tissue_t1 = tissue_t1_kinetics(calibration)
+        t1prime = None if tissue_t1 is None else tissue_t1['t1prime']
+        if tissue_t1 is not None and isdefined(self.inputs.gm_t1) and isdefined(self.inputs.wm_t1):
+            tissue_t1s = []
+            for t1_file in (self.inputs.gm_t1, self.inputs.wm_t1):
+                t1_img = nb.load(t1_file)
+                if t1_img.shape[:3] != shape or not np.allclose(t1_img.affine, affine, atol=1e-3):
+                    raise ValueError(f'{t1_file} does not match the delta-M grid ({shape}).')
+
+                tissue_t1s.append(t1_img.get_fdata().reshape(-1))
+
+            # One apparent T1 per voxel and tissue, on the image grid
+            t1prime = voxelwise_tissue_t1prime(calibration, np.column_stack(tissue_t1s))
+            t1prime = t1prime.reshape(*shape, 2)
+
         xp = get_array_module(self.inputs.use_gpu)
         maps = {}
         for i_tissue, tissue in enumerate(('gm', 'wm')):
             sel = spatial[tissue]
+            tissue_t1prime = None
+            if t1prime is not None:
+                # Each curve is of one tissue, so it decays with that tissue's T1' alone
+                tissue_t1prime = (
+                    t1prime[i_tissue] if t1prime.ndim == 1 else t1prime[sel][:, i_tissue, None]
+                )
+
             result = fit_tissue_curves(
                 fit[f'beta_{tissue}'][sel],
                 m0[sel],
                 plds[sel],
                 xp=xp,
                 n_jobs=self.inputs.num_threads,
-                t1prime=None if tissue_t1 is None else tissue_t1['t1prime'][i_tissue],
+                t1prime=tissue_t1prime,
                 **kinetics,
             )
             status = np.zeros(shape, dtype=np.uint8)

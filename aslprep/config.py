@@ -639,6 +639,10 @@ class workflow(_Config):
     partial volume correction."""
     kinetic_model = 'consensus'
     """ASLPrep's kinetic model for multi-delay data: ``consensus`` or ``tissue-t1``."""
+    t1map_method = 'median'
+    """How the tissue-T1 model uses a T1 map: ``median`` or ``local-regression``."""
+    t1map_kernel_size = 7.0
+    """Edge, in mm, of the cube in which ``local-regression`` unmixes the T1 map."""
     pvc_method = 'none'
     """Additional partial volume correction of the CBF maps: ``none`` or ``local-regression``."""
     asl_effective_resolution = 'nominal'

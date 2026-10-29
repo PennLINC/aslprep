@@ -1006,6 +1006,39 @@ participant's quantitative T1 map, when there is one, instead of using the defau
   metadata of the CBF and ATT maps all use them. BASIL keeps its own tissue T1, and the
   correction of the M0 image for incomplete T1 recovery keeps the default gray matter T1.
 
+``--t1map-method local-regression`` (experimental) also uses regional differences in tissue T1,
+which one median per tissue leaves out (motor cortex, for example, has a shorter T1 than the rest
+of the cortex).
+
+- **Separating the tissues.** Under fast exchange, a voxel's R1 (1/T1) is approximately the sum
+  of its tissues' R1s, weighted by their fractions. So in a cube of ``--t1map-kernel-size`` mm
+  (7 by default, a heuristic choice that has not been validated against measured regional
+  T1s; rounded to an odd number of anatomical voxels, and at least 3, along each axis) around each
+  voxel of the anatomical brain mask, the R1 of the resampled map is regressed on the gray matter,
+  white matter and CSF probability maps, without an intercept, in the same way as
+  local-regression partial volume correction :footcite:p:`asllani2008regression`.
+  CSF is a regressor, because unlike perfusion its R1 is far from zero.
+  Where a tissue has too little support in the cube (less than 5% of its voxels), it is left
+  out, but only when that biases the gray and white matter estimates by at most 5% of the
+  left-out tissue's R1; fits with a condition number above 100 are not used.
+- **Falling back to the medians.** Where a tissue was not in the fit, or its estimate is more
+  than a factor of 2 from its median, the median is used. The ``Origin`` of ``GrayMatterT1`` and
+  ``WhiteMatterT1`` in the calibration parameters says how much of each tissue was estimated
+  locally.
+- **Onto the ASL grid.** Each tissue's R1 is averaged onto the ASL reference grid, weighted by
+  its probability, with the same response as its partial volume map
+  (see ``--asl-effective-resolution``), so the tissue T1s of a voxel weight the anatomical voxels
+  as its partial volumes do. They are written as ``label-GM_T1map`` and ``label-WM_T1map``
+  derivatives of each run, in seconds, and are zero where the tissue is absent (the median is
+  used there).
+- **Using them.** The CBF fit uses each voxel's gray and white matter :math:`T_1'`, and
+  local-regression partial volume correction fits each tissue curve with its tissue's
+  :math:`T_1'` in the voxel. BASIL and the M0 correction keep their scalar T1s.
+- **Limitations.** Fast exchange holds only approximately, especially between tissue and CSF, and
+  a T1 map fitted from an inversion-recovery or MP2RAGE sequence need not follow it exactly.
+  Segmentation and registration errors at tissue boundaries bias the separated R1s more than they
+  bias the medians, which only use pure voxels. Check the registration panel of the report.
+
 
 .. _multidelay_identifiability:
 

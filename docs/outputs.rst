@@ -428,12 +428,28 @@ inputs.
 The ``Source`` is one of these, in order of precedence:
 
 1. ``user``: a command-line option, such as ``--m0-scale`` or ``--smooth-kernel``.
-2. ``metadata``: the BIDS metadata, including a haematocrit from a BIDS TSV file
+2. ``measured``: a value measured from the participant's images when the workflow runs, such as
+   the gray and white matter T1s of the tissue-T1 model, from a T1 map
+   (see :ref:`tissue_t1_from_t1map`).
+3. ``metadata``: the BIDS metadata, including a haematocrit from a BIDS TSV file
    (see :ref:`haematocrit`).
-3. ``inferred``: a calculation from other acquisition parameters, such as the number of
+4. ``inferred``: a calculation from other acquisition parameters, such as the number of
    background suppression pulses from ``BackgroundSuppressionPulseTime``,
    or the effective labeling efficiency from the labeling efficiency and background suppression.
-4. ``default``: a documented value from the literature, such as a blood T1 of 1.65 s at 3 T.
+5. ``default``: a documented value from the literature, such as a blood T1 of 1.65 s at 3 T.
+
+With ``--t1map-method local-regression``, the tissue-T1 model uses a gray and a white matter T1
+in each voxel instead of one per tissue, and these are written too, in seconds, on the ASL
+reference grid::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>_label-GM_T1map.nii.gz  # gray matter T1 used in each voxel (aslref only)
+         <source_entities>_label-WM_T1map.nii.gz  # white matter T1 used in each voxel (aslref only)
+
+They are zero where the voxel has none of the tissue; the calibration parameters' median T1 is
+used there. Their sidecars describe how they were made, and the fraction of each tissue whose T1
+was estimated locally rather than taken from the median.
 
 The JSON sidecar of each quantitative map, in every output space, also describes the model that
 produced the map, in a ``Model`` dictionary organized as proposed for BIDS diffusion derivatives

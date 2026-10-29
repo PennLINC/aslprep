@@ -365,6 +365,35 @@ def test_kinetic_model_option(tmp_path, supp_args, model):
 
 
 @pytest.mark.parametrize(
+    ('supp_args', 'method', 'kernel'),
+    [
+        ([], 'median', 7.0),
+        (
+            ['--t1map-method', 'local-regression', '--t1map-kernel-size', '5'],
+            'local-regression',
+            5.0,
+        ),
+    ],
+)
+def test_t1map_method_options(tmp_path, supp_args, method, kernel):
+    """The T1 map method and kernel reach the config and survive a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.t1map_method == method
+    assert config.workflow.t1map_kernel_size == kernel
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.t1map_method == method
+    assert config.workflow.t1map_kernel_size == kernel
+    reset_config()
+
+
+@pytest.mark.parametrize(
     ('supp_args', 'message'),
     [
         (['--asl-effective-resolution', '3', '3'], 'three FWHM values'),
@@ -375,6 +404,10 @@ def test_kinetic_model_option(tmp_path, supp_args, model):
         (['--asl-effective-resolution', '3', '3', 'inf'], 'finite and positive'),
         (['--pvc-kernel-size', '4', '5', '1'], 'must be odd'),
         (['--pvc-method', 'basil'], 'invalid choice'),
+        (['--t1map-kernel-size', '2'], 'at least 3 mm'),
+        (['--t1map-kernel-size', 'nan'], 'at least 3 mm'),
+        (['--t1map-kernel-size', 'inf'], 'at least 3 mm'),
+        (['--t1map-method', 'mean'], 'invalid choice'),
     ],
 )
 def test_pvc_option_errors(tmp_path, capsys, supp_args, message):

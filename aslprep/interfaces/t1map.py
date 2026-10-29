@@ -100,6 +100,7 @@ class _MeasureTissueT1OutputSpec(TraitedSpec):
         ),
     )
     warnings = traits.List(traits.Str, desc='Warnings about the measured values.')
+    medians = traits.Dict(desc='The medians (see aslprep.utils.t1map.tissue_t1_medians).')
 
 
 class MeasureTissueT1(SimpleInterface):
@@ -156,4 +157,149 @@ class MeasureTissueT1(SimpleInterface):
             config.loggers.interface.warning(warning)
 
         self._results['warnings'] = warnings
+        self._results['medians'] = medians
+        return runtime
+
+
+class _UnmixTissueR1InputSpec(BaseInterfaceInputSpec):
+    t1 = File(exists=True, mandatory=True, desc='T1, in seconds, on the grid of the tissue maps.')
+    tpms = traits.List(
+        File(exists=True),
+        minlen=3,
+        mandatory=True,
+        desc='Gray matter, white matter and CSF probability maps, in that order.',
+    )
+    mask = File(exists=True, mandatory=True, desc='Brain mask on the grid of the tissue maps.')
+    kernel_mm = traits.Float(mandatory=True, desc="Edge of the regression's cube, in mm.")
+    medians = traits.Dict(
+        mandatory=True,
+        desc=(
+            'The median T1s (see aslprep.utils.t1map.tissue_t1_medians), used where there is no '
+            'local estimate.'
+        ),
+    )
+    updates = traits.Dict(
+        mandatory=True,
+        desc='The median T1s, as calibration updates, whose provenance is completed.',
+    )
+
+
+class _UnmixTissueR1OutputSpec(TraitedSpec):
+    gm_r1 = File(exists=True, desc='Gray matter R1 (1/s) in each voxel.')
+    wm_r1 = File(exists=True, desc='White matter R1 (1/s) in each voxel.')
+    status = File(
+        exists=True,
+        desc='Fit status of each voxel (see aslprep.utils.t1map.R1_FIT_STATUS).',
+    )
+    updates = traits.Dict(desc='The calibration updates, with the method in their provenance.')
+    summary = traits.Dict(desc='How the maps were made, for their sidecars.')
+
+
+class UnmixTissueR1(SimpleInterface):
+    """Estimate the R1 of gray and white matter in each voxel of a T1 map, by local regression.
+
+    See :func:`~aslprep.utils.t1map.local_regression_r1`.
+    """
+
+    input_spec = _UnmixTissueR1InputSpec
+    output_spec = _UnmixTissueR1OutputSpec
+
+    def _run_interface(self, runtime):
+        import copy
+
+        from aslprep.utils.t1map import (
+            MAX_CONDITION,
+            MAX_CONTAMINATION,
+            MAX_R1_RATIO,
+            MIN_SUPPORT_FRACTION,
+            R1_FIT_STATUS,
+            kernel_voxels,
+            local_regression_r1,
+        )
+
+        t1_img = nb.load(self.inputs.t1)
+        t1 = np.asanyarray(t1_img.dataobj, dtype=np.float64)
+        images = {}
+        for name, in_file in (
+            ('gm', self.inputs.tpms[0]),
+            ('wm', self.inputs.tpms[1]),
+            ('csf', self.inputs.tpms[2]),
+            ('mask', self.inputs.mask),
+        ):
+            img = nb.load(in_file)
+            if img.shape[:3] != t1.shape or not np.allclose(img.affine, t1_img.affine, atol=1e-3):
+                raise ValueError(f'{in_file} is not on the grid of the T1 map.')
+
+            images[name] = np.asanyarray(img.dataobj, dtype=np.float64)
+
+        kernel = kernel_voxels(self.inputs.kernel_mm, t1_img.affine)
+        voxel_size = np.sqrt((t1_img.affine[:3, :3] ** 2).sum(axis=0))
+        span = np.asarray(kernel) * voxel_size
+        if np.any(span > self.inputs.kernel_mm + voxel_size):
+            config.loggers.interface.warning(
+                f'The anatomical voxels ({" x ".join(f"{v:.3g}" for v in voxel_size)} mm) are '
+                f'too large for a {self.inputs.kernel_mm:g} mm cube, so the T1 map was unmixed in '
+                f'{" x ".join(str(k) for k in kernel)} voxels '
+                f'({" x ".join(f"{s:.3g}" for s in span)} mm) instead.'
+            )
+
+        result = local_regression_r1(
+            t1,
+            images['gm'],
+            images['wm'],
+            images['csf'],
+            images['mask'] > 0,
+            kernel,
+            self.inputs.medians,
+        )
+
+        header = t1_img.header.copy()
+        header.set_data_dtype(np.float32)
+        for name in ('gm_r1', 'wm_r1'):
+            out_file = os.path.join(runtime.cwd, f'{name}.nii.gz')
+            nb.Nifti1Image(result[name].astype(np.float32), t1_img.affine, header).to_filename(
+                out_file
+            )
+            self._results[name] = out_file
+
+        status_file = os.path.join(runtime.cwd, 'r1_fit_status.nii.gz')
+        status_img = nb.Nifti1Image(result['status'], t1_img.affine)
+        status_img.set_data_dtype(np.uint8)
+        status_img.to_filename(status_file)
+        self._results['status'] = status_file
+
+        fractions = result['estimated_fraction']
+        rule = (
+            f'Estimated in each voxel by local linear regression of R1 (1/T1) on the gray matter, '
+            f'white matter and CSF probability maps, in a {self.inputs.kernel_mm:g} mm cube '
+            f'({" x ".join(str(k) for k in kernel)} voxels); a tissue was left out of a fit only '
+            f'when its contamination of the gray and white matter estimates was at most '
+            f'{MAX_CONTAMINATION:g}. Where the tissue was not in the fit, or its estimate was more '
+            f'than a factor of {MAX_R1_RATIO:g} from its median, the median was used.'
+        )
+        updates = copy.deepcopy(self.inputs.updates)
+        for name, tissue in (('GrayMatterT1', 'gray'), ('WhiteMatterT1', 'white')):
+            updates[name]['Origin'] = (
+                f'{updates[name]["Origin"]}. The tissue-T1 model used this value only where the '
+                f'per-voxel {tissue} matter T1 map did not estimate one: '
+                f'{rule} The map estimated {100 * fractions[tissue]:.3g}% of the {tissue} matter '
+                '(by probability, within the brain mask).'
+            )
+
+        self._results['updates'] = updates
+        self._results['summary'] = {
+            'Method': 'local-regression',
+            'Description': rule,
+            'KernelSize': float(self.inputs.kernel_mm),
+            'KernelVoxels': list(kernel),
+            'MinimumSupportFraction': MIN_SUPPORT_FRACTION,
+            'MaximumConditionNumber': MAX_CONDITION,
+            'MaximumContamination': MAX_CONTAMINATION,
+            'MaximumRatioToMedian': MAX_R1_RATIO,
+            'EstimatedFraction': {
+                'GrayMatter': fractions['gray'],
+                'WhiteMatter': fractions['white'],
+            },
+            'FitStatus': {str(code): label for code, label in R1_FIT_STATUS.items()},
+        }
         return runtime
