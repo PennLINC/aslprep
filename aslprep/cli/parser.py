@@ -573,33 +573,6 @@ any spatial references.""",
         ),
     )
     g_conf.add_argument(
-        '--t1map-method',
-        action='store',
-        choices=['median', 'local-regression'],
-        default='median',
-        help=(
-            "How --kinetic-model tissue-t1 uses the participant's T1 map. "
-            "'median' (default): one T1 per tissue, the median over its pure voxels. "
-            "'local-regression': a gray and a white matter T1 in each voxel, separated by local "
-            'regression of R1 (1/T1) on the gray matter, white matter and CSF probability maps '
-            '(see --t1map-kernel-size), with the medians where a tissue cannot be separated. '
-            'Experimental: it assumes that R1 mixes linearly across the tissues in a voxel, '
-            'which holds only approximately, and that the T1 map is well registered.'
-        ),
-    )
-    g_conf.add_argument(
-        '--t1map-kernel-size',
-        action='store',
-        type=float,
-        default=7.0,
-        metavar='MM',
-        help=(
-            'Edge, in mm, of the cube in which --t1map-method local-regression separates the '
-            'tissue T1s, rounded to an odd number of anatomical voxels, and at least 3, along '
-            'each axis (default: 7).'
-        ),
-    )
-    g_conf.add_argument(
         '--pvc-method',
         action='store',
         choices=['none', 'local-regression'],
@@ -648,6 +621,42 @@ any spatial references.""",
             'Kernel size, in voxels, for --pvc-method local-regression, ordered '
             '(in-plane, in-plane, slice). Values must be odd. '
             'Slice-timed acquisitions must use a single slice.'
+        ),
+    )
+
+    g_t1map = parser.add_argument_group(
+        'Options for using external T1 maps',
+        description=(
+            'These options are only used with --kinetic-model tissue-t1, when ASLPrep finds a '
+            'T1 map of the participant (an anat/*_T1map image, in a --derivatives dataset or the '
+            'raw dataset). Use --ignore t1map to use the default tissue T1s instead.'
+        ),
+    )
+    g_t1map.add_argument(
+        '--t1map-method',
+        action='store',
+        choices=['median', 'local-regression'],
+        default='median',
+        help=(
+            "How the participant's T1 map gives the tissue T1s. "
+            "'median' (default): one T1 per tissue, the median over its pure voxels. "
+            "'local-regression': a gray and a white matter T1 in each voxel, separated by local "
+            'regression of R1 (1/T1) on the gray matter, white matter and CSF probability maps '
+            '(see --t1map-kernel-size), with the medians where a tissue cannot be separated. '
+            'Experimental: it assumes that R1 mixes linearly across the tissues in a voxel, '
+            'which holds only approximately, and that the T1 map is well registered.'
+        ),
+    )
+    g_t1map.add_argument(
+        '--t1map-kernel-size',
+        action='store',
+        type=float,
+        default=7.0,
+        metavar='MM',
+        help=(
+            'Edge, in mm, of the cube in which --t1map-method local-regression separates the '
+            'tissue T1s, rounded to an odd number of anatomical voxels, and at least 3, along '
+            'each axis.'
         ),
     )
 
