@@ -54,7 +54,16 @@ def run_one(name, args):
         (license_file, '/license.txt', 'ro'),
     ):
         cmd += ['-v', f'{host}:{container}:{mode}']
-    hmc = (args.hmc_derivs / name).resolve() if args.hmc_derivs else None
+    if args.templateflow:
+        # The coregistration probe's shared cache: a raw fixture's brain extraction needs a
+        # template, which the container could not always download.
+        cmd += [
+            '-v',
+            f'{args.templateflow}:/templateflow:rw',
+            '-e',
+            'TEMPLATEFLOW_HOME=/templateflow',
+        ]
+    hmc =(args.hmc_derivs / name).resolve() if args.hmc_derivs else None
     if hmc is not None:
         if not hmc.exists():
             return name, 'no injected HMC derivatives'
@@ -144,11 +153,14 @@ def main(argv=None):
         type=Path,
         help='Task 9: <dir>/<fixture> is an earlier run whose outputs are passed as derivatives.',
     )
+    parser.add_argument('--templateflow', type=Path, help='Shared TemplateFlow cache to mount.')
     parser.add_argument(
         '--extra', nargs=argparse.REMAINDER, default=[], help='Extra ASLPrep arguments (last).'
     )
     args = parser.parse_args(argv)
     args.out = args.out.resolve()
+    if args.templateflow:
+        args.templateflow = args.templateflow.resolve()
     args.src = args.src.resolve()
     (args.out / (args.label + ('-sloppy' if args.sloppy else ''))).mkdir(
         parents=True, exist_ok=True

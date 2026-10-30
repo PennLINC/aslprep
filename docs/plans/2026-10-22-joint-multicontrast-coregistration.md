@@ -204,9 +204,13 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   exactly when the other runs are good, but it needs two or more partners; with one partner the
   two rules coincide and the pair is ambiguous. When an arm fails on every run, two errors in
   similar directions can look consistent, so neither inconsistency rule is complete on its own.
-- Proposed for Task 3, which freezes the rules: flag a run by inconsistency with every partner
-  (two or more partners), report a single-partner pair as an ambiguous failure of both runs, and
-  keep the mask rule with the rigid calibration as a backstop for runs without partners.
+- **Adopted (2026-10-29, maintainer's decision; frozen for Tasks 3-6;
+  `scoring.gross_verdict`):** with two or more partners, a run fails when its inconsistency
+  exceeds 5 mm with every partner; with one partner, an inconsistency above 5 mm makes both runs
+  an ambiguous failure, counted apart from failures; with none, the carried-mask rule with the
+  rigid calibration decides. An arm with no transform fails. The other rules stay in the tables
+  as diagnostics. Inconsistency is taken in the conventional frame, the larger of the two ordered
+  pairs.
 - One real gross failure exists on the fixtures (P-winsor BBR, opposite sign, `st_noperf`, 11.8
   mm); both rules catch it. Production on `st_spiral` (10.3 mm) has no 2D partner, and the mask
   rule catches it.
@@ -223,8 +227,43 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   of the two signs is wrong by about 7.5 mm on every run, and consistency cannot say which; in
   simulation the opposite sign was right for this family (`rc_grase`). This is the case the
   blinded review exists for, and it bears directly on R1's per-family sign rule (Task 3).
-- Not yet built: the capture-range protocol (metric 3) and its test that `C0 = C*` scores zero,
-  which belong with Task 3's fixtures.
+- The adopted rule on the fixtures (all runs of an arm at once): planted errors caught 22, missed 2
+  (12 mm, consistent across runs), 1 false alarm; real arms caught 3 of 3, no false alarm. Gate 1
+  reruns clean with it, including a branch-by-branch check of `gross_verdict`.
+
+**Task 3 (started 2026-10-29).**
+
+- Recipes: `scripts/coreg_mc/make_recipes.py` writes `scripts/coreg_mc/recipes/` from the HMC
+  probe's (each with a `SOURCE.md` naming its one change): `raw` variants of `rc_pcasl`,
+  `rc_grase`, `st_spiral`, `st_vessels`, `st_noperf`; the two short series with the `rc_*` offset
+  (`*_off`); the second offset `[3, -4, 2.5, 6, -4, 4]` (8.2 degrees) on `rc_pcasl` and
+  `rc_grase` (`*_off2`); held-out `rc_*` fixtures (`*_ho`) with seed 20261029 and the offset
+  `[-2.5, 2, -1.5, -2.5, 3, -2]`, shared among them so their pairs have a known direct
+  registration. Held-out fixtures are run through ASLPrep now and scored only in Task 5.
+- `raw` segmentations are scored by `check_raw.py` against the counterpart's truth maps (argmax
+  labels, Dice). Thresholds fixed before any segmentation was seen: brain mask 0.95, GM 0.80,
+  WM 0.80 (CSF reported). A failing fixture is not used. The arms read the anatomy from ASLPrep's
+  outputs when a fixture has no anatomical derivatives (`run_ants.anat_dir`).
+- Capture range: `capture.py`. `P` is a shift of L mm along a random direction and a rotation of
+  L degrees about a random axis through the brain's centre, L in 2, 5, 10, 15, 20 draws per
+  level from seed 20261030, the same draws for every arm and fixture; `C0 = C* P`. FSL arms run
+  FLIRT-BBR from `C0` (no `mri_coreg`, fMRIPrep's fallback check against `C0`), ANTs arms take
+  `C0` as the initial moving transform; converged means within 0.5 voxel of `C*`. The identity
+  test (gate 1) gives every arm `C0 = C*` without optimizing (ANTs at zero iterations, FLIRT
+  `-applyxfm`) and reads the result back as the arm's own: passes on `rc_pcasl` and
+  `rc_pcasl_flip` for S1, S2, Q1, J1, S1-inv (2e-5 mm) and FSL BBR from the conventional
+  reference (both signs), P-winsor and P-masked (5e-9 mm). The capture range of the comparator
+  is run once R1's sign rule and R2's level are frozen; the ANTs arms' in Task 4. The production
+  chain's robustness (`mri_coreg` kept) is not built yet.
+- `review.py` (a Task 1 item not built until now): the blinded figures, batches with repeats
+  (sides swapped, later in the batch) and known-answer pairs (1, 2, 4 mm), and the key in a
+  separate file. Deviation: slices are placed from the ASL brain mask's extent, not the T1w
+  brain's, because placing them from the T1w needs a transform, which would differ by arm. Dry
+  run on `ds003823/sub-5023` (FSL BBR, both signs): no key word in `batch.json` or in the
+  figures' PNG text chunks; the 7.5 mm sign disagreement is plain in the overlay rows. The review
+  page is built with the development batch.
+- Development real runs (260 runs, 71 subjects): R0 and every FSL arm (five sources, both signs),
+  no ANTs arm, both consistency frames (`batch_real.py`, eight processes).
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
@@ -597,7 +636,9 @@ Decision metrics, each with a direction fixed in advance:
   subject (subjects, not pairs, are the sampling unit).
 - **Semi-synthetic recovery** (lower is better): error of the moved solution against the applied
   offset, and the fraction of draws recovered within 0.5 voxel.
-- **Gross failure** (fewer is better), flagged automatically by either rule, fixed in Task 3:
+- **Gross failure** (fewer is better), flagged automatically by either rule, fixed in Task 3
+  (as adopted on 2026-10-29, the rules below were replaced by the every-partner rule with the
+  mask backstop: see "Scorer and gate 1"):
   - for reviewed runs, the reviewer marking that side failed;
   - inconsistency above 5 mm in any of the run's pairs, for runs with a pair;
   - for every run: the Dice of the ASL brain mask carried into T1w space with the T1w brain mask

@@ -208,11 +208,21 @@ def _contrast(work, gm, wm):
 # ---------------------------------------------------------------------------------------------
 # Fixtures (truth)
 # ---------------------------------------------------------------------------------------------
-def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False, hmc_file=None):
+def run_fixture(
+    fixture_dir,
+    run_dir,
+    work,
+    license_file,
+    rescore=False,
+    hmc_file=None,
+    anat_dir=None,
+):
     """Register (unless ``rescore``) and score every source against two truths.
 
     ``hmc_file``: the HMC transforms, for a run that was given them as precomputed derivatives
-    (Task 7; ASLPrep writes no HMC transform it did not compute).
+    (Task 7; ASLPrep writes no HMC transform it did not compute). ``anat_dir``: the anatomical
+    derivatives, by default the fixture's own (a ``raw`` fixture has none: the coregistration
+    probe passes the ASLPrep run's).
 
     - ``rms_mm`` (end to end): against the frame of the corrected series, ``F_series R^-1``,
       which is what the transform is applied to;
@@ -228,7 +238,7 @@ def run_fixture(fixture_dir, run_dir, work, license_file, rescore=False, hmc_fil
     meta = json.loads(next(fperf.glob('*_asl.json')).read_text())
     prep = prepare(
         work,
-        fixture_dir / 'derivatives' / 'anat' / 'sub-01' / 'anat',
+        anat_dir or fixture_dir / 'derivatives' / 'anat' / 'sub-01' / 'anat',
         _native(perf, 'desc-coreg_aslref.nii.gz'),
         _native(perf, 'desc-brain_mask.nii.gz'),
         _native(perf, 'desc-preproc_asl.nii.gz'),

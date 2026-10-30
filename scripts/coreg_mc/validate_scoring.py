@@ -129,6 +129,22 @@ def synthetic(checks):
             rms_mm=got,
         )
 
+    # The adopted gross-failure rule, branch by branch: (partners, mask flag) -> verdict.
+    cases = [
+        ([6.0, 7.0], False, 'fail'),
+        ([6.0, 1.0], True, 'pass'),
+        ([6.0], False, 'ambiguous'),
+        ([1.0], True, 'pass'),
+        ([], True, 'fail'),
+        ([], False, 'pass'),
+    ]
+    got = [scoring.gross_verdict(values, mask) for values, mask, _ in cases]
+    checks.add(
+        'adopted gross rule: every partner, single partner ambiguous, mask without partners',
+        got == [want for *_, want in cases],
+        verdicts=got,
+    )
+
 
 def obliquity_deg(affine):
     """The largest angle between a voxel axis and its nearest world axis."""
@@ -371,6 +387,7 @@ def fixtures(checks, args):
     rule_rows = mask_rule_rows(data)
     rule_rows += one_run_rows(data, group, directs, rng)
     rule_rows += every_run_rows(data, cons_rows)
+    rule_rows += adopted_rows(data, cons_rows, rule_rows)
     rules = pd.DataFrame(rule_rows)
     rules['truth_gross'] = rules['truth_error_mm'] > scoring.GROSS_INCONSISTENCY_MM
     rules.to_csv(args.out / 'fixtures_gross.tsv', sep='\t', index=False)
@@ -418,6 +435,7 @@ def confusion(df):
             'caught': int((df['flag'] & df['truth_gross']).sum()),
             'missed': int((~df['flag'] & df['truth_gross']).sum()),
             'false_alarms': int((df['flag'] & ~df['truth_gross']).sum()),
+            'ambiguous': int((df.get('verdict') == 'ambiguous').sum()),
             'clean': int((~df['flag'] & ~df['truth_gross']).sum()),
             'missed_arms': ', '.join(sorted(df.loc[~df['flag'] & df['truth_gross'], 'arm'])),
         },
@@ -504,6 +522,31 @@ def every_run_rows(data, cons_rows):
             }
             rule_flags = flags(list(partners.values()))
             rows += [base_row | {'rule': r, 'flag': f} for r, f in rule_flags.items()]
+    return rows
+
+
+def adopted_rows(data, cons_rows, rule_rows):
+    """The adopted rule (``scoring.gross_verdict``) on every fixture and arm, every run at once.
+
+    Fixtures without a partner fall back on the rigid-calibration mask flags in ``rule_rows``.
+    """
+    mask = {(r['fixture'], r['arm']): r['flag'] for r in rule_rows if r['rule'] == 'mask (rigid)'}
+    rows = []
+    for name, d in data.items():
+        for arm in d['arms']:
+            partners = run_real.partner_inconsistency(cons_rows, 'fixtures', name, arm)
+            verdict = scoring.gross_verdict(partners.values(), mask[(name, arm)])
+            rows.append(
+                {
+                    'scenario': 'every run wrong' if arm.startswith('planted') else 'real arms',
+                    'rule': 'adopted',
+                    'fixture': name,
+                    'arm': arm,
+                    'truth_error_mm': d['errors'][arm],
+                    'flag': verdict != 'pass',
+                    'verdict': verdict,
+                },
+            )
     return rows
 
 

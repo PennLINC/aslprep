@@ -1,0 +1,31 @@
+{
+  "Manufacturer": "Siemens",
+  "MagneticFieldStrength": 3,
+  "MRAcquisitionType": "3D",
+  "PulseSequenceType": "3Dgrase",
+  "NumberShots": 4,
+  "PartialFourier": 1,
+  "EchoTime": 0.01328,
+  "DwellTime": 3.2e-06,
+  "FlipAngle": 130,
+  "RepetitionTimePreparation": 4.95,
+  "ArterialSpinLabelingType": "PCASL",
+  "PostLabelingDelay": 2.0,
+  "BackgroundSuppression": true,
+  "M0Type": "Separate",
+  "TotalAcquiredPairs": 8,
+  "VascularCrushing": false,
+  "AcquisitionVoxelSize": [
+    3.4,
+    3.4,
+    4
+  ],
+  "BackgroundSuppressionNumberPulses": 4,
+  "BackgroundSuppressionPulseTime": [
+    2.29,
+    2.925,
+    3.425,
+    3.705
+  ],
+  "LabelingDuration": 1.8
+}

@@ -194,3 +194,22 @@ def gross_by_mask(carried, arms, kind='axes'):
         }
         for arm, d in dice.items()
     }
+
+
+def gross_verdict(partner_values, mask_gross_rigid, limit=GROSS_INCONSISTENCY_MM):
+    """The gross-failure rule adopted for Tasks 3-6 (2026-10-29): 'fail', 'ambiguous' or 'pass'.
+
+    ``partner_values`` are the run's inconsistencies with each comparable partner run. With two
+    or more partners, the run fails when it exceeds ``limit`` with every partner, so a good run
+    beside a failed one is not flagged. With one partner, an inconsistency above ``limit`` cannot
+    say which run failed, so both are 'ambiguous'. With none, the carried-mask rule with the rigid
+    calibration (``mask_gross_rigid``) decides; it is a backstop, weaker at 6-8 mm.
+    """
+    values = list(partner_values)
+    if len(values) >= 2:
+        return 'fail' if all(v > limit for v in values) else 'pass'
+
+    if len(values) == 1:
+        return 'ambiguous' if values[0] > limit else 'pass'
+
+    return 'fail' if mask_gross_rigid else 'pass'

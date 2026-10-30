@@ -1,0 +1,6 @@
+phantom = "tfmni-b0"
+acq = "rcgrase"
+anat = "derivatives"
+snr_per_pair = 50.0
+m0_divisor = 10.0
+anat_offset = [3.0, -4.0, 2.5, 6.0, -4.0, 4.0]

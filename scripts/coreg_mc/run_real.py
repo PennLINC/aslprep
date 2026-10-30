@@ -60,8 +60,9 @@ import run_ants  # noqa: E402
 import scoring  # noqa: E402
 from score_full import _one  # noqa: E402
 
-#: FSL sources kept as arms: production's reference and the D3 level chosen for R2 candidates.
-FSL_SOURCES = ('conventional', 'P-winsor')
+#: FSL sources kept as arms: production's reference and every D3 level (R2's level and
+#: eligibility rule are frozen from them in Task 3).
+FSL_SOURCES = tuple(coreg_experiment.SOURCES)
 
 #: Consistency frames: {frame name: the work-directory image registered between runs}.
 FRAMES = {'conventional': 'conventional', 'perfusion': 'P-winsor'}
@@ -414,8 +415,9 @@ def partner_inconsistency(rows, dataset, run, arm):
 def gross_failures(runs, cons_rows):
     """Per run and arm: the carried-mask rule (both calibrations) and the inconsistency rules.
 
-    An expected arm with no transform (it failed or timed out) is a gross failure under every
-    rule (``no_transform``), so failures to run are counted, not dropped.
+    ``verdict`` is the adopted rule (``scoring.gross_verdict``); the other rule columns are kept
+    as diagnostics. An expected arm with no transform (it failed or timed out) is a gross failure
+    under every rule (``no_transform``), so failures to run are counted, not dropped.
     """
     limit = scoring.GROSS_INCONSISTENCY_MM
     rows = []
@@ -450,6 +452,7 @@ def gross_failures(runs, cons_rows):
                     'max_inconsistency_mm': max(values, default=np.nan),
                     'gross_any_partner': any(v > limit for v in values),
                     'gross_every_partner': bool(values) and all(v > limit for v in values),
+                    'verdict': scoring.gross_verdict(values, rigid['gross_mask']),
                 },
             )
 
@@ -460,6 +463,7 @@ def gross_failures(runs, cons_rows):
             'gross_mask_rigid': True,
             'gross_any_partner': True,
             'gross_every_partner': True,
+            'verdict': 'fail',
         }
         rows += [base | {'arm': arm} | failed for arm in run['missing']]
         rows += [base | {'arm': arm, 'excluded': True} for arm in run['excluded']]
@@ -475,7 +479,12 @@ def main(argv=None):
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True, help='Output prefix for the TSVs.')
     p.add_argument('--subjects', nargs='+', required=True, help='dataset/sub-XX')
-    p.add_argument('--arms', nargs='+', default=list(run_ants.ARMS))
+    p.add_argument(
+        '--arms',
+        nargs='*',
+        default=list(run_ants.ARMS),
+        help='ANTs arms; none (an empty list) scores the FSL arms and R0 only.',
+    )
     p.add_argument(
         '--rescore',
         action='store_true',
@@ -491,11 +500,18 @@ def main(argv=None):
         manifest = list(csv.DictReader(f, delimiter='\t'))
     wanted = {tuple(s.split('/')) for s in args.subjects}
     runs = []
+    failed = []
     for row in manifest:
         if (row['dataset'], row['subject']) not in wanted:
             continue
 
-        run = run_one(row, args)
+        try:
+            run = run_one(row, args)
+        except Exception as err:  # noqa: BLE001 - one bad run is recorded, not fatal to a batch
+            failed.append({'dataset': row['dataset'], 'run': row['run'], 'error': repr(err)})
+            print(f'{row["run"]}: FAILED {err!r}', flush=True)
+            continue
+
         runs.append(run)
         r0_vs = run['r0_vs_reproduction_mm']
         note = ''
@@ -504,6 +520,11 @@ def main(argv=None):
 
         print(f'{row["run"]}: {len(run["arms"])} arms, missing {run["missing"]}{note}', flush=True)
 
+    pd.DataFrame(failed, columns=['dataset', 'run', 'error']).to_csv(
+        f'{args.out}_failed.tsv',
+        sep='\t',
+        index=False,
+    )
     # Agreement of every arm with every other on each run (RMS over the run's brain, mm).
     agree = []
     for run in runs:
@@ -541,6 +562,8 @@ def main(argv=None):
             'gross_every_partner',
         ]
         print(gross.groupby('arm')[rules].sum())
+        print('adopted rule (verdict per run):')
+        print(pd.crosstab(gross['arm'], gross['verdict']))
 
 
 if __name__ == '__main__':

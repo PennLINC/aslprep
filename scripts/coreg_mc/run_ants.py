@@ -151,31 +151,34 @@ def write_init(work):
     return pull
 
 
-def register(work, arms):
-    lines = []
-    for arm in arms:
-        inverse = arm in INVERSE
-        init = '/w/init_itk_inv.txt' if inverse else '/w/init_itk.txt'
-        masks = '[/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]'
-        if inverse:
-            masks = '[/w/mask.nii.gz,/w/t1w_mask.nii.gz]'
+def ants_command(arm, init, prefix, schedule=SCHEDULE):
+    """One arm's ``antsRegistration`` call (container paths), writing ``<prefix>0GenericAffine.mat``.
 
-        cmd = [
-            f'timeout {TIMEOUT_S} antsRegistration --verbose 1 --dimensionality 3 --float 0',
-            f'--collapse-output-transforms 1 --output [/w/ants_{arm}_] --interpolation Linear',
-            '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
-            f'--random-seed {SEED} --initial-moving-transform {init}',
-        ]
-        for terms in ALL_ARMS[arm]:
-            cmd.append('--transform Rigid[0.1]')
-            cmd += [f'--metric {t}' for t in terms]
-            cmd.append(SCHEDULE)
-            cmd.append(f'--masks {masks}')
-        lines.append(' '.join(cmd) + f' > /w/ants_{arm}.log 2>&1')
-        lines.append(f'echo "{arm} exit $?" >> /w/ants_status.txt')
-    # No ``set -e``: an arm that fails or times out has no transform and is reported as such.
-    script = ['export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1', ': > /w/ants_status.txt', *lines]
-    (work / 'ants.sh').write_text('\n'.join(script) + '\n')
+    ``init`` is the pull (or, for an ``INVERSE`` arm, the push) as an ITK file; every stage uses
+    ``schedule``.
+    """
+    masks = '[/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]'
+    if arm in INVERSE:
+        masks = '[/w/mask.nii.gz,/w/t1w_mask.nii.gz]'
+
+    cmd = [
+        f'timeout {TIMEOUT_S} antsRegistration --verbose 1 --dimensionality 3 --float 0',
+        f'--collapse-output-transforms 1 --output [{prefix}] --interpolation Linear',
+        '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
+        f'--random-seed {SEED} --initial-moving-transform {init}',
+    ]
+    for terms in ALL_ARMS[arm]:
+        cmd.append('--transform Rigid[0.1]')
+        cmd += [f'--metric {t}' for t in terms]
+        cmd.append(schedule)
+        cmd.append(f'--masks {masks}')
+    return ' '.join(cmd)
+
+
+def run_script(work, name, lines):
+    """Run ``lines`` as ``<work>/<name>`` in the pinned image, single-threaded, ``work`` at /w."""
+    script = ['export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=1', *lines]
+    (work / name).write_text('\n'.join(script) + '\n')
     cmd = [
         'docker',
         'run',
@@ -189,15 +192,29 @@ def register(work, arms):
         '--entrypoint',
         'bash',
         IMAGE,
-        '/w/ants.sh',
+        f'/w/{name}',
     ]
     subprocess.run(cmd, check=True, capture_output=True)
 
 
-def read_ants(work, arm):
+def register(work, arms):
+    if not arms:
+        return
+
+    lines = [': > /w/ants_status.txt']
+    for arm in arms:
+        init = '/w/init_itk_inv.txt' if arm in INVERSE else '/w/init_itk.txt'
+        lines.append(ants_command(arm, init, f'/w/ants_{arm}_') + f' > /w/ants_{arm}.log 2>&1')
+        lines.append(f'echo "{arm} exit $?" >> /w/ants_status.txt')
+    # No ``set -e``: an arm that fails or times out has no transform and is reported as such.
+    run_script(work, 'ants.sh', lines)
+
+
+def read_ants(work, arm, f=None):
+    """An arm's result as a pull; ``f`` is the output file if not the primary run's."""
     import nitransforms as nt
 
-    f = work / f'ants_{arm}_0GenericAffine.mat'
+    f = f or work / f'ants_{arm}_0GenericAffine.mat'
     if not f.exists():
         return None
 
@@ -226,6 +243,12 @@ def fixture_truth(fixture_dir, run_dir):
     return truth, points, production, voxel
 
 
+def anat_dir(fixture_dir, run_dir):
+    """The anatomy the arms use: the fixture's derivatives, or for a ``raw`` fixture ASLPrep's."""
+    given = fixture_dir / 'derivatives' / 'anat' / 'sub-01' / 'anat'
+    return given if given.exists() else run_dir / 'sub-01' / 'anat'
+
+
 def run_fixture(name, args):
     work = args.work / name
     if args.ants_only:
@@ -233,9 +256,15 @@ def run_fixture(name, args):
         register(work, args.arms)
     elif not args.rescore:
         shutil.rmtree(work, ignore_errors=True)
+        anat = anat_dir(args.fixtures / name, args.runs / name)
         # Prepares the work directory and runs production's FSL path (both BBR signs).
-        coreg_experiment.run_fixture(args.fixtures / name, args.runs / name, work, args.license)
-        anat = args.fixtures / name / 'derivatives' / 'anat' / 'sub-01' / 'anat'
+        coreg_experiment.run_fixture(
+            args.fixtures / name,
+            args.runs / name,
+            work,
+            args.license,
+            anat_dir=anat,
+        )
         gm_target(work, next(anat.glob('*_label-GM_probseg.nii.gz')))
         lowres(work)
         write_init(work)
@@ -277,7 +306,7 @@ def main(argv=None):
     p.add_argument('--work', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--names', nargs='+', required=True)
-    p.add_argument('--arms', nargs='+', default=list(ARMS), choices=list(ALL_ARMS))
+    p.add_argument('--arms', nargs='*', default=list(ARMS), choices=list(ALL_ARMS))
     p.add_argument('--rescore', action='store_true')
     p.add_argument('--ants-only', action='store_true')
     args = p.parse_args(argv)
