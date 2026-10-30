@@ -14,38 +14,6 @@ from nipype.interfaces.base import (
 
 from aslprep import config
 
-#: Largest difference, relative to the image's range, between two anatomical images that are
-#: taken to be the same one.
-SAME_ANATOMY_RTOL = 1e-4
-
-
-def check_same_anatomy(source_t1w, t1w_preproc):
-    """Refuse two anatomical images that are not the same image on the same grid.
-
-    The source run's ASL-to-anatomical transform maps into its own anatomical reference, so it
-    only composes with this run's transform when both runs share that reference.
-    """
-    source_img, target_img = nb.load(source_t1w), nb.load(t1w_preproc)
-    same = source_img.shape == target_img.shape and np.allclose(
-        source_img.affine,
-        target_img.affine,
-        atol=1e-3,
-    )
-    if same:
-        source = np.asanyarray(source_img.dataobj, dtype=np.float64)
-        target = np.asanyarray(target_img.dataobj, dtype=np.float64)
-        scale = max(float(np.ptp(np.nan_to_num(target))), 1e-12)
-        same = bool(np.nanmax(np.abs(source - target)) <= SAME_ANATOMY_RTOL * scale)
-
-    if not same:
-        raise ValueError(
-            f'The external ATT map was registered to the anatomical image {source_t1w}, which is '
-            f'not the anatomical image of this run ({t1w_preproc}), so its transform cannot be '
-            "composed with this run's. ASLPrep reuses the anatomical derivatives of the "
-            '--derivatives datasets, the last one listed taking precedence, so list the dataset '
-            'with the ATT map last (or alone), or use --ignore att.'
-        )
-
 
 class _ExternalATTInputSpec(BaseInterfaceInputSpec):
     att = File(exists=True, mandatory=True, desc="The source run's ATT, on its ASL grid.")
@@ -107,6 +75,7 @@ class ExternalATT(SimpleInterface):
     def _run_interface(self, runtime):
         from aslprep.utils.att import (
             EXTERNAL_ATT_STATUS,
+            check_same_anatomy,
             resample_external_att,
             target_to_source_voxels,
         )

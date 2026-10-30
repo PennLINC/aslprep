@@ -584,6 +584,29 @@ def test_external_att_interface(tmp_path):
         interface.run(cwd=tmp_path)
 
 
+def test_check_same_anatomy(tmp_path):
+    """Only the same anatomical image, on the same grid, up to rounding, passes."""
+    from aslprep.utils.att import SAME_ANATOMY_RTOL, check_same_anatomy
+
+    data = np.random.default_rng(0).uniform(0, 1000, size=(8, 8, 8))
+    anat = _write(data, tmp_path / 't1w.nii.gz', np.eye(4))
+    check_same_anatomy(anat, anat)
+    # Rounding well inside the tolerance (a rewritten copy of the image)
+    rounded = _write(data + 0.1 * SAME_ANATOMY_RTOL * 1000, tmp_path / 'rounded.nii.gz', np.eye(4))
+    check_same_anatomy(anat, rounded)
+
+    shifted = np.eye(4)
+    shifted[0, 3] = 1
+    others = {
+        'grid': _write(data, tmp_path / 'shifted.nii.gz', shifted),
+        'shape': _write(data[:-1], tmp_path / 'cropped.nii.gz', np.eye(4)),
+        'values': _write(data * 1.01, tmp_path / 'scaled.nii.gz', np.eye(4)),
+    }
+    for other in others.values():
+        with pytest.raises(ValueError, match='not the anatomical image of this run'):
+            check_same_anatomy(anat, other)
+
+
 def test_init_cbf_wf_external_att(tmp_path):
     """Single-delay tissue-T1 CBF resamples the external ATT and gives it to the fit."""
     import pandas as pd
