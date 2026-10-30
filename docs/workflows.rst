@@ -1063,7 +1063,9 @@ stop with an error; ``--ignore att`` stops *ASLPrep* from looking for one.
   throughout, which biases ATT, most of all in white matter. ATT depends on where the label is
   applied, so labeling types or labeling distances that differ between the runs are reported,
   from the multi-delay run's own sidecar in the raw dataset; when that run is not in the raw
-  dataset, a warning says that the labeling could not be compared.
+  dataset, or only one of the runs records its labeling distance, a warning says that the
+  labeling could not be compared. Field strengths that differ between the runs are reported
+  too.
 - **Bringing it onto this run's grid.** Both runs must have been registered to the same
   anatomical image, which *ASLPrep* checks. Giving the multi-delay run's dataset to
   ``--derivatives`` reuses its anatomical derivatives; with several ``--derivatives`` datasets,

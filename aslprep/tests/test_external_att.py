@@ -134,7 +134,7 @@ def test_collect_external_att_source_metadata(tmp_path):
 
 
 def test_check_external_att_metadata():
-    """A consensus-model ATT map is refused, and labeling that differs warns."""
+    """A consensus-model ATT map is refused, and labeling or field strengths that differ warn."""
     with pytest.raises(ValueError, match='not estimated with the tissue-T1 kinetic model'):
         att_utils.check_external_att_metadata(
             {'Model': {'Parameters': {'BloodT1': 1.65}}},
@@ -159,6 +159,50 @@ def test_check_external_att_metadata():
     # Without the multi-delay run's sidecar, the labeling cannot be compared
     warnings = att_utils.check_external_att_metadata(TISSUE_T1_MODEL, None, source, 'att', 'asl')
     assert 'could not be compared' in warnings[0]
+
+    # A labeling distance recorded for only one run cannot be compared, whichever run it is
+    no_distance = {'ArterialSpinLabelingType': 'PCASL'}
+    for source_meta, asl_meta, recorded in (
+        (source, no_distance, 'att'),
+        (no_distance, source, 'asl'),
+    ):
+        warnings = att_utils.check_external_att_metadata(
+            TISSUE_T1_MODEL,
+            source_meta,
+            asl_meta,
+            'att',
+            'asl',
+        )
+        assert len(warnings) == 1
+        assert f'LabelingDistance is recorded for {recorded} but not' in warnings[0]
+
+    # Recorded for neither run, there is nothing to compare
+    assert not att_utils.check_external_att_metadata(
+        TISSUE_T1_MODEL,
+        no_distance,
+        no_distance,
+        'att',
+        'asl',
+    )
+
+    # Field strengths that differ warn; the same value written as an int and a float does not
+    assert not att_utils.check_external_att_metadata(
+        TISSUE_T1_MODEL,
+        {**source, 'MagneticFieldStrength': 3},
+        {**source, 'MagneticFieldStrength': 3.0},
+        'att',
+        'asl',
+    )
+    warnings = att_utils.check_external_att_metadata(
+        TISSUE_T1_MODEL,
+        {**source, 'MagneticFieldStrength': 1.5},
+        {**source, 'MagneticFieldStrength': 3},
+        'att',
+        'asl',
+    )
+    assert len(warnings) == 1
+    assert 'at 1.5 T' in warnings[0]
+    assert 'at 3 T' in warnings[0]
 
 
 def test_target_to_source_voxels(tmp_path):

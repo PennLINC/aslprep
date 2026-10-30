@@ -89,7 +89,7 @@ def check_external_att_metadata(att_metadata, source_metadata, asl_metadata, att
     -------
     :obj:`list` of :obj:`str`
         Warnings: labeling that differs between the runs, which changes ATT, or that could not
-        be compared.
+        be compared, and field strengths that differ.
 
     Raises
     ------
@@ -128,6 +128,27 @@ def check_external_att_metadata(att_metadata, source_metadata, asl_metadata, att
                 f'{asl_file} has {target}. ATT depends on where the label is applied, so it may '
                 'not be the same in both runs.'
             )
+
+    # LabelingDistance is only recommended, so it may be recorded for one run and not the other
+    has_distance = [
+        meta.get('LabelingDistance') is not None for meta in (source_metadata, asl_metadata)
+    ]
+    if has_distance[0] != has_distance[1]:
+        recorded, missing = (att_name, asl_file) if has_distance[0] else (asl_file, att_name)
+        warnings.append(
+            f'LabelingDistance is recorded for {recorded} but not for {missing}, so the '
+            'labeling positions of the runs could not be compared. ATT depends on where the '
+            'label is applied, so check that the runs label in the same place.'
+        )
+
+    source = source_metadata.get('MagneticFieldStrength')
+    target = asl_metadata.get('MagneticFieldStrength')
+    if source is not None and target is not None and not np.isclose(float(source), float(target)):
+        warnings.append(
+            f'The ATT map {att_name} comes from a run at {source} T, but {asl_file} was '
+            f'acquired at {target} T. The runs come from different scanners, so check that '
+            "the multi-delay run's ATT applies to this run."
+        )
     return warnings
 
 
