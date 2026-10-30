@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     p.add_argument('--manifest', type=Path, default=HERE / 'manifest.tsv')
-    p.add_argument('--side', required=True, choices=('development', 'held-out'))
+    p.add_argument('--side', required=True, choices=('development', 'held_out'))
     p.add_argument('--runs', type=Path, required=True)
     p.add_argument('--adapted', type=Path, required=True)
     p.add_argument('--license', type=Path, required=True)
