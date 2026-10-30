@@ -642,6 +642,13 @@ def test_init_cbf_wf_external_att(tmp_path):
     to_resample = wf._graph.get_edge_data(wf.get_node('inputnode'), resample)['connect']
     assert ('t1w_preproc', 't1w_preproc') in to_resample
     assert wf.get_node('external_att_files').inputs.att == 'att.nii.gz'
+    # The reportlet shows the final status (with status 6) and names the source run
+    plot = wf.get_node('external_att_plot')
+    assert plot.inputs.source_name == external_att['uri']
+    to_plot = wf._graph.get_edge_data(wf.get_node('compute_cbf'), plot)['connect']
+    assert ('external_att_status', 'att_status') in to_plot
+    to_out = wf._graph.get_edge_data(plot, wf.get_node('outputnode'))['connect']
+    assert ('out_file', 'external_att_report') in to_out
     assert 'multi-delay ASL run' in desc
     assert 'given no CBF' in desc
     assert 'apparent T1 of the tissue' in desc

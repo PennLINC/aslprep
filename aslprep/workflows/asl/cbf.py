@@ -184,6 +184,9 @@ def init_cbf_wf(
     t1w_preproc
         The anatomical image, which must be the one the ``external_att`` run was registered to.
         Only with ``external_att``.
+    aslref
+        The ASL reference image, the background of the external ATT reportlet.
+        Only with ``external_att``.
 
     Outputs
     -------
@@ -220,6 +223,9 @@ def init_cbf_wf(
         The ATT the single-delay tissue-T1 model used, where it came from in each voxel
         (see :data:`~aslprep.utils.att.EXTERNAL_ATT_STATUS`), and a summary (with
         ``external_att``).
+    external_att_report
+        A figure of the external ATT and its status
+        (see :class:`~aslprep.interfaces.plotting.ExternalATTPlot`; with ``external_att``).
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -589,6 +595,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'tissue_gm_r1',
                 'tissue_wm_r1',
                 't1w_preproc',
+                'aslref',
             ],
         ),
         name='inputnode',
@@ -639,6 +646,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'external_att',
                 'external_att_status',
                 'external_att_summary',
+                'external_att_report',
             ]
             + pv_fields
             + lr_fields
@@ -851,6 +859,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
     if use_external_att:
         from aslprep.interfaces.att import ExternalATT
+        from aslprep.interfaces.plotting import ExternalATTPlot
 
         # Set here, rather than on the node, so that files are only checked when it runs
         file_fields = [
@@ -904,6 +913,26 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 ('summary', 'external_att_summary'),
             ]),
             (compute_cbf, outputnode, [('external_att_status', 'external_att_status')]),
+        ])  # fmt:skip
+
+        # The ATT is ingested, not estimated, so the reportlet says where it came from
+        external_att_plot = pe.Node(
+            ExternalATTPlot(source_name=external_att['uri']),
+            name='external_att_plot',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (inputnode, external_att_plot, [
+                ('aslref', 'ref_vol'),
+                ('asl_mask', 'mask'),
+            ]),
+            (asl_pv_wf, external_att_plot, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+            (resample_external_att, external_att_plot, [('att', 'att')]),
+            (compute_cbf, external_att_plot, [('external_att_status', 'att_status')]),
+            (external_att_plot, outputnode, [('out_file', 'external_att_report')]),
         ])  # fmt:skip
 
     if tissue_t1_maps:

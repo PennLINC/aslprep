@@ -619,7 +619,20 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         name='cbf_wf',
     )
     if external_att is not None:
-        workflow.connect([(inputnode, cbf_wf, [('t1w_preproc', 'inputnode.t1w_preproc')])])
+        workflow.connect([
+            (inputnode, cbf_wf, [('t1w_preproc', 'inputnode.t1w_preproc')]),
+            (asl_fit_wf, cbf_wf, [('outputnode.coreg_aslref', 'inputnode.aslref')]),
+        ])  # fmt:skip
+        # Its base directory and source file are set with the other reportlets' (below)
+        ds_report_external_att = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='external', suffix='att'),
+            name='ds_report_external_att',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (cbf_wf, ds_report_external_att, [('outputnode.external_att_report', 'in_file')]),
+        ])  # fmt:skip
         # The ATT the run used, on its ASL reference grid. Like the partial volume maps, it is an
         # input of the model, so it is written in every mode.
         for field, suffix in (('external_att', 'att'), ('external_att_status', 'attstatus')):
