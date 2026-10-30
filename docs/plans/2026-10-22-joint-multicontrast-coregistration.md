@@ -252,8 +252,8 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   test (gate 1) gives every arm `C0 = C*` without optimizing (ANTs at zero iterations, FLIRT
   `-applyxfm`) and reads the result back as the arm's own: passes on `rc_pcasl` and
   `rc_pcasl_flip` for S1, S2, Q1, J1, S1-inv (2e-5 mm) and FSL BBR from the conventional
-  reference (both signs), P-winsor and P-masked (5e-9 mm). The capture range of the comparator
-  is run once R1's sign rule and R2's level are frozen; the ANTs arms' in Task 4. The production
+  reference (both signs), P-winsor and P-masked (5e-9 mm). The capture range of the comparators
+  (R0, R1, R2) runs after the freeze below; the ANTs arms' in Task 4. The production
   chain's robustness (`mri_coreg` kept) is not built yet.
 - `review.py` (a Task 1 item not built until now): the blinded figures, batches with repeats
   (sides swapped, later in the batch) and known-answer pairs (1, 2, 4 mm), and the key in a
@@ -263,7 +263,52 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   figures' PNG text chunks; the 7.5 mm sign disagreement is plain in the overlay rows. The review
   page is built with the development batch.
 - Development real runs (260 runs, 71 subjects): R0 and every FSL arm (five sources, both signs),
-  no ANTs arm, both consistency frames (`batch_real.py`, eight processes).
+  no ANTs arm, both consistency frames (`batch_real.py`, eight processes). Five runs first failed
+  because four manifest roots still pointed at the deleted HMC-probe data; the manifest now points
+  them at `/home/tsalo/coreg-mc/adapted` and they were rerun. `ds007908` stays excluded, as
+  planned. 259 runs are scored.
+- **R1 and R2 frozen (2026-10-30)**, on the 17 development fixtures and the 259 development real
+  runs (`freeze_comparators.py`, report `report_task3.py`, published as "Coregistration
+  Comparators", https://claude.ai/artifact/JsgPdbuPgn6etjrMwCTvoA):
+  - **R1:** production's FSL path with the BBR sign chosen per run, not per family: the opposite
+    sign when the conventional reference's contrast is positive, the default sign otherwise. The
+    contrast is the median of the reference at eroded white-matter voxels (2 T1w voxels) minus
+    its median at grey-matter-core voxels (smoothed GM probability above 0.5, outside WM), both
+    sampled through the `mri_coreg` initialization and divided by the median over the T1w brain
+    (`freeze_comparators.contrast`). It needs nothing from BBR, so it can run in production.
+    Fixtures: positive on exactly the 5 that the default sign misses by 1 mm or more (`rc_grase`,
+    `rc_grase_off2`, `rc_grase_raw`, `st_spiral`, `st_spiral_raw`; +0.036 to +0.106), leaving
+    none; the other 12 lie between -0.046 and -0.018, so the margin is narrow. Real runs: negative
+    in every family; the rule flips 3 of 259 runs (at most +0.025) and changes no verdict, so on
+    real data R1 equals R0 (6 gross failures, against 23 for the opposite sign). The inverted
+    contrast of the GRASE and spiral fixtures does not appear in this real sample.
+  - **R2:** P-mean (voxelwise mean of the selected pair differences), default BBR sign, with the
+    HMC probe's eligibility rule unchanged: at least 4 pairs and an edge statistic of at least
+    0.5; a single derived volume is never eligible. The opposite sign misses by more than 2 mm on
+    2-9 of 17 fixtures per level; the default sign on none. On the 177 eligible real runs with
+    partners, P-mean is the best of the four levels on 64 runs (P-robust 48, P-masked 37,
+    P-winsor 28) and has the smallest 75th percentile of inconsistency (1.71 mm); the best level
+    differs by family (2D EPI P-winsor, GRASE P-masked, 7 T 3D EPI and spirals P-mean), so one
+    level is a compromise. The pair minimum does the work: 26 of 36 runs with 2 pairs fail. The
+    edge limit separates little (share above 5 mm: 20 % with no limit, 19 % at 0.5, 18 % at 0.6,
+    31 % at 0.7), and no other value does better.
+  - R2 is weaker than R1 on real data: its best level beats the conventional reference on 23 % of
+    eligible runs. The comparator per family is still the development review batch's to decide.
+  - Development review batch (`dev_review.py`, seed 20261030; page "Coregistration Review",
+    https://claude.ai/artifact/6xm58jGn4wywPXDhdu4hof, choices in its `choices` collection, one
+    document per figure id). 24 comparisons drawn round-robin over families, at most one per
+    subject per comparison: 12 R1 vs R2 (on R2-eligible runs) and 12 signs (conventional
+    reference, default against opposite), each where the two transforms differ by more than
+    max(1 mm, the run's median noise floor; its family's when it has no partner). That separation
+    is provisional: the tie distance and the floor limit are frozen after this batch, from the
+    known-answer sensitivity. Plus 2 repeats (sides swapped) and 15 known-answer pairs (R1 moved
+    by 1, 2 and 4 mm, 5 each): 41 figures, no leak. Candidates: R1 vs R2 differ on 44 runs (none
+    in 7 T 3D EPI); the signs differ on 209. Key and selection in
+    `/home/tsalo/coreg-mc/task3/review-dev` (`key.json`, `selection.tsv`), never published.
+  - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
+    registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
+    inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,
+    `ds004146` and `ds007522` 2 each).
 
 **Paused (2026-10-22), at the maintainer's request, until the HMC probe's improved motion
 correction is in ASLPrep:** every arm is evaluated on ASLPrep's corrected series and reference,
@@ -429,8 +474,8 @@ panel is rerun. Success is defined against what production gets at the pinned re
 | ID | Engine | Cost terms (moving -> fixed) | Role |
 |---|---|---|---|
 | R0 | FSL | coregistration reference -> T1w, BBR default sign, fallback | Production (FSL path), as run |
-| R1 | FSL | as R0, BBR sign per family by a rule frozen in Task 3 | Production with the known defect fixed |
-| R2 | FSL | perfusion image -> T1w, BBR; one D3 level and eligibility rule frozen in Task 3 | Single perfusion reference (#672) |
+| R1 | FSL | as R0, BBR sign per run by the reference's WM-GM contrast (frozen in Task 3) | Production with the known defect fixed |
+| R2 | FSL | P-mean -> T1w, BBR default sign; eligible with 4+ pairs and edge statistic 0.5+ (frozen in Task 3) | Single perfusion reference (#672) |
 | RA | FSL | R1 or R2, chosen per run by the HMC probe's DA rule | Automatic single reference (#672) |
 | S1 | ANTs | coregistration reference -> T1w, MI | Static-only ablation |
 | S2 | ANTs | perfusion image -> perfusion target, CC | Perfusion-only ablation |
