@@ -31,6 +31,20 @@ sections:
       Surfaces (white and pial) reconstructed with FreeSurfer (<code>recon-all</code>)
       overlaid on the participant's T1w template.
     subtitle: Surface reconstruction
+  - bids: {datatype: figures, desc: coreg, suffix: T1map, extension: [.svg]}
+    caption: |
+      Alignment of the participant's T1 map with the anatomical reference, from which the
+      tissue-T1 kinetic model's gray and white matter T1s were measured.
+      The T1 map is shown as R1 (1/T1), whose contrast resembles a T1-weighted image, after
+      resampling onto the anatomical reference with the same transform as the T1s.
+      The contour is the white matter probability map of the anatomical reference.
+      The tissue boundaries should line up in both panels; a shift between them biases the
+      measured T1s toward those of the neighboring tissues.
+    description: |
+      Hover on the panels with the mouse pointer to transition between the anatomical
+      reference and the T1 map.
+    static: false
+    subtitle: Alignment of the T1 map with the anatomical reference
 
 - name: <em>B<sub>0</sub></em> field mapping
   ordering: session,acquisition,run,fmapid
@@ -176,6 +190,7 @@ sections:
   - bids: {datatype: figures, desc: rois, suffix: asl, extension: [.svg]}
     caption: |
       Brain mask calculated on the ASL signal (red contour).
+    subtitle: Brain mask and (anatomical/temporal) CompCor ROIs
   - bids: {datatype: figures, desc: backgroundSuppression, suffix: asl, extension: [.svg]}
     caption: |
       Background suppression lowers the static signal of the control and label images.
@@ -209,94 +224,73 @@ sections:
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
     subtitle: CBF Summary
+  - bids: {datatype: figures, desc: calibration, suffix: asl, extension: [.html]}
+    caption: |
+      The calibration and physiological parameters used to quantify CBF, by every model.
+      The source of each value is the command line ("user"), the BIDS metadata ("metadata"),
+      a calculation from other acquisition parameters ("inferred"), or a default from the
+      literature ("default"). The same values are in the desc-calibration_parameters.json file.
+    subtitle: Calibration
   - bids: {datatype: figures, desc: brain, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for basic CBF.
       The unit is mL/100 g/min.
     subtitle: CBF
-  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the basic output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: Mean CBF by Tissue Type
   - subtitle: Arterial Transit Time
     bids: {datatype: figures, desc: brain, suffix: att, extension: [.svg]}
     caption: |
       The map plots arterial transit time (ATT) estimated by the basic model.
       The unit is seconds.
-  - subtitle: ATT by Tissue Type
-    bids: {datatype: figures, desc: attByTissueType, suffix: att, extension: [.svg]}
+  - subtitle: Where ATT Was Located
+    bids: {datatype: figures, desc: status, suffix: att, extension: [.svg]}
     caption: |
-      The map plots the distribution of arterial transit time values for the basic output,
-      separated by tissue type.
-      The unit is seconds.
+      Where the multi-delay fit located arterial transit time (ATT).
+      The images are cut perpendicular to the acquired slices (sagittal for axial slices),
+      so slice-timing effects appear as bands. The top row shows each brain voxel's ATT
+      status, and the bottom row shows ATT only where it was located (its 95% interval is at most 0.5 s wide and does not reach 0 s).
+      Elsewhere, the ATT map is not a measurement.
+      ATT is only bounded above where the labeled blood may all have arrived before the earliest
+      delay,
+      which is common in the later slices of 2D acquisitions, because slice timing adds to their
+      delays. The right-hand panel shows the fraction of brain voxels with each status in every
+      slice, and the earliest delay of each slice, including its slice-timing offset.
+  - subtitle: External Arterial Transit Time
+    bids: {datatype: figures, desc: external, suffix: att, extension: [.svg]}
+    caption: |
+      The arterial transit time (ATT) used by the tissue-T1 model for this single-delay run.
+      It was not estimated from this run: a single delay cannot separate ATT from CBF.
+      It was taken from the ATT map of a multi-delay run of the same participant (named in the
+      figure title), and resampled onto this run's ASL reference grid through that run's
+      transform to the anatomical image and this run's transform from it.
+      The top row shows where each brain voxel's ATT came from.
+      The middle row shows ATT where the multi-delay run measured it.
+      The bottom row shows ATT where that run did not locate it, filled with the median of the
+      measured gray and white matter values, weighted by this voxel's tissue fractions and
+      clipped into the multi-delay run's interval: these values are imputed, and so is the CBF
+      quantified with them. Voxels without an ATT get no CBF.
+      The right-hand panel shows the fraction of brain, gray matter and white matter voxels with
+      each status. Errors in the multi-delay ATT, or in either registration, carry over into
+      this run's CBF.
   - subtitle: Arterial Bolus Arrival Time
     bids: {datatype: figures, desc: brain, suffix: abat, extension: [.svg]}
     caption: |
       The map plots arterial bolus arrival time (aBAT) estimated by the basic model.
-      The unit is seconds.
-  - subtitle: aBAT by Tissue Type
-    bids: {datatype: figures, desc: abatByTissueType, suffix: abat, extension: [.svg]}
-    caption: |
-      The map plots the distribution of arterial bolus arrival time (aBAT) values for the basic output,
-      separated by tissue type.
       The unit is seconds.
   - subtitle: Arterial Blood Volume
     bids: {datatype: figures, desc: brain, suffix: abv, extension: [.svg]}
     caption: |
       The map plots arterial blood volume (aBV) estimated by the basic model.
       The unit is fraction.
-  - subtitle: aBV by Tissue Type
-    bids: {datatype: figures, desc: abvByTissueType, suffix: abv, extension: [.svg]}
-    caption: |
-      The map plots the distribution of arterial blood volume (aBV) values for the basic output,
-      separated by tissue type.
-      The unit is fraction.
   - bids: {datatype: figures, desc: score, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCORE-corrected CBF.
       The unit is mL/100 g/min.
     subtitle: SCORE CBF
-  - bids: {datatype: figures, desc: scoreByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the SCORE output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: SCORE CBF by Tissue Type
   - bids: {datatype: figures, desc: scrub, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for SCRUB-corrected CBF.
       The unit is mL/100 g/min.
     subtitle: SCRUB CBF
-  - bids: {datatype: figures, desc: scrubByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the SCRUB output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: SCRUB CBF by Tissue Type
-  - bids: {datatype: figures, desc: basil, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF.
-      The unit is mL/100 g/min.
-    subtitle: BASIL CBF
-  - bids: {datatype: figures, desc: basilByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the BASIL output,
-      separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: BASIL CBF by Tissue Type
-  - bids: {datatype: figures, desc: basilGM, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot cerebral blood flow (CBF) for gray matter partial volume-corrected CBF.
-      The unit is mL/100 g/min.
-    subtitle: BASIL GM-PVC CBF
-  - bids: {datatype: figures, desc: basilGMByTissueType, suffix: cbf, extension: [.svg]}
-    caption: |
-      The maps plot the distribution of cerebral blood flow (CBF) values for the
-      BASIL gray matter partial volume-corrected output, separated by tissue type.
-      The unit is mL/100 g/min.
-    subtitle: BASIL GM-PVC CBF by Tissue Type
   - bids: {datatype: figures, desc: lrGM, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot gray matter cerebral blood flow (CBF) after partial volume correction by
@@ -305,11 +299,78 @@ sections:
     subtitle: Local-regression GM-PVC CBF
   - bids: {datatype: figures, desc: lr, suffix: pvc, extension: [.svg]}
     caption: |
-      Local-regression partial volume correction diagnostics: the gray matter fraction at the
-      acquisition's effective resolution, the fit status of each voxel, the noise amplification
-      of the gray matter estimate, and the distributions of uncorrected and corrected CBF where
-      gray matter CBF was estimated.
+      Local-regression partial volume correction diagnostics, for the axial slice of the ASL
+      reference with the most brain voxels.<br>
+      <b>Title:</b> the effective resolution the tissue maps were blurred to (and how it was
+      chosen), and the share of brain voxels with each fit status.
+      In good data, most brain voxels have a two-tissue fit.
+      The second line, when present, summarizes the apparent CSF CBF from a quality-control fit
+      that includes CSF as a third tissue. CSF is not perfused, so its median should be close
+      to zero; a median or interquartile range that is a sizable fraction of gray matter CBF
+      suggests that the tissue maps do not match the ASL data (misregistration, segmentation
+      errors or a wrong effective resolution), or macrovascular signal.<br>
+      <b>Gray matter fraction:</b> the gray matter partial volume map used in the regression,
+      at the effective resolution.
+      It should look like a smoothed cortical ribbon and deep gray matter, and line up with the
+      brain outline in the fit status panel. A shifted or misshapen map points to registration
+      or segmentation errors, which bias every corrected value.<br>
+      <b>Fit status:</b> which tissues were estimated in each voxel.
+      Good data show "GM + WM" over most of the brain, "GM only" or "WM only" where the other
+      tissue contributes less than 5% to the estimate, and few "none" (not identifiable)
+      voxels, mostly at the edge of the brain or in CSF.
+      Large "none" regions inside the brain mean that the gray and white matter maps there are
+      too similar, or too sparse, to separate the two tissues.<br>
+      <b>GM noise amplification:</b> the factor that scales the residual noise of each fit into
+      the standard error of its gray matter estimate (unitless; the color scale is clipped at
+      the 99th percentile). A kernel of pure gray matter with <em>n</em> voxels gives
+      1/&radic;<em>n</em>, or 0.2 for the default 5 &times; 5 &times; 1 kernel.
+      Expect low values where gray matter is plentiful, and higher values where it is sparse,
+      as in deep white matter, or where the gray and white matter fractions vary together.
+      Gray matter CBF is least reliable where this map is bright.<br>
+      <b>Where GM CBF was estimated:</b> histograms of the uncorrected CBF and of gray matter
+      CBF after correction, over the voxels with a gray matter estimate.
+      The correction removes the contribution of the less perfused white matter, so the
+      corrected distribution should sit to the right of the uncorrected one, within a plausible
+      range for gray matter. The uncorrected histogram may have a lower mode from voxels that
+      are mostly white matter.
+      A corrected distribution that is not shifted, is much wider than the uncorrected one, or
+      has many extreme values suggests that the correction is unreliable in these data.
+      The unit is mL/100 g/min.
     subtitle: Local-regression PVC diagnostics
+  - bids: {datatype: figures, desc: basil, suffix: cbf, extension: [.svg]}
+    caption: |
+      The maps plot cerebral blood flow (CBF) for BASIL-estimated CBF.
+      The unit is mL/100 g/min.
+    subtitle: BASIL CBF
+  - bids: {datatype: figures, desc: basilGM, suffix: cbf, extension: [.svg]}
+    caption: |
+      The maps plot cerebral blood flow (CBF) for gray matter partial volume-corrected CBF.
+      The unit is mL/100 g/min.
+    subtitle: BASIL GM-PVC CBF
+  - bids: {datatype: figures, desc: cbfByTissueType, suffix: cbf, extension: [.svg]}
+    caption: |
+      Distributions of cerebral blood flow (CBF) by tissue type for every CBF output of this run,
+      one row each: basic CBF and, when they were produced, SCORE, SCRUB, BASIL, and the
+      gray matter partial volume-corrected (GM-PVC) maps from BASIL and local regression (LR).
+      Within each row, the gray matter, white matter and CSF densities each integrate to one,
+      so tissues with few voxels are as visible as those with many,
+      and the dotted lines mark their medians.
+      Voxels with a value of exactly zero (where GM-PVC CBF was not estimated) are left out.
+      The x-axis is clipped to the 0.5th-99.5th percentiles of all values shown.
+      The unit is mL/100 g/min.
+    subtitle: CBF by Tissue Type
+  - bids: {datatype: figures, desc: multiPLDByTissueType, suffix: asl, extension: [.svg]}
+    caption: |
+      Distributions of arterial transit time (ATT), arterial bolus arrival time (aBAT) and
+      arterial blood volume (aBV) by tissue type, one panel per parameter.
+      Each panel has one row per map of that parameter: the basic model and, when it was run,
+      BASIL (ATT and aBV only).
+      Within each row, the gray matter, white matter and CSF densities each integrate to one,
+      and the dotted lines mark their medians.
+      Voxels with a value of exactly zero are left out, and each panel's x-axis is clipped to the
+      0.5th-99.5th percentiles of its values.
+      The units are seconds for ATT and aBAT, and fraction for aBV.
+    subtitle: Multi-delay parameters by Tissue Type
 
 - name: About
   reportlets:

@@ -10,7 +10,7 @@ from nipype.interfaces.base import isdefined
 from traits.api import TraitError
 
 from aslprep.interfaces import cbf
-from aslprep.utils.cbf import ROBUST_TUNING_CONSTANTS
+from aslprep.utils.cbf import ATT_STATUS, ROBUST_TUNING_CONSTANTS
 
 
 def test_scoreandscrubcbf_wavelet_function():
@@ -21,6 +21,63 @@ def test_scoreandscrubcbf_wavelet_function():
 
     with pytest.raises(TraitError):
         cbf.ScoreAndScrubCBF(wavelet_function='logistics')
+
+
+def test_scoreandscrubcbf_writes_float32_with_uint8_mask(tmp_path):
+    """Test that the SCORE and SCRUB outputs are float32 when the mask is uint8.
+
+    The outputs used to be written with the mask's header, and nibabel writes an image in its
+    header's data type, so the CBF maps were stored as scaled uint8 (at most 256 values).
+    """
+    from aslprep.utils.cbf import _getcbfscore, _scrubcbf
+
+    rng = np.random.default_rng(0)
+    shape = (12, 12, 10)
+    mask = np.zeros(shape, dtype=np.uint8)
+    mask[2:10, 2:10, 2:8] = 1
+    gm = rng.uniform(0, 1, shape).astype(np.float32)
+    wm = ((1 - gm) * rng.uniform(0, 1, shape)).astype(np.float32)
+    csf = np.clip(1 - gm - wm, 0, 1).astype(np.float32)
+    cbf_ts = (60 * gm + 20 * wm)[..., None] + rng.normal(0, 8, shape + (20,))
+    cbf_ts = (cbf_ts * mask[..., None]).astype(np.float32)
+
+    interface = cbf.ScoreAndScrubCBF(
+        cbf_ts=_save_img(cbf_ts, tmp_path, 'cbf_ts.nii.gz'),
+        mask=_save_img(mask, tmp_path, 'mask.nii.gz'),
+        gm_tpm=_save_img(gm, tmp_path, 'gm.nii.gz'),
+        wm_tpm=_save_img(wm, tmp_path, 'wm.nii.gz'),
+        csf_tpm=_save_img(csf, tmp_path, 'csf.nii.gz'),
+    )
+    results = interface.run(cwd=tmp_path)
+
+    # The same computation as the interface, on the saved inputs
+    expected_ts, _ = _getcbfscore(
+        cbfts=cbf_ts.astype(float),
+        wm=wm.astype(float),
+        gm=gm.astype(float),
+        csf=csf.astype(float),
+        mask=mask.astype(float),
+        thresh=0.7,
+    )
+    expected = {
+        'cbf_ts_score': expected_ts,
+        'mean_cbf_score': np.mean(expected_ts, axis=3),
+        'mean_cbf_scrub': _scrubcbf(
+            cbf_ts=expected_ts,
+            gm=gm.astype(float),
+            wm=wm.astype(float),
+            csf=csf.astype(float),
+            mask=mask.astype(float),
+            wfun='huber',
+            thresh=0.7,
+        ),
+    }
+    for name, expected_data in expected.items():
+        img = nb.load(getattr(results.outputs, name))
+        assert img.get_data_dtype() == np.float32, name
+        np.testing.assert_allclose(
+            img.get_fdata(), expected_data.astype(np.float32), rtol=1e-6, atol=1e-4
+        )
 
 
 def test_computecbf_casl(datasets, tmp_path_factory):
@@ -320,6 +377,13 @@ def test_computecbf_pasl(datasets, tmp_path_factory):
         assert mean_cbf_img.ndim == 3
         assert os.path.isfile(results.outputs.att_lower)
         assert os.path.isfile(results.outputs.abat_upper)
+        status_img = nb.load(results.outputs.att_status)
+        assert status_img.get_data_dtype() == np.uint8
+        assert status_img.shape == mean_cbf_img.shape
+        assert set(np.unique(status_img.dataobj)) <= set(ATT_STATUS.values())
+        at_bound_img = nb.load(results.outputs.abv_at_bound)
+        assert at_bound_img.get_data_dtype() == np.uint8
+        assert set(np.unique(at_bound_img.get_fdata())) <= {0, 1}
         # The PASL arterial signal does not depend on aBAT
         assert results.outputs.abv_decayed is None
 
@@ -580,6 +644,13 @@ def test_computecbf_calibration_outputs_multipld(tmp_path):
     np.testing.assert_allclose(m0_calib[1:], 1000.0)
     assert np.all(m0_calib[0] == 0)
 
+    # Voxels without M0 could not be fit, and have their own ATT status
+    status_img = nb.load(results.outputs.att_status)
+    assert status_img.get_data_dtype() == np.uint8
+    status = np.asarray(status_img.dataobj)
+    np.testing.assert_array_equal(status == ATT_STATUS['not_fitted'], m0_calib == 0)
+    assert set(np.unique(status)) <= set(ATT_STATUS.values())
+
 
 def test_compare_slicetiming(datasets, tmp_path_factory):
     """CBF estimates should be the same with slice-timing modification as not.
@@ -781,6 +852,48 @@ def test_basilcbf_posterior_sd(tmp_path, monkeypatch, pvc, multi_delay):
     assert isdefined(out.cbf_gm_sd_basil) is pvc
     assert isdefined(out.cbf_wm_sd_basil) is pvc
     assert isdefined(out.att_sd_basil) is multi_delay
+
+
+@pytest.mark.parametrize('infer_art', [True, False])
+def test_basilcbf_abv_fraction(tmp_path, monkeypatch, infer_art):
+    """BASILCBF reports oxford_asl's aCBV, a percentage, as a fraction."""
+    shape = (4, 4, 4)
+    acbv_percent = np.linspace(0, 3, np.prod(shape), dtype=np.float32).reshape(shape)
+
+    # What oxford_asl would write: aCBV only when it infers the arterial component.
+    canned = tmp_path / 'canned'
+    (canned / 'native_space').mkdir(parents=True)
+    _save_img(np.ones(shape, np.float32), str(canned / 'native_space'), 'perfusion_calib.nii.gz')
+    if infer_art:
+        _save_img(acbv_percent, str(canned / 'native_space'), 'aCBV_calib.nii.gz')
+
+    bin_dir = tmp_path / 'bin'
+    bin_dir.mkdir()
+    fake_oxford_asl = bin_dir / 'oxford_asl'
+    fake_oxford_asl.write_text(f'#!/bin/sh\ncp -r {canned}/native_space .\n')
+    fake_oxford_asl.chmod(0o755)
+    monkeypatch.setenv('PATH', f'{bin_dir}{os.pathsep}{os.environ["PATH"]}')
+
+    work_dir = tmp_path / 'work'
+    work_dir.mkdir()
+    out = (
+        cbf.BASILCBF(
+            deltam=_save_img(np.ones(shape, dtype=np.float32), str(tmp_path), 'deltam.nii.gz'),
+            mask=_save_img(np.ones(shape, dtype=np.uint8), str(tmp_path), 'mask.nii.gz'),
+            m0_scale=1,
+            tis=[1.5, 2.0, 2.5],
+            bolus=1.8,
+            pcasl=True,
+        )
+        .run(cwd=str(work_dir))
+        .outputs
+    )
+
+    assert isdefined(out.abv_basil) is infer_art
+    if infer_art:
+        img = nb.load(out.abv_basil)
+        assert img.get_data_dtype() == np.float32
+        np.testing.assert_allclose(img.get_fdata(), acbv_percent / 100, rtol=1e-6)
 
 
 @pytest.mark.parametrize(

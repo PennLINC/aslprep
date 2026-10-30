@@ -579,10 +579,13 @@ class workflow(_Config):
     field (``.nii``/``.nii.gz``) for gradient nonlinearity correction."""
     hires = None
     """Run FreeSurfer ``recon-all`` with the ``-hires`` flag."""
-    hmc_method = 'typewise'
-    """Head-motion correction method: ``typewise`` (MCFLIRT per volume type) or
-    ``typewise_offset`` (experimental: the same, then the offset it leaves between the corrected
-    label and control volumes is removed; :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`)."""
+    hmc_method = 'typewise_offset'
+    """Head-motion correction method: ``typewise`` (MCFLIRT per volume type),
+    ``typewise_offset`` (the default: the same, then the offset it leaves between the corrected
+    label and control volumes is removed at delays of at least 1 s, 0.8 s for PASL;
+    :class:`~aslprep.interfaces.hmc.CorrectLabelOffset`),
+    or ``typewise_volreg`` (experimental: 3dvolreg per volume type to the type's own mean,
+    aligned to the reference by FLIRT, then the same offset removal)."""
     fs_no_resume = None
     """Adjust pipeline to reuse base template of existing longitudinal freesurfer"""
     ignore = None
@@ -634,6 +637,15 @@ class workflow(_Config):
     basil = False
     """Run BASIL, FSL utils to compute CBF with spatial regularization and
     partial volume correction."""
+    kinetic_model = 'consensus'
+    """ASLPrep's kinetic model for multi-delay data: ``consensus`` or ``tissue-t1``."""
+    t1map_method = 'median'
+    """How the tissue-T1 model uses a T1 map: ``median`` or ``local-regression``."""
+    t1map_kernel_size = 7.0
+    """Edge, in mm, of the cube in which ``local-regression`` unmixes the T1 map."""
+    att_fill = 'median'
+    """How single-delay tissue-T1 CBF fills voxels where the external ATT was not located:
+    ``median`` or ``none``."""
     pvc_method = 'none'
     """Additional partial volume correction of the CBF maps: ``none`` or ``local-regression``."""
     asl_effective_resolution = 'nominal'

@@ -12,6 +12,7 @@ from aslprep.data import load as load_data
 from aslprep.interfaces.ants import ApplyTransforms
 from aslprep.interfaces.bids import BIDSURI, DerivativesDataSink
 from aslprep.interfaces.pvc import DivideByWeight
+from aslprep.utils.misc import estimate_asl_mem_usage
 
 BASE_INPUT_FIELDS = yaml.safe_load(load_data.readable('base_input_fields.yml').read_text())
 """Derivative entities and sidecar metadata of each output, from
@@ -49,6 +50,60 @@ def output_fields(name, model_metadata=None):
     if model_metadata:
         fields['Model'] = model_metadata[output_model(name)]
     return fields
+
+
+def model_sidecar(model_metadata, name, base=None):
+    """Get the run-time sidecar metadata of an output: ``base``, plus its ``Model``.
+
+    The output workflows connect this to each map's ``meta_dict``, because the ``Model``
+    metadata (from :class:`~aslprep.interfaces.cbf.ResolveRuntimeCalibration`) is only final at
+    run time. The output's static fields (see :func:`output_fields`) stay sink arguments.
+
+    Parameters
+    ----------
+    model_metadata : :obj:`dict`
+        The ``Model`` dictionary of each model, keyed by the model's name.
+    name : :obj:`str`
+        The output's name.
+    base : :obj:`dict` or None, optional
+        Other run-time metadata of the output.
+    """
+    from aslprep.workflows.asl.outputs import output_model
+
+    metadata = dict(base or {})
+    metadata['Model'] = model_metadata[output_model(name)]
+    return metadata
+
+
+def connect_model_metadata(workflow, inputnode, sink, name, base=None):
+    """Give ``sink`` the run-time ``Model`` metadata of output ``name``.
+
+    ``base``, if given, is a ``(node, field)`` pair whose dictionary the metadata is merged into,
+    for sinks whose ``meta_dict`` already holds other run-time metadata.
+    """
+    if base is None:
+        workflow.connect([
+            (inputnode, sink, [(('model_metadata', model_sidecar, name), 'meta_dict')]),
+        ])  # fmt:skip
+        return
+
+    merge = pe.Node(
+        niu.Function(
+            function=model_sidecar,
+            input_names=['model_metadata', 'name', 'base'],
+            output_names=['metadata'],
+        ),
+        name=f'{sink.name}_metadata',
+        run_without_submitting=True,
+        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+    )
+    merge.inputs.name = name
+    base_node, base_field = base
+    workflow.connect([
+        (inputnode, merge, [('model_metadata', 'model_metadata')]),
+        (base_node, merge, [(base_field, 'base')]),
+        (merge, sink, [('metadata', 'meta_dict')]),
+    ])  # fmt:skip
 
 
 #: Local-regression partial volume correction outputs, per corrected CBF map.
@@ -618,13 +673,13 @@ def init_ds_asl_native_wf(
     cbf_3d: list[str],
     cbf_4d: list[str],
     att: list[str],
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name='ds_asl_native_wf',
 ) -> pe.Workflow:
     """Write out aslref-space outputs.
 
-    ``model_metadata`` is added to the sidecars of the CBF and ATT maps
-    (see :func:`output_fields`).
+    With ``with_model``, the ``Model`` metadata from the inputnode's ``model_metadata``
+    is added to the sidecars of the CBF and ATT maps (see :func:`model_sidecar`).
     The outputnode has the written path of each CBF and ATT map, under the map's name.
     """
     workflow = pe.Workflow(name=name)
@@ -637,6 +692,8 @@ def init_ds_asl_native_wf(
         # Transforms previously used to generate the outputs
         'motion_xfm',
         'aslref2fmap_xfm',
+        # The Model metadata of each model, for the CBF and ATT maps
+        'model_metadata',
     ]
     inputnode_fields += cbf_3d
     inputnode_fields += cbf_4d
@@ -666,11 +723,15 @@ def init_ds_asl_native_wf(
         ]),
     ])  # fmt:skip
 
+    # Compressing a time series can take seconds, which would block nipype's scheduler,
+    # so the CBF outputs are written in workers.
+    series_mem_gb = estimate_asl_mem_usage(source_file)[1]['resampled']
+
     datasinks = []
     # Write out CBF and ATT maps in aslref space
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = output_fields(cbf_name, model_metadata)
+        fields = output_fields(cbf_name)
 
         ds_cbf = pe.Node(
             DerivativesDataSink(
@@ -681,18 +742,19 @@ def init_ds_asl_native_wf(
                 **fields,
             ),
             name=f'ds_{cbf_name}',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb if cbf_name in cbf_4d else config.DEFAULT_MEMORY_MIN_GB,
         )
         datasinks.append(ds_cbf)
         workflow.connect([
             (inputnode, ds_cbf, [(cbf_name, 'in_file')]),
             (ds_cbf, outputnode, [('out_file', cbf_name)]),
         ])  # fmt:skip
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_cbf, cbf_name)
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = output_fields(att_name, model_metadata)
+        fields = output_fields(att_name)
 
         ds_att = pe.Node(
             DerivativesDataSink(
@@ -712,6 +774,8 @@ def init_ds_asl_native_wf(
             (inputnode, ds_att, [(att_name, 'in_file')]),
             (ds_att, outputnode, [('out_file', att_name)]),
         ])  # fmt:skip
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_att, att_name)
 
     if asl_output:
         # Write out the preprocessed ASL time series
@@ -725,7 +789,7 @@ def init_ds_asl_native_wf(
                 dismiss_entities=('echo',),
             ),
             name='ds_asl',
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb,
         )
         workflow.connect([
             (inputnode, ds_asl, [
@@ -746,7 +810,6 @@ def init_ds_calibration_wf(
     *,
     source_file: str,
     output_dir: str,
-    calibration: dict,
     name: str = 'ds_calibration_wf',
 ) -> pe.Workflow:
     """Write out the calibration specification and its report.
@@ -761,21 +824,28 @@ def init_ds_calibration_wf(
         The ASL file the derivatives are named after.
     output_dir : str
         The output directory.
-    calibration : dict
-        The calibration specification.
     name : str
         Workflow name.
+
+    Inputs
+    ------
+    calibration
+        The calibration specification the run used, completed at run time
+        (see :class:`~aslprep.interfaces.cbf.ResolveRuntimeCalibration`).
     """
     from aslprep.interfaces.cbf import WriteCalibration
     from aslprep.interfaces.reports import CalibrationSummary
 
     workflow = pe.Workflow(name=name)
 
+    inputnode = pe.Node(niu.IdentityInterface(fields=['calibration']), name='inputnode')
+
     write_calibration = pe.Node(
-        WriteCalibration(calibration=calibration),
+        WriteCalibration(),
         name='write_calibration',
         run_without_submitting=True,
     )
+    workflow.connect([(inputnode, write_calibration, [('calibration', 'calibration')])])
     ds_calibration = pe.Node(
         DerivativesDataSink(
             source_file=source_file,
@@ -792,10 +862,11 @@ def init_ds_calibration_wf(
     workflow.connect([(write_calibration, ds_calibration, [('out_file', 'in_file')])])
 
     calibration_summary = pe.Node(
-        CalibrationSummary(calibration=calibration),
+        CalibrationSummary(),
         name='calibration_summary',
         run_without_submitting=True,
     )
+    workflow.connect([(inputnode, calibration_summary, [('calibration', 'calibration')])])
     ds_report_calibration = pe.Node(
         DerivativesDataSink(
             source_file=source_file,
@@ -819,14 +890,15 @@ def init_ds_pvc_native_wf(
     output_dir: str,
     sources: list[str],
     multi_delay: bool = False,
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name: str = 'ds_pvc_native_wf',
 ) -> pe.Workflow:
-    """Write out local-regression partial volume correction outputs in aslref space.
+    """Write out the partial volume maps and local-regression PVC outputs in aslref space.
 
     The corrected maps, their standard errors (single-delay data), the fit diagnostics and the
     PV maps are always written in aslref space, because the standard errors, diagnostics and
-    PV maps only exist there.
+    PV maps only exist there. With no ``sources``, only the PV maps are written: those BASIL
+    used, when local-regression PVC is off.
 
     Parameters
     ----------
@@ -835,11 +907,13 @@ def init_ds_pvc_native_wf(
     output_dir : str
         The output directory.
     sources : list of str
-        The CBF maps that were corrected: ``mean_cbf``, and ``mean_cbf_score`` with SCORE.
+        The CBF maps that local regression corrected: ``mean_cbf``, and ``mean_cbf_score`` with
+        SCORE. Empty without local-regression PVC.
     multi_delay : bool
         Whether the data have several delays, which changes the outputs (spec Section 5.7.5).
-    model_metadata : dict or None
-        Added to the sidecars of the correction outputs (see :func:`output_fields`).
+    with_model : bool
+        Whether to add the ``Model`` metadata from ``model_metadata`` to the sidecars of the
+        correction outputs (see :func:`model_sidecar`).
     name : str
         Workflow name.
 
@@ -847,6 +921,8 @@ def init_ds_pvc_native_wf(
     ------
     source_files
         Files to list in each output's ``Sources`` field.
+    model_metadata
+        The ``Model`` dictionary of each model (with ``with_model``).
     gm_pv, wm_pv, csf_pv
         Partial volume maps on the ASL reference grid, written as
         ``label-{GM,WM,CSF}_desc-psf_probseg``.
@@ -894,7 +970,15 @@ def init_ds_pvc_native_wf(
 
     inputnode = pe.Node(
         niu.IdentityInterface(
-            fields=['source_files', 'gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+            fields=[
+                'source_files',
+                'model_metadata',
+                'gm_pv',
+                'wm_pv',
+                'csf_pv',
+                'pv_metadata',
+                'pvc_metadata',
+            ]
             + names
         ),
         name='inputnode',
@@ -916,7 +1000,7 @@ def init_ds_pvc_native_wf(
 
     for out_name in ['gm_pv', 'wm_pv', 'csf_pv'] + names:
         is_pv_map = out_name in ('gm_pv', 'wm_pv', 'csf_pv')
-        fields = output_fields(out_name, None if is_pv_map else model_metadata)
+        fields = output_fields(out_name)
         meta_field = 'pv_metadata' if is_pv_map else 'pvc_metadata'
         ds = pe.Node(
             DerivativesDataSink(
@@ -931,10 +1015,15 @@ def init_ds_pvc_native_wf(
             mem_gb=config.DEFAULT_MEMORY_MIN_GB,
         )
         workflow.connect([
-            (inputnode, ds, [(out_name, 'in_file'), (meta_field, 'meta_dict')]),
+            (inputnode, ds, [(out_name, 'in_file')]),
             (sources_node, ds, [('out', 'Sources')]),
             (ds, outputnode, [('out_file', out_name)]),
         ])  # fmt:skip
+        # The PV maps come from no model
+        if with_model and not is_pv_map:
+            connect_model_metadata(workflow, inputnode, ds, out_name, base=(inputnode, meta_field))
+        else:
+            workflow.connect([(inputnode, ds, [(meta_field, 'meta_dict')])])
 
     return workflow
 
@@ -949,7 +1038,7 @@ def init_ds_volumes_wf(
     att: list[str],
     sparse_3d: dict[str, str] | None = None,
     asl_output: bool = True,
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name: str = 'ds_volumes_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to anatomical/standard space and write out derivatives.
@@ -975,8 +1064,9 @@ def init_ds_volumes_wf(
         estimates.
     asl_output : bool
         Whether to write out the preprocessed ASL series (``asl``).
-    model_metadata : dict or None
-        Added to the sidecars of the CBF and ATT maps (see :func:`output_fields`).
+    with_model : bool
+        Whether to add the ``Model`` metadata from ``model_metadata`` to the sidecars of the
+        CBF and ATT maps (see :func:`model_sidecar`).
     name : str
         Workflow name.
 
@@ -984,6 +1074,8 @@ def init_ds_volumes_wf(
     ------
     source_files
         Files to list in each output's ``Sources`` field.
+    model_metadata
+        The ``Model`` dictionary of each model (with ``with_model``).
     ref_file
         Reference image of the target space.
     asl, asl_metadata
@@ -1012,6 +1104,7 @@ def init_ds_volumes_wf(
     workflow = pe.Workflow(name=name)
     inputnode_fields = [
         'source_files',
+        'model_metadata',
         'ref_file',
         'asl',  # Resampled into target space
         'asl_metadata',  # Metadata for the preprocessed ASL series
@@ -1066,6 +1159,10 @@ def init_ds_volumes_wf(
         ]),
     ])  # fmt:skip
 
+    # Compressing a time series takes seconds, which would block nipype's scheduler,
+    # so the ASL and CBF outputs are written in workers. So are the ANTs resamplings.
+    series_mem_gb = estimate_asl_mem_usage(source_file)[1]['resampled']
+
     if asl_output:
         # ASL is pre-resampled
         ds_asl = pe.Node(
@@ -1078,8 +1175,7 @@ def init_ds_volumes_wf(
                 dismiss_entities=('echo',),
             ),
             name='ds_asl',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb,
         )
         workflow.connect([
             (sources, ds_asl, [('out', 'Sources')]),
@@ -1101,8 +1197,7 @@ def init_ds_volumes_wf(
             args='-v',
         ),
         name='resample_ref',
-        run_without_submitting=True,
-        mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        mem_gb=0.5,
     )
     resample_mask = pe.Node(
         ApplyTransforms(interpolation='GenericLabel', args='-v'),
@@ -1144,7 +1239,7 @@ def init_ds_volumes_wf(
 
     for cbf_name in cbf_4d + cbf_3d:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = output_fields(cbf_name, model_metadata)
+        fields = output_fields(cbf_name)
 
         kwargs = {}
         if cbf_name in cbf_4d:
@@ -1171,17 +1266,18 @@ def init_ds_volumes_wf(
                 **fields,
             ),
             name=f'ds_{cbf_name}',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=series_mem_gb if cbf_name in cbf_4d else config.DEFAULT_MEMORY_MIN_GB,
         )
         resamplers.append(resample_cbf)
         datasinks.append(ds_cbf)
 
         workflow.connect([(inputnode, resample_cbf, [(cbf_name, 'input_image')])])
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_cbf, cbf_name)
 
     for att_name in att:
         # TODO: Add EstimationReference and EstimationAlgorithm
-        fields = output_fields(att_name, model_metadata)
+        fields = output_fields(att_name)
 
         resample_att = pe.Node(
             ApplyTransforms(
@@ -1191,8 +1287,7 @@ def init_ds_volumes_wf(
                 args='-v',
             ),
             name=f'warp_{att_name}_to_std',
-            run_without_submitting=True,
-            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            mem_gb=0.5,
         )
 
         ds_att = pe.Node(
@@ -1211,12 +1306,14 @@ def init_ds_volumes_wf(
         datasinks.append(ds_att)
 
         workflow.connect([(inputnode, resample_att, [(att_name, 'input_image')])])
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_att, att_name)
 
     # Validity-normalized resampling: warp(value) / warp(valid), with linear interpolation.
     # The values are already zero where they are not valid.
     sparse_resamplers = []
     for sparse_name, valid_name in sparse_3d.items():
-        fields = output_fields(sparse_name, model_metadata)
+        fields = output_fields(sparse_name)
         resample_value = pe.Node(
             ApplyTransforms(interpolation='Linear', float=True, input_image_type=3, args='-v'),
             name=f'warp_{sparse_name}_to_std',
@@ -1253,6 +1350,8 @@ def init_ds_volumes_wf(
             (resample_valid, normalize, [('output_image', 'weight_file')]),
             (normalize, ds_sparse, [('out_file', 'in_file')]),
         ])  # fmt:skip
+        if with_model:
+            connect_model_metadata(workflow, inputnode, ds_sparse, sparse_name)
 
     workflow.connect(
         [
@@ -1301,14 +1400,14 @@ def init_ds_ciftis_wf(
     att: list[str],
     omp_nthreads: int,
     asl_output: bool = True,
-    model_metadata: dict | None = None,
+    with_model: bool = False,
     name: str = 'ds_ciftis_wf',
 ) -> pe.Workflow:
     """Apply transforms from reference to fsLR space and write out derivatives.
 
     The preprocessed ASL series (``asl_cifti``) is only written with ``asl_output``.
-    ``model_metadata`` is added to the sidecars of the CBF and ATT maps
-    (see :func:`output_fields`).
+    With ``with_model``, the ``Model`` metadata from the inputnode's ``model_metadata``
+    is added to the sidecars of the CBF and ATT maps (see :func:`model_sidecar`).
     """
     from fmriprep.workflows.bold.resampling import (
         init_bold_fsLR_resampling_wf,
@@ -1320,6 +1419,8 @@ def init_ds_ciftis_wf(
     inputnode_fields = [
         'asl_cifti',
         'source_files',
+        # The Model metadata of each model, for the CBF and ATT maps
+        'model_metadata',
         # ASL-resolution, anatomical-space reference image
         'anat_ref_file',
         'aslref2anat_xfm',
@@ -1477,19 +1578,29 @@ def init_ds_ciftis_wf(
                 density=config.workflow.cifti_output,
                 extension=extension,
                 compress=False,
-                **output_fields(cbf_deriv, model_metadata),
+                **output_fields(cbf_deriv),
             ),
             name=f'ds_{cbf_deriv}_cifti',
             run_without_submitting=True,
         )
         workflow.connect([
             (sources, ds_cbf_cifti, [('out', 'Sources')]),
-            (cbf_grayords_wf, ds_cbf_cifti, [
-                ('outputnode.cifti_bold', 'in_file'),
-                (('outputnode.cifti_metadata', _read_json), 'meta_dict'),
-            ]),
+            (cbf_grayords_wf, ds_cbf_cifti, [('outputnode.cifti_bold', 'in_file')]),
             (ds_cbf_cifti, outputnode, [('out_file', cbf_deriv)])
         ])  # fmt:skip
+        cifti_metadata = ('outputnode.cifti_metadata', _read_json)
+        if with_model:
+            connect_model_metadata(
+                workflow,
+                inputnode,
+                ds_cbf_cifti,
+                cbf_deriv,
+                base=(cbf_grayords_wf, cifti_metadata),
+            )
+        else:
+            workflow.connect([
+                (cbf_grayords_wf, ds_cbf_cifti, [(cifti_metadata, 'meta_dict')]),
+            ])  # fmt:skip
 
     return workflow
 

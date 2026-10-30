@@ -68,6 +68,40 @@ att_upper:
     Upper bound of the arterial transit time. The longest arterial transit time that
     fits the data as well as the estimate.
 
+att_lower_ci:
+  desc: ciLower
+  suffix: att
+  Units: s
+  Description: >-
+    Lower end of a 95% profile-likelihood interval for the arterial transit time:
+    the shortest ATT whose sum of squared errors, minimized over CBF, aBV, and aBAT,
+    exceeds the minimum by at most 3.84 times the noise variance. The noise variance
+    is pooled across voxels, so the interval assumes one noise level in delta-M.
+
+att_upper_ci:
+  desc: ciUpper
+  suffix: att
+  Units: s
+  Description: >-
+    Upper end of a 95% profile-likelihood interval for the arterial transit time
+    (see desc-ciLower).
+
+att_status:
+  suffix: attstatus
+  Description: >-
+    How well the multi-delay fit located the arterial transit time, from its 95%
+    interval (desc-ciLower and desc-ciUpper). Where ATT is not located, the att map
+    should not be read as a measurement.
+  Levels:
+    '0': 'Not fitted: M0 is not positive or the data are not finite.'
+    '1': 'Located: the interval is at most 0.5 s wide and does not reach 0 s.'
+    '2': >-
+      Bounded above only: the interval reaches 0 s, because the labeled blood may all
+      have arrived before the earliest delay (including any slice-timing offset), and
+      the data then only say that ATT is shorter than about that delay.
+    '3': 'No tissue signal: CBF is zero, so ATT has no effect on the model.'
+    '4': 'Not located: the interval is wider than 0.5 s.'
+
 abat_lower:
   desc: lower
   suffix: abat
@@ -83,6 +117,14 @@ abat_upper:
   Description: >-
     Upper bound of the arterial bolus arrival time. The longest arterial bolus arrival
     time that fits the data as well as the estimate.
+
+abv_at_bound:
+  desc: abvBound
+  suffix: mask
+  Description: >-
+    Voxels where the fitted arterial blood volume is at its upper bound, the physical
+    limit of 1. The arterial term could not absorb all of the arterial signal there,
+    so what is left of it may bias the cerebral blood flow and arterial transit time.
 
 abv_decayed:
   desc: decayed

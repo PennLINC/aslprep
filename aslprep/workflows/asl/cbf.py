@@ -17,6 +17,7 @@ from aslprep.interfaces.cbf import (
     BASILInflowTimeImage,
     ComputeCBF,
     ExtractCBF,
+    ResolveRuntimeCalibration,
     ScoreAndScrubCBF,
 )
 from aslprep.interfaces.parcellation import NiftiParcellate
@@ -36,8 +37,15 @@ from aslprep.utils.calibration import (
     basil_calibration_inputs,
     calibration_value,
     resolve_calibration,
+    tissue_t1_kinetics,
 )
-from aslprep.utils.cbf import REFERENCE_HAEMATOCRIT, T1BLOOD_BY_FIELD_STRENGTH
+from aslprep.utils.cbf import (
+    ATT_INTERVAL_LEVEL,
+    ATT_LOCATED_WIDTH,
+    REFERENCE_HAEMATOCRIT,
+    T1BLOOD_BY_FIELD_STRENGTH,
+)
+from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.utils.pvc import check_lr_pvc_supported
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
@@ -56,6 +64,16 @@ def _lr_pvc_mem_gb(name_source, num_threads):
     return estimate_lr_pvc_mem_gb(shape, num_threads)
 
 
+def basil_pvc_enabled(*, basil, processing_target):
+    """Whether BASIL runs partial volume correction.
+
+    BASIL does not run on pre-calculated CBF. Partial volume correction takes most of
+    oxford_asl's run time (its spatial step runs ten times as many iterations as the uncorrected
+    fit), so it is skipped in sloppy mode.
+    """
+    return basil and processing_target != 'cbf' and not config.execution.sloppy
+
+
 def init_cbf_wf(
     *,
     name_source,
@@ -71,6 +89,8 @@ def init_cbf_wf(
     pvc_kernel_size=(5, 5, 1),
     asl_effective_resolution='nominal',
     calibration=None,
+    t1map=None,
+    external_att=None,
     name='cbf_wf',
 ):
     """Create a workflow for :abbr:`CCBF (compute cbf)`.
@@ -117,17 +137,34 @@ def init_cbf_wf(
     pvc_kernel_size : :obj:`tuple` of :obj:`int`
         Local-regression kernel size, ordered (in-plane, in-plane, slice).
     asl_effective_resolution : :obj:`str` or :obj:`list` of :obj:`float`
-        Effective resolution used to build the partial volume maps.
+        Effective resolution used to build the partial volume maps,
+        which both BASIL and local-regression PVC use.
     calibration : :obj:`dict` or None
-        The calibration specification that every quantification step uses
+        The calibration specification, as resolved when the workflow is built
         (see :func:`~aslprep.utils.calibration.resolve_calibration`).
+        It decides the workflow and its description; the quantification steps use the version
+        completed at run time (the ``calibration`` output).
         If None, it is resolved from ``metadata``, ``m0_scale`` and ``smooth_kernel``.
         Not used for pre-calculated CBF data.
+    t1map : :obj:`dict` or None
+        The participant's T1 map (see :func:`~aslprep.utils.bids.collect_t1map`).
+        With the tissue-T1 kinetic model, the tissue T1s measured from it (the
+        ``tissue_t1_updates`` input) replace the defaults at run time.
+    external_att : :obj:`dict` or None
+        An ATT map from a multi-delay run (see :func:`~aslprep.utils.bids.collect_external_att`),
+        which the tissue-T1 kinetic model needs for single-delay data.
     name : :obj:`str`
         Name of workflow (default: ``cbf_wf``)
 
     Inputs
     ------
+    tissue_t1_updates, tissue_t1_warnings
+        The tissue T1s measured from ``t1map``, as calibration updates, and warnings about them.
+        Only with ``t1map`` and the tissue-T1 kinetic model.
+    tissue_gm_r1, tissue_wm_r1
+        Gray and white matter R1 maps on the anatomical grid, from ``t1map``.
+        Only with ``t1map``, the tissue-T1 kinetic model and
+        ``--t1map-method local-regression``.
     asl_file
         asl series NIfTI file, after preprocessing
     aslcontext : :obj:`str`
@@ -144,6 +181,12 @@ def init_cbf_wf(
         t1w probability maps
     aslref2anat_xfm
         asl to t1w transformation file
+    t1w_preproc
+        The anatomical image, which must be the one the ``external_att`` run was registered to.
+        Only with ``external_att``.
+    aslref
+        The ASL reference image, the background of the external ATT reportlet.
+        Only with ``external_att``.
 
     Outputs
     -------
@@ -156,10 +199,33 @@ def init_cbf_wf(
         (multi-delay data only).
     att_lower, att_upper, abat_lower, abat_upper
         The ranges of ATT and aBAT that fit as well as the estimates (multi-delay data only).
+    att_lower_ci, att_upper_ci
+        The noise-aware ATT interval (multi-delay data only).
+    att_status
+        How well the fit located ATT in each voxel (multi-delay data only).
+    earliest_delay
+        Each voxel's earliest delay, including slice timing (multi-delay data only).
+    abv_at_bound
+        Mask of voxels whose aBV is at its upper bound (multi-delay data only).
     abv_decayed
         aBV times the label decay over aBAT (multi-delay (P)CASL data only).
     plds
         The post-labeling delays used for quantification.
+    calibration, model_metadata
+        The calibration specification the run used, completed with any values found at run
+        time, and the ``Model`` sidecar dictionary of each model
+        (see :class:`~aslprep.interfaces.cbf.ResolveRuntimeCalibration`).
+        Not defined for pre-calculated CBF data.
+    gm_t1, wm_t1
+        The per-voxel gray and white matter T1s used by the tissue-T1 model, on the ASL
+        reference grid (with ``tissue_gm_r1`` and ``tissue_wm_r1``).
+    external_att, external_att_status, external_att_summary
+        The ATT the single-delay tissue-T1 model used, where it came from in each voxel
+        (see :data:`~aslprep.utils.att.EXTERNAL_ATT_STATUS`), and a summary (with
+        ``external_att``).
+    external_att_report
+        A figure of the external ATT and its status
+        (see :class:`~aslprep.interfaces.plotting.ExternalATTPlot`; with ``external_att``).
     cbf_ts_score, mean_cbf_score, mean_cbf_scrub, score_outlier_index
         SCORE and SCRUB outputs (with ``scorescrub``).
     mean_cbf_basil, mean_cbf_gm_basil, mean_cbf_wm_basil, att_basil, abv_basil
@@ -168,8 +234,8 @@ def init_cbf_wf(
         BASIL posterior standard deviations (with ``basil``).
     gm_pv, wm_pv, csf_pv, pv_metadata
         Partial volume maps on the ASL reference grid and how they were built
-        (with ``pvc_method='local-regression'``; see
-        :func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`).
+        (with ``pvc_method='local-regression'``, or with ``basil`` when BASIL runs partial
+        volume correction; see :func:`~aslprep.workflows.asl.pv.init_asl_pv_wf`).
     mean_cbf_gm_lr, ..., csf_noise_lr, pvc_summary, pvc_metadata, pvc_qc
         Local-regression partial volume correction outputs for ``mean_cbf`` (with
         ``pvc_method='local-regression'``; see :func:`~aslprep.workflows.asl.pv.init_lr_pvc_wf`
@@ -213,11 +279,21 @@ Cerebral blood flow computation and denoising
             smooth_kernel=smooth_kernel,
             smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
             basil=basil,
+            kinetic_model=config.workflow.kinetic_model,
+            external_att=external_att is not None,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(warning)
 
     m0_str = ''
+    # The tissue-T1 kinetic model's parameters, if the calibration was resolved for it
+    tissue_t1 = None if calibration is None else tissue_t1_kinetics(calibration)
+    # The T1 map's tissue T1s replace the defaults at run time
+    use_t1map = t1map is not None and tissue_t1 is not None
+    # With the local-regression method, the T1 map also gives tissue T1s in each voxel
+    tissue_t1_maps = use_t1map and config.workflow.t1map_method == 'local-regression'
+    # Single-delay data use each voxel's ATT from a multi-delay run in the tissue-T1 model
+    use_external_att = external_att is not None and tissue_t1 is not None and not is_multi_pld
     if calibration is not None:
         m0_scale = calibration_value(calibration, 'M0Scale')
         # The M0 image is smoothed as the specification records (absent for an M0Estimate).
@@ -280,6 +356,47 @@ Cerebral blood flow computation and denoising
             'treated as having no signal, and were given no CBF estimate.'
         )
 
+    tissue_t1_str = ''
+    if tissue_t1 is not None:
+        t1prime = tissue_t1['t1prime']
+        nominal_cbf_str = (
+            f'nominal CBFs of {calibration_value(calibration, "NominalGrayMatterCBF"):g} and '
+            f'{calibration_value(calibration, "NominalWhiteMatterCBF"):g} mL/100 g/min'
+        )
+        if tissue_t1_maps:
+            t1_values_str = f"""\
+The T1s of gray and white matter in each voxel were measured from the participant's T1 map by
+local regression, with the medians over pure-tissue voxels where a tissue could not be separated
+(the medians are recorded with the calibration parameters), and f was set to {nominal_cbf_str}.
+"""
+        elif use_t1map:
+            # The values are only known at run time; they are in the calibration file.
+            t1_values_str = f"""\
+The T1s of gray and white matter were measured from the participant's T1 map, as medians over
+pure-tissue voxels (the values are recorded with the calibration parameters), and f was set to
+{nominal_cbf_str}.
+"""
+        else:
+            t1_values_str = f"""\
+The T1s of gray and white matter were set to
+{calibration_value(calibration, 'GrayMatterT1'):g} s and
+{calibration_value(calibration, 'WhiteMatterT1'):g} s, the values for
+{calibration_value(calibration, 'MagneticFieldStrength'):g} T [@wright2008water],
+and f to {nominal_cbf_str},
+which gave apparent T1s of {t1prime[0]:.3f} s and {t1prime[1]:.3f} s.
+"""
+        tissue_t1_str = f"""
+Rather than assuming, as the consensus model does, that the labeled water decays with the T1 of
+blood throughout, the labeled blood water was modeled as decaying with the T1 of blood until it
+reached the tissue, and, once in the tissue, with the apparent T1 of the tissue,
+1 / (1 / T1 + f / lambda), with f the CBF in mL/g/s and lambda the blood-brain partition
+coefficient [@buxton1998general].
+{t1_values_str}\
+In voxels that mixed gray and white matter, the tissue term was the sum of the two tissues'
+terms, weighted by their partial volumes times their nominal CBFs, with one ATT and one CBF
+per voxel. CSF was not modeled as perfused.
+"""
+
     if processing_target == 'cbf':
         workflow.__desc__ += """\
 : *ASLPrep* loaded pre-calculated cerebral blood flow (CBF) data from the ASL file.
@@ -304,7 +421,7 @@ Cerebral blood flow computation and denoising
 {metadata['ArterialSpinLabelingType']} data using a two-compartment general kinetic model (GKM)
 [@buxton1998general], as recommended and extended in @woods2023recommendations.
 This model contains separate terms for tissue and macrovascular delta-M signals.
-
+{tissue_t1_str}
 {m0_str}
 The equilibrium magnetization of arterial blood (M0b) was estimated voxel-wise as
 {m0b_str},
@@ -323,9 +440,48 @@ Where a range of ATT values fit equally well
 (for example, when ATT was shorter than every delay),
 ATT was reported as a single value from that range.
 The lower and upper bounds of the ATT and aBAT values that fit equally well were also calculated,
-and are written out with the native-space outputs.{abv_str}{
+and are written out with the native-space outputs.
+Because noise makes ATTs that the data cannot distinguish fit slightly differently,
+a {100 * ATT_INTERVAL_LEVEL:g}% profile-likelihood interval for ATT was also calculated:
+the ATTs whose sum of squared errors, minimized over CBF, aBV, and aBAT,
+exceeded the minimum by at most the {100 * ATT_INTERVAL_LEVEL:g}th percentile of a
+chi-squared distribution with one degree of freedom times the noise variance.
+The noise variance was pooled across voxels with positive CBF, as the median of each voxel's
+residual variance over all volumes, scaled to be unbiased for Gaussian noise.
+ATT was considered located where this interval excluded zero
+and was at most {ATT_LOCATED_WIDTH:g} s wide.{abv_str}{
             ' The fit was run on a GPU with CuPy.' if config.nipype.use_gpu else ''
         }
+"""
+
+    elif use_external_att:
+        from aslprep.utils.att import MIN_LOCATED_WEIGHT, MIN_RELATIVE_BASIS
+
+        fill_str = (
+            "Where that run had not located ATT, the voxel's ATT was imputed as the medians of "
+            'the located ATTs in gray and white matter (weighted by partial volume), combined with '
+            'the same weights as the tissue terms, and clipped into the ATT interval of the '
+            'multi-delay fit when it had one, so that the CBF of those voxels is model-imputed.'
+            if config.workflow.att_fill == 'median'
+            else 'Voxels where that run had not located ATT were given no CBF.'
+        )
+        workflow.__desc__ += f"""\
+: *ASLPrep* calculated cerebral blood flow (CBF) from the single-delay
+{metadata['ArterialSpinLabelingType']} data using a one-compartment general kinetic model
+[@buxton1998general] with the tissue-T1 extension described below, which needs the arterial
+transit time (ATT) of each voxel.
+ATT was taken from a multi-delay ASL run of the participant, processed with the same model, and
+brought onto this run's ASL reference grid through both runs' transforms to the anatomical
+reference, with linear interpolation of the voxels where that run had located ATT
+(a voxel counted as located when at least {100 * MIN_LOCATED_WEIGHT:g}% of its interpolation
+weight came from located voxels).
+{fill_str}
+With ATT known, the model is linear in CBF, so CBF was calculated for each volume by dividing
+the perfusion signal by M0 of blood times the model's tissue signal per unit CBF, without an
+arterial term. Voxels where that signal was below {100 * MIN_RELATIVE_BASIS:g}% of its value with
+all of the label arrived (ATT near or after the end of the bolus) were given no CBF.
+{tissue_t1_str}
+{m0_str}
 """
 
     elif is_casl:
@@ -407,6 +563,7 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
     workflow.__desc__ += '\n'
 
     lr_pvc = pvc_method == 'local-regression'
+    basil_pvc = basil_pvc_enabled(basil=basil, processing_target=processing_target)
     lr_sources = []
     lr_fields = []
     if lr_pvc:
@@ -417,8 +574,10 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             kernel_size=pvc_kernel_size,
         )
         lr_sources = ['mean_cbf'] + (['mean_cbf_score'] if scorescrub else [])
-        lr_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata', 'pvc_qc']
+        lr_fields = ['pvc_metadata', 'pvc_qc']
         lr_fields += lr_pvc_fields(lr_sources, multi_delay=is_multi_pld)
+    # Both partial volume corrections use the same voxel-averaged maps (gh-740)
+    pv_fields = ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata'] if (lr_pvc or basil_pvc) else []
 
     inputnode = pe.Node(
         niu.IdentityInterface(
@@ -431,6 +590,12 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'asl_mask',
                 't1w_tpms',
                 'aslref2anat_xfm',
+                'tissue_t1_updates',
+                'tissue_t1_warnings',
+                'tissue_gm_r1',
+                'tissue_wm_r1',
+                't1w_preproc',
+                'aslref',
             ],
         ),
         name='inputnode',
@@ -448,6 +613,11 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'att_upper',  # Only calculated for multi-delay data
                 'abat_lower',  # Only calculated for multi-delay data
                 'abat_upper',  # Only calculated for multi-delay data
+                'att_lower_ci',  # Only calculated for multi-delay data
+                'att_upper_ci',  # Only calculated for multi-delay data
+                'att_status',  # Only calculated for multi-delay data
+                'earliest_delay',  # Only calculated for multi-delay data
+                'abv_at_bound',  # Only calculated for multi-delay data
                 'abv_decayed',  # Only calculated for multi-delay (P)CASL data
                 'plds',
                 # SCORE/SCRUB outputs
@@ -466,7 +636,19 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
                 'cbf_gm_sd_basil',
                 'cbf_wm_sd_basil',
                 'att_sd_basil',  # Only for multi-delay data
+                # The calibration specification the run used, and each model's sidecar metadata
+                'calibration',
+                'model_metadata',
+                # Per-voxel tissue T1s (--t1map-method local-regression)
+                'gm_t1',
+                'wm_t1',
+                # The external ATT of single-delay data with the tissue-T1 model
+                'external_att',
+                'external_att_status',
+                'external_att_summary',
+                'external_att_report',
             ]
+            + pv_fields
             + lr_fields
         ),
         name='outputnode',
@@ -493,70 +675,74 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
 
         return os.path.dirname(file)
 
-    gm_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='gm_tfm',
-        mem_gb=0.1,
-    )
+    if scorescrub:
+        # SCORE/SCRUB samples the tissue probability maps at each ASL voxel centre
+        gm_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='gm_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, gm_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_gm), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, gm_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_gm), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
-    wm_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='wm_tfm',
-        mem_gb=0.1,
-    )
+        wm_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='wm_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, wm_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_wm), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, wm_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_wm), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
-    csf_tfm = pe.Node(
-        ApplyTransforms(
-            interpolation='Gaussian',
-            float=True,
-            invert_transform_flags=[True],
-            args='-v',
-        ),
-        name='csf_tfm',
-        mem_gb=0.1,
-    )
+        csf_tfm = pe.Node(
+            ApplyTransforms(
+                interpolation='Gaussian',
+                float=True,
+                invert_transform_flags=[True],
+                args='-v',
+            ),
+            name='csf_tfm',
+            mem_gb=0.1,
+        )
 
-    workflow.connect([
-        (inputnode, csf_tfm, [
-            ('asl_mask', 'reference_image'),
-            ('aslref2anat_xfm', 'transforms'),
-            (('t1w_tpms', _pick_csf), 'input_image'),
-        ]),
-    ])  # fmt:skip
+        workflow.connect([
+            (inputnode, csf_tfm, [
+                ('asl_mask', 'reference_image'),
+                ('aslref2anat_xfm', 'transforms'),
+                (('t1w_tpms', _pick_csf), 'input_image'),
+            ]),
+        ])  # fmt:skip
 
+    # Nodes that load the ASL series, or a CBF time series of the same size, run in workers,
+    # so the scheduler needs their memory to pack them.
+    series_mem_gb = estimate_asl_mem_usage(name_source)[1]['resampled']
     extract_deltam = pe.Node(
         ExtractCBF(
             name_source=name_source,
             fwhm=smooth_kernel,
         ),
-        mem_gb=0.2,
-        run_without_submitting=True,
+        mem_gb=series_mem_gb,
         name='extract_deltam',
     )
 
@@ -589,13 +775,38 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             use_gpu=fit_on_gpu,
             write_calibration=pvc_method != 'none',
         ),
-        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else 0.2,
+        mem_gb=1 + 0.1 * fit_nthreads if is_multi_pld else series_mem_gb,
         n_procs=fit_nthreads,
-        run_without_submitting=not is_multi_pld,
         name='compute_cbf',
     )
     if calibration is not None:
-        compute_cbf.inputs.calibration = calibration
+        # The specification built here decides the workflow and its description.
+        # This node completes it with the values found at run time (the tissue T1s measured
+        # from a T1 map), and every model and output that records it reads its outputs.
+        runtime_calibration = pe.Node(
+            ResolveRuntimeCalibration(
+                calibration=calibration,
+                asl_type=metadata['ArterialSpinLabelingType'],
+                multi_delay=is_multi_pld,
+            ),
+            name='runtime_calibration',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (runtime_calibration, compute_cbf, [('calibration', 'calibration')]),
+            (runtime_calibration, outputnode, [
+                ('calibration', 'calibration'),
+                ('model_metadata', 'model_metadata'),
+            ]),
+        ])  # fmt:skip
+        if use_t1map:
+            workflow.connect([
+                (inputnode, runtime_calibration, [
+                    ('tissue_t1_updates', 'updates'),
+                    ('tissue_t1_warnings', 'warnings'),
+                ]),
+            ])  # fmt:skip
 
     workflow.connect([
         (extract_deltam, compute_cbf, [
@@ -614,16 +825,147 @@ modified for {bcut_str}, as described in {singlepld_pasl_strs.get(bcut, bcut_cit
             ('att_upper', 'att_upper'),
             ('abat_lower', 'abat_lower'),
             ('abat_upper', 'abat_upper'),
+            ('att_lower_ci', 'att_lower_ci'),
+            ('att_upper_ci', 'att_upper_ci'),
+            ('att_status', 'att_status'),
+            ('earliest_delay', 'earliest_delay'),
+            ('abv_at_bound', 'abv_at_bound'),
             ('abv_decayed', 'abv_decayed'),
         ]),
     ])  # fmt:skip
 
+    # The tissue-T1 model weights gray and white matter by the same maps as PVC
+    if pv_fields or tissue_t1 is not None:
+        asl_pv_wf = init_asl_pv_wf(
+            metadata=metadata,
+            effective_resolution=asl_effective_resolution,
+            tissue_t1_maps=tissue_t1_maps,
+        )
+        workflow.connect([
+            (inputnode, asl_pv_wf, [
+                ('t1w_tpms', 'inputnode.t1w_tpms'),
+                ('asl_mask', 'inputnode.asl_mask'),
+                ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
+            ]),
+        ])  # fmt:skip
+
+    if tissue_t1 is not None:
+        workflow.connect([
+            (asl_pv_wf, compute_cbf, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+        ])  # fmt:skip
+
+    if use_external_att:
+        from aslprep.interfaces.att import ExternalATT
+        from aslprep.interfaces.plotting import ExternalATTPlot
+
+        # Set here, rather than on the node, so that files are only checked when it runs
+        file_fields = [
+            'att',
+            'att_status',
+            'att_ci_lower',
+            'att_ci_upper',
+            'aslref2anat',
+            't1w_preproc',
+        ]
+        external_att_files = pe.Node(
+            niu.IdentityInterface(fields=file_fields),
+            name='external_att_files',
+        )
+        for field in file_fields:
+            setattr(external_att_files.inputs, field, external_att[field])
+
+        resample_external_att = pe.Node(
+            ExternalATT(
+                nominal_cbf=[float(value) for value in tissue_t1['nominal_cbf']],
+                fill=config.workflow.att_fill,
+                source_name=external_att['uri'],
+            ),
+            name='resample_external_att',
+            mem_gb=1.0,
+        )
+        workflow.connect([
+            (external_att_files, resample_external_att, [
+                ('att', 'att'),
+                ('att_status', 'att_status'),
+                ('att_ci_lower', 'att_ci_lower'),
+                ('att_ci_upper', 'att_ci_upper'),
+                ('aslref2anat', 'source_aslref2anat'),
+                ('t1w_preproc', 'source_t1w'),
+            ]),
+            (inputnode, resample_external_att, [
+                ('t1w_preproc', 't1w_preproc'),
+                ('aslref2anat_xfm', 'aslref2anat'),
+                ('asl_mask', 'reference'),
+            ]),
+            (asl_pv_wf, resample_external_att, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+            (resample_external_att, compute_cbf, [
+                ('att', 'external_att'),
+                ('att_status', 'external_att_status'),
+            ]),
+            (resample_external_att, outputnode, [
+                ('att', 'external_att'),
+                ('summary', 'external_att_summary'),
+            ]),
+            (compute_cbf, outputnode, [('external_att_status', 'external_att_status')]),
+        ])  # fmt:skip
+
+        # The ATT is ingested, not estimated, so the reportlet says where it came from
+        external_att_plot = pe.Node(
+            ExternalATTPlot(source_name=external_att['uri']),
+            name='external_att_plot',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (inputnode, external_att_plot, [
+                ('aslref', 'ref_vol'),
+                ('asl_mask', 'mask'),
+            ]),
+            (asl_pv_wf, external_att_plot, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+            ]),
+            (resample_external_att, external_att_plot, [('att', 'att')]),
+            (compute_cbf, external_att_plot, [('external_att_status', 'att_status')]),
+            (external_att_plot, outputnode, [('out_file', 'external_att_report')]),
+        ])  # fmt:skip
+
+    if tissue_t1_maps:
+        workflow.connect([
+            (inputnode, asl_pv_wf, [
+                ('tissue_gm_r1', 'inputnode.gm_r1'),
+                ('tissue_wm_r1', 'inputnode.wm_r1'),
+            ]),
+            (asl_pv_wf, compute_cbf, [
+                ('outputnode.gm_t1', 'gm_t1'),
+                ('outputnode.wm_t1', 'wm_t1'),
+            ]),
+            (asl_pv_wf, outputnode, [
+                ('outputnode.gm_t1', 'gm_t1'),
+                ('outputnode.wm_t1', 'wm_t1'),
+            ]),
+        ])  # fmt:skip
+
+    if pv_fields:
+        workflow.connect([
+            (asl_pv_wf, outputnode, [
+                ('outputnode.gm_pv', 'gm_pv'),
+                ('outputnode.wm_pv', 'wm_pv'),
+                ('outputnode.csf_pv', 'csf_pv'),
+                ('outputnode.pv_metadata', 'pv_metadata'),
+            ]),
+        ])  # fmt:skip
+
     if scorescrub:
         score_and_scrub_cbf = pe.Node(
             ScoreAndScrubCBF(tpm_threshold=0.7, wavelet_function='huber'),
-            mem_gb=0.2,
+            mem_gb=series_mem_gb,
             name='score_and_scrub_cbf',
-            run_without_submitting=True,
         )
 
         workflow.__desc__ += """
@@ -649,12 +991,11 @@ the CBF maps using structural tissue probability maps to reweight the mean CBF
         ])  # fmt:skip
 
     if basil:
-        # Partial volume correction takes most of oxford_asl's run time
-        # (its spatial step runs ten times as many iterations as the uncorrected fit),
-        # so it is skipped in sloppy mode.
-        basil_pvc = not config.execution.sloppy
         if basil_pvc:
-            pvc_str = ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+            pvc_str = (
+                ' and\nadditionally calculates a partial-volume corrected CBF image [@chappell_pvc].'
+                '\nBASIL was given the gray and white matter partial volume maps described below.'
+            )
         else:
             pvc_str = (
                 '.\nPartial volume correction was skipped, because *ASLPrep* was run in sloppy '
@@ -733,8 +1074,8 @@ rather than estimated.
                 **basil_kwargs,
             ),
             name='basilcbf',
-            run_without_submitting=True,
-            mem_gb=0.2,
+            # fabber peaked at 1.2 times the series estimate for multi-delay data
+            mem_gb=1.5 * series_mem_gb,
         )
 
         workflow.connect([
@@ -758,8 +1099,7 @@ rather than estimated.
             make_tiimg = pe.Node(
                 BASILInflowTimeImage(),
                 name='make_tiimg',
-                run_without_submitting=True,
-                mem_gb=0.2,
+                mem_gb=series_mem_gb,
             )
             workflow.connect([
                 (extract_deltam, make_tiimg, [
@@ -773,9 +1113,12 @@ rather than estimated.
             workflow.connect([(determine_inflow_times, basilcbf, [('tis', 'tis')])])
 
         if basil_pvc:
+            # Voxel-averaged maps, not the point-sampled TPMs (gh-740)
             workflow.connect([
-                (gm_tfm, basilcbf, [('output_image', 'gm_tpm')]),
-                (wm_tfm, basilcbf, [('output_image', 'wm_tpm')]),
+                (asl_pv_wf, basilcbf, [
+                    ('outputnode.gm_pv', 'gm_tpm'),
+                    ('outputnode.wm_pv', 'wm_tpm'),
+                ]),
                 (basilcbf, outputnode, [
                     ('mean_cbf_gm_basil', 'mean_cbf_gm_basil'),
                     ('mean_cbf_wm_basil', 'mean_cbf_wm_basil'),
@@ -806,10 +1149,6 @@ rather than estimated.
             ])  # fmt:skip
 
     if lr_pvc:
-        asl_pv_wf = init_asl_pv_wf(
-            metadata=metadata,
-            effective_resolution=asl_effective_resolution,
-        )
         lr_pvc_wf = init_lr_pvc_wf(
             metadata=metadata,
             sources=lr_sources,
@@ -818,8 +1157,16 @@ rather than estimated.
             num_threads=fit_nthreads,
             use_gpu=fit_on_gpu,
             mem_gb=_lr_pvc_mem_gb(name_source, fit_nthreads) if is_multi_pld else None,
-            calibration=calibration,
+            tissue_t1_maps=tissue_t1_maps and is_multi_pld,
         )
+        if tissue_t1_maps and is_multi_pld:
+            workflow.connect([
+                (asl_pv_wf, lr_pvc_wf, [
+                    ('outputnode.gm_t1', 'inputnode.gm_t1'),
+                    ('outputnode.wm_t1', 'inputnode.wm_t1'),
+                ]),
+            ])  # fmt:skip
+
         if is_multi_pld:
             # Each delay volume is unmixed, so the fit needs the delta-M series and the
             # metadata of the selected volumes, plus the uncorrected ATT for the CSF QC basis.
@@ -830,12 +1177,12 @@ rather than estimated.
                 ]),
                 (compute_cbf, lr_pvc_wf, [('att', 'inputnode.att')]),
             ])  # fmt:skip
+            # The tissue curves are fit with the same parameters as the uncorrected data
+            if calibration is not None:
+                workflow.connect([
+                    (runtime_calibration, lr_pvc_wf, [('calibration', 'inputnode.calibration')]),
+                ])  # fmt:skip
         workflow.connect([
-            (inputnode, asl_pv_wf, [
-                ('t1w_tpms', 'inputnode.t1w_tpms'),
-                ('asl_mask', 'inputnode.asl_mask'),
-                ('aslref2anat_xfm', 'inputnode.aslref2anat_xfm'),
-            ]),
             (inputnode, lr_pvc_wf, [('asl_mask', 'inputnode.asl_mask')]),
             (compute_cbf, lr_pvc_wf, [
                 ('mean_cbf', 'inputnode.mean_cbf'),
@@ -847,17 +1194,7 @@ rather than estimated.
                 ('outputnode.wm_pv', 'inputnode.wm_pv'),
                 ('outputnode.csf_pv', 'inputnode.csf_pv'),
             ]),
-            (asl_pv_wf, outputnode, [
-                ('outputnode.gm_pv', 'gm_pv'),
-                ('outputnode.wm_pv', 'wm_pv'),
-                ('outputnode.csf_pv', 'csf_pv'),
-                ('outputnode.pv_metadata', 'pv_metadata'),
-            ]),
-            (lr_pvc_wf, outputnode, [
-                (f'outputnode.{field}', field)
-                for field in lr_fields
-                if field not in ('gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata')
-            ]),
+            (lr_pvc_wf, outputnode, [(f'outputnode.{field}', field) for field in lr_fields]),
         ])  # fmt:skip
         if scorescrub:
             workflow.connect([

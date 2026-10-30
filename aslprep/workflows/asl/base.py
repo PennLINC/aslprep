@@ -20,8 +20,7 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.calibration import (
     DEFAULT_M0_SCALE,
     DEFAULT_SMOOTH_KERNEL,
-    MODELS,
-    describe_model,
+    calibration_kinetic_model,
     resolve_calibration,
 )
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
@@ -31,6 +30,7 @@ from aslprep.workflows.asl.apply import (
     init_asl_volumetric_resample_wf,
 )
 from aslprep.workflows.asl.cbf import (
+    basil_pvc_enabled,
     init_cbf_wf,
     init_load_atlases_wf,
     init_parcellate_cbf_wf,
@@ -61,6 +61,7 @@ def init_asl_wf(
     fieldmap_id: str | None = None,
     jacobian: bool = False,
     asl2anat_init: str | None = None,
+    t1map: dict | None = None,
 ):
     """Perform the functional preprocessing stages of ASLPrep.
 
@@ -96,11 +97,17 @@ def init_asl_wf(
         coregistration (``'t1w'`` or ``'t2w'``).
         If :obj:`None`, ``config.workflow.asl2anat_init`` is used,
         with ``'auto'`` resolved to ``'t1w'``.
+    t1map
+        The participant's T1 map (see :func:`~aslprep.utils.bids.collect_t1map`), whose measured
+        tissue T1s the tissue-T1 kinetic model uses, or :obj:`None`.
 
     Inputs
     ------
     asl_file
         asl series NIfTI file
+    tissue_t1_updates, tissue_t1_warnings
+        The tissue T1s measured from ``t1map``, as calibration updates, and warnings about them
+        (see :func:`~aslprep.workflows.t1map.init_t1map_wf`). Only used with ``t1map``.
     t1w_preproc
         Bias-corrected structural template image
     t1w_mask
@@ -270,9 +277,40 @@ def init_asl_wf(
     n_reduced_vols = count_reduced_volumes(run_data['aslcontext'], processing_target)
 
     # Resolve the calibration and physiological parameters once, for every model and output.
-    # Pre-calculated CBF is not quantified, so it has none.
+    # Pre-calculated CBF is not quantified, so it has none. The CBF workflow completes this
+    # specification at run time, and its outputs carry the version every output records,
+    # with the "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives
+    # (BEP 016).
+    # Single-delay data need each voxel's ATT for the tissue-T1 model, from a multi-delay run
+    external_att = None
+    if (
+        processing_target != 'cbf'
+        and not is_multi_pld
+        and config.workflow.kinetic_model == 'tissue-t1'
+        and 'att' not in config.workflow.ignore
+    ):
+        from aslprep.utils.att import check_external_att_metadata
+        from aslprep.utils.bids import collect_external_att
+
+        entities = layout.parse_file_entities(asl_file)
+        external_att = collect_external_att(
+            config.execution.derivatives or {},
+            entities['subject'],
+            session_id=entities.get('session'),
+            bids_filters=config.execution.bids_filters,
+            layout=layout,
+        )
+        if external_att is not None:
+            for warning in check_external_att_metadata(
+                external_att['metadata'],
+                external_att['source_metadata'],
+                metadata,
+                external_att['uri'],
+                asl_file,
+            ):
+                config.loggers.workflow.warning(warning)
+
     calibration = None
-    model_metadata = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
             metadata,
@@ -288,19 +326,22 @@ def init_asl_wf(
             smooth_kernel_source=('user' if smooth_kernel != DEFAULT_SMOOTH_KERNEL else 'default'),
             haematocrit_source=run_data.get('haematocrit_source'),
             basil=basil,
+            kinetic_model=config.workflow.kinetic_model,
+            external_att=external_att is not None,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')
-        # The "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives (BEP 016)
-        model_metadata = {
-            model: describe_model(
-                calibration,
-                model,
-                asl_type=metadata['ArterialSpinLabelingType'],
-                multi_delay=determine_multi_pld(metadata=metadata),
-            )
-            for model in MODELS
-        }
+
+    with_model = calibration is not None
+
+    # The T1 map's tissue T1s only enter the tissue-T1 kinetic model, and T1 depends on the field
+    if calibration is None or calibration_kinetic_model(calibration) != 'tissue-t1':
+        t1map = None
+
+    if t1map is not None:
+        from aslprep.utils.t1map import check_t1map_field_strength
+
+        check_t1map_field_strength(t1map, metadata['MagneticFieldStrength'], asl_file)
 
     # Gradient nonlinearity correction, from --gradient-file and the ImageType metadata
     gradwarp_plan = resolve_gradwarp_plan(metadata=metadata, asl_file=asl_file)
@@ -324,6 +365,7 @@ def init_asl_wf(
     att_derivs = []
     # The ATT and aBAT bounds step between neighboring voxels, and interpolation would blend
     # them into values that are no longer bounds, so they are only written in native space.
+    # So is the mask of voxels with aBV at its bound, which flags voxels of the native fit.
     native_att_derivs = []
     basil_sd_derivs = []
     cbf_3d_derivs = ['mean_cbf']
@@ -340,6 +382,10 @@ def init_asl_wf(
             'att_upper',
             'abat_lower',
             'abat_upper',
+            'att_lower_ci',
+            'att_upper_ci',
+            'att_status',
+            'abv_at_bound',
         ]
         if pcasl_or_pasl(metadata=metadata):
             # For PASL, the arterial signal does not depend on aBAT, so aBV needs no counterpart.
@@ -399,6 +445,11 @@ def init_asl_wf(
 
     # Build workflow
     workflow = Workflow(name=_get_wf_name(asl_file, 'asl'))
+    # The run's field strength if it uses the T1 map's tissue T1s, otherwise None:
+    # the subject workflow only measures them if a run uses them.
+    workflow.t1map_field_strength = (
+        None if t1map is None else float(metadata['MagneticFieldStrength'])
+    )
     workflow.__desc__ = f"""
 ASL acquisition
 
@@ -433,6 +484,13 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 't1w_mask',
                 't1w_dseg',
                 't1w_tpms',
+                # Tissue T1s measured from the participant's T1 map
+                'tissue_t1_updates',
+                'tissue_t1_warnings',
+                # Per-voxel tissue R1s, with --t1map-method local-regression
+                'tissue_gm_r1',
+                'tissue_wm_r1',
+                'tissue_r1_summary',
                 # FreeSurfer outputs
                 'subjects_dir',
                 'subject_id',
@@ -556,17 +614,108 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         pvc_kernel_size=tuple(config.workflow.pvc_kernel_size),
         asl_effective_resolution=config.workflow.asl_effective_resolution,
         calibration=calibration,
+        t1map=t1map,
+        external_att=external_att,
         name='cbf_wf',
     )
+    if external_att is not None:
+        workflow.connect([
+            (inputnode, cbf_wf, [('t1w_preproc', 'inputnode.t1w_preproc')]),
+            (asl_fit_wf, cbf_wf, [('outputnode.coreg_aslref', 'inputnode.aslref')]),
+        ])  # fmt:skip
+        # Its base directory and source file are set with the other reportlets' (below)
+        ds_report_external_att = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='external', suffix='att'),
+            name='ds_report_external_att',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (cbf_wf, ds_report_external_att, [('outputnode.external_att_report', 'in_file')]),
+        ])  # fmt:skip
+        # The ATT the run used, on its ASL reference grid. Like the partial volume maps, it is an
+        # input of the model, so it is written in every mode.
+        for field, suffix in (('external_att', 'att'), ('external_att_status', 'attstatus')):
+            ds_external_att = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    source_file=asl_file,
+                    desc='external',
+                    suffix=suffix,
+                    compress=True,
+                    dismiss_entities=('echo',),
+                    **({'Units': 's'} if suffix == 'att' else {}),
+                ),
+                name=f'ds_{field}',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([
+                (cbf_wf, ds_external_att, [
+                    (f'outputnode.{field}', 'in_file'),
+                    (
+                        ('outputnode.external_att_summary', _external_att_metadata, suffix),
+                        'meta_dict',
+                    ),
+                ]),
+            ])  # fmt:skip
+
+    if t1map is not None:
+        workflow.connect([
+            (inputnode, cbf_wf, [
+                ('tissue_t1_updates', 'inputnode.tissue_t1_updates'),
+                ('tissue_t1_warnings', 'inputnode.tissue_t1_warnings'),
+            ]),
+        ])  # fmt:skip
+
+    if t1map is not None and config.workflow.t1map_method == 'local-regression':
+        workflow.connect([
+            (inputnode, cbf_wf, [
+                ('tissue_gm_r1', 'inputnode.tissue_gm_r1'),
+                ('tissue_wm_r1', 'inputnode.tissue_wm_r1'),
+            ]),
+        ])  # fmt:skip
+        # The per-voxel tissue T1s the run used, on the ASL reference grid. Like the partial
+        # volume maps, they are inputs of the model, so they are written in every mode.
+        for tissue, label in (('gm', 'GM'), ('wm', 'WM')):
+            ds_tissue_t1 = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    source_file=asl_file,
+                    label=label,
+                    suffix='T1map',
+                    compress=True,
+                    Units='s',
+                    dismiss_entities=('echo',),
+                ),
+                name=f'ds_{tissue}_t1map',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([
+                (cbf_wf, ds_tissue_t1, [(f'outputnode.{tissue}_t1', 'in_file')]),
+                (inputnode, ds_tissue_t1, [
+                    (('tissue_r1_summary', _tissue_t1_metadata, tissue), 'meta_dict'),
+                ]),
+            ])  # fmt:skip
 
     if calibration is not None:
         # The calibration parameters and their report are always written, in every mode.
         ds_calibration_wf = init_ds_calibration_wf(
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
-            calibration=calibration,
         )
-        workflow.add_nodes([ds_calibration_wf])
+        workflow.connect([
+            (cbf_wf, ds_calibration_wf, [('outputnode.calibration', 'inputnode.calibration')]),
+        ])  # fmt:skip
+
+    def give_model_metadata(output_wf):
+        """Give an output workflow the run-time Model metadata of each model."""
+        if with_model:
+            workflow.connect([
+                (cbf_wf, output_wf, [('outputnode.model_metadata', 'inputnode.model_metadata')]),
+            ])  # fmt:skip
+
     workflow.connect([
         (inputnode, cbf_wf, [
             ('t1w_tpms', 'inputnode.t1w_tpms'),
@@ -613,7 +762,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     write_native = (config.workflow.level in ('minimal', 'resampling')) or aslref_out
     if write_native:
         ds_asl_native_wf = init_ds_asl_native_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -623,6 +772,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             att=att_derivs + native_att_derivs,
         )
         ds_asl_native_wf.inputs.inputnode.source_files = [asl_file]
+        give_model_metadata(ds_asl_native_wf)
 
         workflow.connect([
             (asl_native_wf, ds_asl_native_wf, [('outputnode.asl_native', 'inputnode.asl')]),
@@ -637,21 +787,25 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             ]),
         ])  # fmt:skip
 
-    if lr_sources:
+    # The partial volume maps are written whenever a correction uses them: BASIL's, too.
+    basil_pvc = basil_pvc_enabled(basil=basil, processing_target=processing_target)
+    if lr_sources or basil_pvc:
         # PVC outputs are always written in aslref space, where their standard errors,
         # diagnostics and partial volume maps are defined.
         ds_pvc_native_wf = init_ds_pvc_native_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             output_dir=config.execution.aslprep_dir,
             sources=lr_sources,
             multi_delay=is_multi_pld,
         )
         ds_pvc_native_wf.inputs.inputnode.source_files = [asl_file]
+        give_model_metadata(ds_pvc_native_wf)
         workflow.connect([
             (cbf_wf, ds_pvc_native_wf, [
                 (f'outputnode.{field}', f'inputnode.{field}')
-                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata', 'pvc_metadata']
+                for field in ['gm_pv', 'wm_pv', 'csf_pv', 'pv_metadata']
+                + (['pvc_metadata'] if lr_sources else [])
                 + lr_native
             ]),
         ])  # fmt:skip
@@ -769,6 +923,14 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
                 ]
             ]),
         ])  # fmt:skip
+    if is_multi_pld:
+        workflow.connect([
+            (cbf_wf, cbf_reporting_wf, [
+                ('outputnode.earliest_delay', 'inputnode.earliest_delay'),
+                ('outputnode.att_status', 'inputnode.att_status'),
+            ]),
+        ])  # fmt:skip
+
     workflow.connect([
         (inputnode, cbf_reporting_wf, [
             ('t1w_dseg', 'inputnode.t1w_dseg'),
@@ -869,7 +1031,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
     # Write out anatomical-space derivatives.
     if nonstd_spaces.intersection(('anat', 'T1w')):
         ds_asl_t1_wf = init_ds_volumes_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -881,6 +1043,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='ds_asl_t1_wf',
         )
         ds_asl_t1_wf.inputs.inputnode.space = 'T1w'
+        give_model_metadata(ds_asl_t1_wf)
 
         workflow.connect([
             (merge_asl_sources, ds_asl_t1_wf, [('out', 'inputnode.source_files')]),
@@ -925,7 +1088,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             name='asl_std_wf',
         )
         ds_asl_std_wf = init_ds_volumes_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -936,6 +1099,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             asl_output=output_timeseries,
             name='ds_asl_std_wf',
         )
+        give_model_metadata(ds_asl_std_wf)
         workflow.connect([
             (merge_asl_sources, ds_asl_std_wf, [('out', 'inputnode.source_files')]),
             (asl_output_metadata, ds_asl_std_wf, [('out', 'inputnode.asl_metadata')]),
@@ -1031,7 +1195,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
         # The uninitialized fMRIPrep config will have config.workflow.ignore set to None
         # instead of a list, which will raise an error.
         asl_surf_wf = init_asl_surf_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             mem_gb=mem_gb['resampled'],
             metadata=metadata,
             surface_spaces=freesurfer_spaces,
@@ -1043,6 +1207,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             name='asl_surf_wf',
         )
         asl_surf_wf.inputs.inputnode.source_file = asl_file
+        give_model_metadata(asl_surf_wf)
         workflow.connect([
             (merge_asl_sources, asl_surf_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_surf_wf, [
@@ -1109,7 +1274,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
     if config.workflow.cifti_output:
         ds_asl_cifti_wf = init_ds_ciftis_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             bids_root=str(config.execution.bids_dir),
             output_dir=config.execution.aslprep_dir,
@@ -1121,6 +1286,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             asl_output=output_timeseries,
             name='ds_asl_cifti_wf',
         )
+        give_model_metadata(ds_asl_cifti_wf)
         workflow.connect([
             (merge_asl_sources, ds_asl_cifti_wf, [('out', 'inputnode.source_files')]),
             (inputnode, ds_asl_cifti_wf, [
@@ -1172,7 +1338,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
 
         config.loggers.workflow.debug('Creating ASL Workbench surface-resampling workflow.')
         asl_wb_surf_wf = init_asl_wb_surf_wf(
-            model_metadata=model_metadata,
+            with_model=with_model,
             source_file=asl_file,
             surface_spaces=surf_std,
             metadata=metadata,
@@ -1184,6 +1350,7 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             mem_gb=mem_gb['resampled'],
             name='asl_wb_surf_wf',
         )
+        give_model_metadata(asl_wb_surf_wf)
         workflow.connect([
             (merge_asl_sources, asl_wb_surf_wf, [('out', 'inputnode.source_files')]),
             (inputnode, asl_wb_surf_wf, [
@@ -1338,6 +1505,38 @@ Non-gridded (surface) resamplings were performed using `mri_vol2surf` (FreeSurfe
             workflow.get_node(node).inputs.source_file = asl_file
 
     return workflow
+
+
+def _tissue_t1_metadata(summary, tissue):
+    """Describe a per-voxel tissue T1 map on the ASL reference grid, for its sidecar."""
+    name = {'gm': 'gray', 'wm': 'white'}[tissue]
+    return {
+        'Description': (
+            f'T1 of {name} matter in each voxel, used by the tissue-T1 kinetic model: 1 over the '
+            f'{name} matter R1 of the T1 map, averaged as the partial volume map averages the '
+            'tissue. Zero where there is no such tissue (the median T1 recorded with the '
+            f'calibration parameters is used there). {summary["Description"]}'
+        ),
+        'TissueT1Method': summary,
+    }
+
+
+def _external_att_metadata(summary, suffix):
+    """Describe the external ATT a single-delay run used, or its status, for the sidecars."""
+    if suffix == 'att':
+        description = (
+            'Arterial transit time used by the tissue-T1 kinetic model for this single-delay '
+            f"run, from the multi-delay run {summary['Source']}, resampled onto this run's ASL "
+            'reference grid. Where that run did not locate it, it is the median of the located '
+            'values, weighted by tissue (see the status map). Zero where there is none.'
+        )
+    else:
+        description = 'Where the arterial transit time of the desc-external_att map came from.'
+
+    out = {'Description': description, 'Sources': [summary['Source']], 'ExternalATT': summary}
+    if suffix == 'attstatus':
+        out['Levels'] = summary['StatusLevels']
+    return out
 
 
 def _read_json(in_file):

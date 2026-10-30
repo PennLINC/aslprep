@@ -364,17 +364,46 @@ CBF Outputs::
          <source_entities>[_space-<label>]_abat.nii.gz  # arterial bolus arrival time (multi-delay data only)
          <source_entities>_desc-<lower|upper>_att.nii.gz  # range of equally good arterial transit times (multi-delay data only)
          <source_entities>_desc-<lower|upper>_abat.nii.gz  # range of equally good arterial bolus arrival times (multi-delay data only)
+         <source_entities>_desc-<ciLower|ciUpper>_att.nii.gz  # 95% interval for the arterial transit time (multi-delay data only)
+         <source_entities>_attstatus.nii.gz  # where the arterial transit time was located (multi-delay data only)
+         <source_entities>_desc-abvBound_mask.nii.gz  # voxels with arterial blood volume at its upper bound (multi-delay data only)
          <source_entities>[_space-<label>]_desc-decayed_abv.nii.gz  # arterial blood volume times exp(-aBAT / T1blood) (multi-delay (P)CASL data only)
 
 For multi-delay data, the model cannot always locate the arterial transit time
 or the arterial bolus arrival time, and the ``att`` and ``abat`` maps then hold one value from
 the range of values that fit equally well.
 The ``desc-lower`` and ``desc-upper`` maps hold the ends of that range.
+Those ranges only describe exact ties, which noise breaks, so the ``desc-ciLower`` and
+``desc-ciUpper`` maps also give a 95% interval for ATT that accounts for noise.
+The ``attstatus`` map classifies each voxel from that interval
+(0: not fitted; 1: ATT located, with an interval at most 0.5 s wide that does not reach 0 s;
+2: ATT only bounded above, because the labeled blood may all have arrived before the earliest
+delay; 3: no tissue signal, so ATT has no effect; 4: an interval wider than 0.5 s),
+and its levels are described in its JSON sidecar.
+Restrict any analysis of the ``att`` map to voxels with status 1.
+The report shows the status by slice and the fraction of gray and white matter in which ATT was
+located.
 These maps are only written in the ASL run's native space,
 which requires ``--level minimal``, ``--level resampling``, or ``asl`` in ``--output-spaces``,
 because the ranges change abruptly between neighboring voxels and slices,
 and interpolating them to another space would produce values that are no longer bounds.
 See :ref:`multidelay_identifiability` before interpreting these maps.
+
+The arterial blood volume (aBV) maps, ``abv`` and BASIL's ``desc-basil_abv``,
+are the fraction of the voxel's volume occupied by labeled arterial blood
+:footcite:p:`woods2023recommendations`.
+To compare them with blood volumes reported in mL/100 g, multiply by about 100 / 1.05,
+where 1.05 g/mL is the density of brain tissue.
+aBV only reflects labeled blood still in the larger arteries during the labeled bolus,
+from the arterial bolus arrival time to the end of the bolus.
+It is not the total cerebral blood volume (CBV) measured with DSC or PET,
+nor the arterial CBV measured with methods such as inflow-based VASO,
+which also includes the arterioles.
+The ``desc-abvBound`` mask marks voxels where the fitted aBV reached its upper bound,
+the physical limit of 1.
+The arterial term could not absorb all of the arterial signal in those voxels,
+so what is left of it may bias their CBF and ATT.
+Like the ``desc-lower`` and ``desc-upper`` maps, this mask is only written in native space.
 
 .. _calibration_parameters:
 
@@ -399,12 +428,41 @@ inputs.
 The ``Source`` is one of these, in order of precedence:
 
 1. ``user``: a command-line option, such as ``--m0-scale`` or ``--smooth-kernel``.
-2. ``metadata``: the BIDS metadata, including a haematocrit from a BIDS TSV file
+2. ``measured``: a value measured from the participant's images when the workflow runs, such as
+   the gray and white matter T1s of the tissue-T1 model, from a T1 map
+   (see :ref:`tissue_t1_from_t1map`).
+3. ``metadata``: the BIDS metadata, including a haematocrit from a BIDS TSV file
    (see :ref:`haematocrit`).
-3. ``inferred``: a calculation from other acquisition parameters, such as the number of
+4. ``inferred``: a calculation from other acquisition parameters, such as the number of
    background suppression pulses from ``BackgroundSuppressionPulseTime``,
    or the effective labeling efficiency from the labeling efficiency and background suppression.
-4. ``default``: a documented value from the literature, such as a blood T1 of 1.65 s at 3 T.
+5. ``default``: a documented value from the literature, such as a blood T1 of 1.65 s at 3 T.
+
+With ``--t1map-method local-regression``, the tissue-T1 model uses a gray and a white matter T1
+in each voxel instead of one per tissue, and these are written too, in seconds, on the ASL
+reference grid::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>_label-GM_T1map.nii.gz  # gray matter T1 used in each voxel (aslref only)
+         <source_entities>_label-WM_T1map.nii.gz  # white matter T1 used in each voxel (aslref only)
+
+They are zero where the voxel has none of the tissue; the calibration parameters' median T1 is
+used there. Their sidecars describe how they were made, and the fraction of each tissue whose T1
+was estimated locally rather than taken from the median.
+
+For single-delay runs with ``--kinetic-model tissue-t1``, the arterial transit time taken from a
+multi-delay run (see :ref:`single_delay_tissue_t1`), and where it came from in each voxel, are
+written on the ASL reference grid::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>_desc-external_att.nii.gz  # ATT used in each voxel, in s (aslref only)
+         <source_entities>_desc-external_attstatus.nii.gz  # measured, filled, or none (aslref only)
+
+Their sidecars name the multi-delay run's ATT map (``Sources``), the fill (``--att-fill``) and the
+gray and white matter medians, and the status sidecar describes its levels.
+The CBF of filled voxels (status 2 and 3) is imputed by the model.
 
 The JSON sidecar of each quantitative map, in every output space, also describes the model that
 produced the map, in a ``Model`` dictionary organized as proposed for BIDS diffusion derivatives
@@ -458,6 +516,11 @@ If ``--basil`` is used::
          <source_entities>[_space-<label>]_desc-basilGMSD_cbf.nii.gz  # posterior SD of desc-basilGM_cbf
          <source_entities>[_space-<label>]_desc-basilWMSD_cbf.nii.gz  # posterior SD of desc-basilWM_cbf
          <source_entities>[_space-<label>]_desc-basilSD_att.nii.gz  # posterior SD of desc-basil_att (multi-delay data only)
+         <source_entities>_label-GM_desc-psf_probseg.nii.gz  # GM fraction used (aslref only)
+         <source_entities>_label-WM_desc-psf_probseg.nii.gz  # WM fraction used (aslref only)
+         <source_entities>_label-CSF_desc-psf_probseg.nii.gz  # CSF fraction (aslref only)
+
+The tissue fractions are not written in sloppy mode, where BASIL skips partial volume correction.
 
 .. _basil_outputs:
 
@@ -491,7 +554,8 @@ output directory.
      - Arterial transit time in seconds. Multi-delay data only.
    * - ``desc-basil_abv``
      - ``native_space/aCBV_calib``
-     - Arterial blood volume. Multi-delay data only.
+     - Arterial blood volume, as a fraction of the voxel. ``oxford_asl`` writes it as a
+       percentage, so *ASLPrep* divides it by 100. Multi-delay data only.
    * - ``desc-basilSD_cbf``
      - ``native_space/perfusion_var_calib``
      - Posterior standard deviation of ``desc-basil_cbf``, in mL/100 g/min.
@@ -535,10 +599,13 @@ Keep the following in mind when using the corrected maps:
   Mask ``desc-basilGM_cbf`` with a gray matter mask and ``desc-basilWM_cbf`` with a white matter
   mask before averaging or comparing values.
   Estimates are least reliable in voxels with only a small fraction of the tissue.
-- The partial volume estimates are the gray matter and white matter probability maps from the
-  anatomical workflow, resampled to the ASL image.
+- The partial volume estimates are the gray and white matter fractions of each ASL voxel
+  (``label-*_desc-psf_probseg``), built by averaging the anatomical tissue probability maps over
+  the voxel, as ``oxford_asl`` does when it makes its own estimates.
+  Local-regression PVC uses the same maps; see :ref:`effective_resolution`.
   The corrected maps therefore depend on the quality of the anatomical segmentation and
   of the ASL-to-anatomical registration.
+  ``oxford_asl`` sets fractions below 0.1 to zero before fitting.
 - Corrected and uncorrected values are not interchangeable.
   Gray matter CBF is typically higher after correction, because the uncorrected value
   is diluted by white matter and CSF.
@@ -680,8 +747,9 @@ calibrated by the voxel's M0, giving tissue CBF and ATT.
 - The tissue CBF is non-negative, as for the uncorrected multi-delay fit. Its upper bound is
   raised to 1000 mL/100 g/min, because a tissue's signal calibrated by the voxel's mixed M0 can
   exceed physiological values; ``desc-lr*_pvkinstatus`` flags estimates at either bound.
-  The arterial blood volume bound is raised from 0.1 to 1 for the same reason: unmixing assigns
-  a voxel's arterial signal to its tissue fraction. A fit with aBV still at that bound is flagged
+  The arterial blood volume bound is 1, its physical limit, as for the uncorrected fit.
+  Unmixing assigns a voxel's arterial signal to its tissue fraction, so a tissue curve can need
+  a larger aBV than its voxel did. A fit with aBV at that bound is flagged
   (status 5), and neither its CBF nor its ATT is written, because the arterial signal it could
   not absorb would bias both.
 - Tissue curves are noisier than the voxel's own curve, and the non-negative fit skews noisy
@@ -730,8 +798,8 @@ Partial volume correction needs it because the gray, white matter and CSF fracti
 regresses on must describe the same blurred mixture of tissue that each ASL voxel measured.
 If the fractions are sharper than the data, the correction attributes signal to the wrong
 tissue near tissue boundaries, which biases gray matter CBF :footcite:p:`petr2018effects`.
-The setting only affects the tissue maps used by ``--pvc-method``;
-it changes neither the uncorrected CBF nor BASIL.
+The setting only affects the tissue maps, which both ``--pvc-method`` and BASIL's partial volume
+correction use; it does not change the uncorrected CBF.
 
 How blurry an acquisition is depends mostly on its readout:
 
@@ -789,9 +857,12 @@ The value used, and where it came from, are written to the ``EffectiveResolution
 Blurring added by preprocessing, such as interpolation during motion and distortion correction,
 is not included.
 
-BASIL does not model the effective resolution.
-*ASLPrep* gives it gray and white matter maps that were interpolated to the ASL grid
-without additional blurring, and ``oxford_asl`` uses them as they are.
+BASIL is given the same gray and white matter maps, built with the same effective resolution.
+In a simulated GE 3D spiral acquisition, BASIL's partial volume correction recovered gray matter
+CBF within about 5% with the ``nominal`` maps, against about 12% with tissue probability maps
+interpolated at each voxel centre, which *ASLPrep* used before
+(`#740 <https://github.com/PennLINC/aslprep/issues/740>`_).
+``auto`` overcorrected BASIL as it did local regression.
 - For single-delay data, the arterial transit time is fixed rather than estimated,
   so neither it nor its standard deviation is written.
 - In standard and anatomical spaces, the maps are resampled like the estimates.

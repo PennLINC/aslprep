@@ -1,6 +1,7 @@
 """Tests for the resolution of calibration and physiological parameters."""
 
 import json
+from pathlib import Path
 
 import nibabel as nb
 import numpy as np
@@ -11,12 +12,16 @@ from aslprep.utils.calibration import (
     M0_RECOVERY_TR_THRESHOLD,
     MODELS,
     SOURCE_PRECEDENCE,
+    TISSUE_T1_PARAMETERS,
     basil_calibration_inputs,
+    calibration_kinetic_model,
     calibration_value,
     describe_model,
     m0_partition_coefficient,
     resolve_calibration,
+    tissue_t1_kinetics,
 )
+from aslprep.utils.cbf import T1TISSUE_BY_FIELD_STRENGTH, T1WM_BY_FIELD_STRENGTH
 
 PCASL = {
     'ArterialSpinLabelingType': 'PCASL',
@@ -471,6 +476,300 @@ def test_computecbf_uses_calibration(tmp_path, m0tr):
     changed = json.loads(json.dumps(calibration))
     changed['Parameters']['EffectiveLabelingEfficiency']['Value'] /= 2
     np.testing.assert_allclose(_mean_cbf('changed', calibration=changed), 2 * given)
+
+
+MULTI_DELAY = {
+    **PCASL,
+    'PostLabelingDelay': [0.5, 1.0, 1.5, 2.0, 2.5, 3.0],
+    'LabelingDuration': 1.8,
+}
+
+
+@pytest.mark.parametrize('field_strength', [1.5, 3, 7])
+def test_resolve_calibration_tissue_t1(field_strength):
+    """The tissue-T1 model adds its gray and white matter T1s and nominal CBFs."""
+    metadata = {**MULTI_DELAY, 'MagneticFieldStrength': field_strength}
+    consensus = resolve_calibration(metadata, m0tr=6.0)
+    assert calibration_kinetic_model(consensus) == 'consensus'
+    assert tissue_t1_kinetics(consensus) is None
+    for name in TISSUE_T1_PARAMETERS:
+        assert name not in consensus['Parameters']
+
+    calibration = resolve_calibration(metadata, m0tr=6.0, kinetic_model='tissue-t1')
+    assert calibration_kinetic_model(calibration) == 'tissue-t1'
+    t1_gm = T1TISSUE_BY_FIELD_STRENGTH[field_strength]
+    t1_wm = T1WM_BY_FIELD_STRENGTH[field_strength]
+    assert calibration_value(calibration, 'GrayMatterT1') == t1_gm
+    assert calibration_value(calibration, 'WhiteMatterT1') == t1_wm
+    for name in TISSUE_T1_PARAMETERS:
+        assert _source(calibration, name) == 'default'
+
+    kinetics = tissue_t1_kinetics(calibration)
+    np.testing.assert_allclose(kinetics['nominal_cbf'], [60, 20])
+    rates = 1 / np.array([t1_gm, t1_wm]) + np.array([60, 20]) / 6000 / 0.9
+    np.testing.assert_allclose(kinetics['t1prime'], 1 / rates)
+
+
+def test_tissue_t1_kinetics_m0_estimate():
+    """An M0Estimate has no partition coefficient, but the apparent T1 still uses lambda."""
+    metadata = {**MULTI_DELAY, 'M0Type': 'Estimate', 'M0Estimate': 100.0}
+    estimate = resolve_calibration(metadata, kinetic_model='tissue-t1')
+    separate = resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='tissue-t1')
+    assert 'PartitionCoefficient' not in estimate['Parameters']
+    np.testing.assert_allclose(
+        tissue_t1_kinetics(estimate)['t1prime'],
+        tissue_t1_kinetics(separate)['t1prime'],
+    )
+
+
+def test_resolve_calibration_tissue_t1_refusals():
+    """The tissue-T1 model is refused for single-delay data without an ATT map, and unknown models."""
+    with pytest.raises(ValueError, match='needs an arterial transit time map'):
+        resolve_calibration(PCASL, m0tr=6.0, kinetic_model='tissue-t1')
+
+    # With an ATT map from a multi-delay run, single-delay data can use it
+    calibration = resolve_calibration(
+        PCASL,
+        m0tr=6.0,
+        kinetic_model='tissue-t1',
+        external_att=True,
+    )
+    assert 'GrayMatterT1' in calibration['Parameters']
+
+    with pytest.raises(ValueError, match='Unknown kinetic model'):
+        resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='buxton')
+
+    with pytest.raises(ValueError, match=r'cannot be inferred for 2\.89T data'):
+        resolve_calibration(
+            {**MULTI_DELAY, 'MagneticFieldStrength': 2.89},
+            m0tr=6.0,
+            kinetic_model='tissue-t1',
+        )
+
+
+def test_describe_model_tissue_t1():
+    """The sidecars name the tissue-T1 model, and BASIL's leave out its parameters."""
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True, kinetic_model='tissue-t1')
+    assert 'GrayMatterT1' in calibration['Parameters']['BASILTissueT1']['Description']
+    consensus_basil = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True)
+    assert 'T1 of blood' in consensus_basil['Parameters']['BASILTissueT1']['Description']
+    models = {
+        model: describe_model(calibration, model, asl_type='PCASL', multi_delay=True)
+        for model in MODELS
+    }
+    for model in ('aslprep', 'lr'):
+        assert 'apparent T1 of gray and white matter' in models[model]['Description']
+        for name in TISSUE_T1_PARAMETERS:
+            assert name in models[model]['Parameters']
+
+    assert 'apparent T1' not in models['basil']['Description']
+    for name in TISSUE_T1_PARAMETERS:
+        assert name not in models['basil']['Parameters']
+
+    consensus = resolve_calibration(MULTI_DELAY, m0tr=6.0)
+    description = describe_model(consensus, 'aslprep', asl_type='PCASL', multi_delay=True)
+    assert 'apparent T1' not in description['Description']
+
+
+def test_computecbf_tissue_t1(tmp_path):
+    """ComputeCBF fits the tissue-T1 model with the partial volume maps it is given."""
+    from aslprep.interfaces.cbf import ComputeCBF
+    from aslprep.tests.truth_models import tissue_t1_signal
+    from aslprep.utils.cbf import tissue_mixing_weights
+
+    shape = (3, 3, 2)
+    n_voxels = int(np.prod(shape))
+    plds = np.array(MULTI_DELAY['PostLabelingDelay'])
+    rng = np.random.default_rng(4)
+    gm_pv = rng.uniform(0, 1, shape)
+    wm_pv = (1 - gm_pv) * rng.uniform(0, 1, shape)
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='tissue-t1')
+    kinetics = tissue_t1_kinetics(calibration)
+    weights = tissue_mixing_weights(gm_pv.ravel(), wm_pv.ravel(), *kinetics['nominal_cbf'])
+    labeleff = calibration_value(calibration, 'EffectiveLabelingEfficiency')
+    t1blood = calibration_value(calibration, 'BloodT1')
+    true_cbf, true_att, m0 = 50.0, 1.1, 1000.0
+    signal = np.zeros((n_voxels, plds.size))
+    for i_tissue, t1prime in enumerate(kinetics['t1prime']):
+        tissue = [tissue_t1_signal(t, true_att, 1.8, t1blood, t1prime, True) for t in plds + 1.8]
+        signal += weights[:, i_tissue, None] * np.array(tissue)
+    deltam = 2 * labeleff * (m0 / 0.9) * true_cbf / 6000 * signal
+    deltam_file = _write(deltam.reshape(*shape, plds.size), tmp_path / 'deltam.nii.gz')
+    m0_file = _write(np.full(shape, m0), tmp_path / 'm0.nii.gz')
+    gm_file = _write(gm_pv, tmp_path / 'gm.nii.gz')
+    wm_file = _write(wm_pv, tmp_path / 'wm.nii.gz')
+    inputs = {
+        'deltam': deltam_file,
+        'm0_file': m0_file,
+        'metadata': MULTI_DELAY,
+        'cbf_only': False,
+        'calibration': calibration,
+    }
+
+    work_dir = tmp_path / 'fit'
+    work_dir.mkdir()
+    result = ComputeCBF(**inputs, gm_pv=gm_file, wm_pv=wm_file).run(cwd=str(work_dir))
+    np.testing.assert_allclose(nb.load(result.outputs.mean_cbf).get_fdata(), true_cbf, rtol=1e-3)
+    np.testing.assert_allclose(nb.load(result.outputs.att).get_fdata(), true_att, atol=1e-3)
+
+    with pytest.raises(ValueError, match='needs gray and white matter partial volume maps'):
+        ComputeCBF(**inputs).run(cwd=str(work_dir))
+
+    wrong_shape = _write(np.zeros((3, 3, 3)), tmp_path / 'wrong_shape.nii.gz')
+    wrong_affine = tmp_path / 'wrong_affine.nii.gz'
+    nb.Nifti1Image(gm_pv.astype(np.float32), np.diag([-1, 1, 1, 1])).to_filename(wrong_affine)
+    wrong_ndim = _write(gm_pv[..., None], tmp_path / 'wrong_ndim.nii.gz')
+    for wrong in (wrong_shape, str(wrong_affine), wrong_ndim):
+        with pytest.raises(ValueError, match='does not match the delta-M grid'):
+            ComputeCBF(**inputs, gm_pv=wrong, wm_pv=wm_file).run(cwd=str(work_dir))
+
+
+def test_update_calibration():
+    """Run-time values replace whole parameters, and bad entries are refused."""
+    from aslprep.utils.calibration import update_calibration
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, kinetic_model='tissue-t1')
+    entry = {
+        'Value': 1.4,
+        'Units': 's',
+        'Source': 'metadata',
+        'Origin': 'Median of a T1 map',
+        'Description': 'T1 of gray matter.',
+    }
+    updated = update_calibration(calibration, {'GrayMatterT1': entry})
+    assert updated['Parameters']['GrayMatterT1'] == entry
+    # The original is unchanged, and the other parameters are kept
+    assert calibration_value(calibration, 'GrayMatterT1') == T1TISSUE_BY_FIELD_STRENGTH[3]
+    assert updated['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']
+    assert update_calibration(calibration, {}) == calibration
+
+    with pytest.raises(ValueError, match='must have exactly the keys'):
+        update_calibration(calibration, {'GrayMatterT1': {'Value': 1.4}})
+
+    with pytest.raises(ValueError, match="Unknown source 'scanner'"):
+        update_calibration(calibration, {'GrayMatterT1': {**entry, 'Source': 'scanner'}})
+
+    # A misspelled or new parameter would be recorded but never used
+    with pytest.raises(ValueError, match='GreyMatterT1 is not a parameter'):
+        update_calibration(calibration, {'GreyMatterT1': entry})
+
+    consensus = resolve_calibration(MULTI_DELAY, m0tr=6.0)
+    with pytest.raises(ValueError, match='GrayMatterT1 is not a parameter'):
+        update_calibration(consensus, {'GrayMatterT1': entry})
+
+
+def test_resolve_runtime_calibration(tmp_path):
+    """The run-time node gives the updated specification and each model's Model metadata."""
+    from aslprep.interfaces.cbf import ResolveRuntimeCalibration
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True, kinetic_model='tissue-t1')
+    inputs = {'calibration': calibration, 'asl_type': 'PCASL', 'multi_delay': True}
+    result = ResolveRuntimeCalibration(**inputs).run(cwd=str(tmp_path))
+    assert result.outputs.calibration == calibration
+    assert result.outputs.model_metadata == {
+        model: describe_model(calibration, model, asl_type='PCASL', multi_delay=True)
+        for model in MODELS
+    }
+
+    updates = {
+        'GrayMatterT1': {
+            **calibration['Parameters']['GrayMatterT1'],
+            'Value': 1.4,
+            'Source': 'metadata',
+        },
+        'BloodT1': {**calibration['Parameters']['BloodT1'], 'Value': 1.7},
+    }
+    result = ResolveRuntimeCalibration(**inputs, updates=updates).run(cwd=str(tmp_path))
+    models = result.outputs.model_metadata
+    assert calibration_value(result.outputs.calibration, 'GrayMatterT1') == 1.4
+    for model in ('aslprep', 'lr'):
+        assert models[model]['Parameters']['GrayMatterT1'] == 1.4
+        assert models[model]['Parameters']['BloodT1'] == 1.7
+
+    # BASIL was configured from the specification as built, so its sidecars describe that one
+    assert 'GrayMatterT1' not in models['basil']['Parameters']
+    assert models['basil']['Parameters']['BloodT1'] == calibration_value(calibration, 'BloodT1')
+
+
+@pytest.mark.parametrize(
+    ('name', 'model', 'base', 'base_from_file', 'map_node'),
+    [
+        ('mean_cbf', 'aslprep', None, False, False),
+        ('mean_cbf', 'aslprep', {'Other': 1}, False, False),
+        # A base that already has a Model: the model's own wins, as the fixed argument did
+        ('mean_cbf', 'aslprep', {'Model': 'stale', 'Other': 1}, False, False),
+        ('mean_cbf_basil', 'basil', None, False, False),
+        ('mean_cbf_gm_lr', 'lr', {'Other': 1}, False, False),
+        # A base read from a file through a connect function, as for the CIFTI outputs
+        ('mean_cbf', 'aslprep', {'Other': 1}, True, False),
+        # MapNode sinks, as for the surface outputs
+        ('mean_cbf', 'aslprep', None, False, True),
+    ],
+)
+def test_model_metadata_reaches_sidecar(tmp_path, name, model, base, base_from_file, map_node):
+    """A sink given the Model metadata at run time writes the sidecar a fixed argument did."""
+    import nipype.interfaces.utility as niu
+    import nipype.pipeline.engine as pe
+
+    from aslprep.interfaces.bids import DerivativesDataSink
+    from aslprep.workflows.asl.outputs import _read_json, connect_model_metadata, output_fields
+
+    calibration = resolve_calibration(MULTI_DELAY, m0tr=6.0, basil=True)
+    models = {
+        each: describe_model(calibration, each, asl_type='PCASL', multi_delay=True)
+        for each in MODELS
+    }
+    in_file = _write(np.ones((2, 2, 2)), tmp_path / 'cbf.nii.gz')
+    source_file = tmp_path / 'sub-01_asl.nii.gz'
+    source_file.touch()
+    base_file = tmp_path / 'base.json'
+    base_file.write_text(json.dumps(base))
+    base_field = ('base_file', _read_json) if base_from_file else 'base'
+
+    def sidecars(out_dir, run_time):
+        workflow = pe.Workflow(name=f'wf_{run_time}', base_dir=str(tmp_path / 'work'))
+        inputnode = pe.Node(
+            niu.IdentityInterface(fields=['model_metadata', 'base', 'base_file']),
+            name='inputnode',
+        )
+        inputnode.inputs.model_metadata = models
+        inputnode.inputs.base = base
+        inputnode.inputs.base_file = str(base_file)
+        sink_kwargs = {
+            'source_file': str(source_file),
+            'base_directory': str(out_dir),
+            **output_fields(name, None if run_time else models),
+        }
+        if map_node:
+            # Two outputs, told apart by their acq entity, as surface sinks are by hemisphere
+            sink = pe.MapNode(
+                DerivativesDataSink(**sink_kwargs),
+                iterfield=['in_file', 'acquisition'],
+                name=f'ds_{name}',
+            )
+            sink.inputs.in_file = [in_file, in_file]
+            sink.inputs.acquisition = ['a', 'b']
+        else:
+            sink = pe.Node(DerivativesDataSink(in_file=in_file, **sink_kwargs), name=f'ds_{name}')
+
+        if run_time:
+            pair = None if base is None else (inputnode, base_field)
+            connect_model_metadata(workflow, inputnode, sink, name, base=pair)
+        elif base is not None:
+            workflow.connect([(inputnode, sink, [(base_field, 'meta_dict')])])
+        else:
+            workflow.add_nodes([sink])
+        workflow.run()
+        return [json.loads(path.read_text()) for path in sorted(Path(out_dir).rglob('*.json'))]
+
+    static = sidecars(tmp_path / 'static', run_time=False)
+    run_time = sidecars(tmp_path / 'run_time', run_time=True)
+    assert len(run_time) == (2 if map_node else 1)
+    assert run_time == static
+    for sidecar in run_time:
+        assert sidecar['Model'] == models[model]
+        if base:
+            assert sidecar['Other'] == 1
 
 
 def test_computecbf_calibration_xor():

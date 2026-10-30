@@ -360,10 +360,16 @@ def _build_parser():
             'gradwarp-jacobian',
             'cbf',
             'deltam',
+            't1map',
+            'att',
         ],
         help=(
             'ignore selected aspects of the input dataset to disable corresponding '
             'parts of the workflow (a space delimited list)\n'
+            " * t1map: Ignore the participant's T1 map, so the tissue-T1 kinetic model uses the "
+            'default tissue T1s for the field strength\n'
+            ' * att: Do not look for an ATT map from a multi-delay run, which the tissue-T1 '
+            'kinetic model needs for single-delay runs\n'
             ' * cbf: Ignore CBF volumes in the ASL file (for example, maps calculated '
             'on the scanner). They are neither processed nor used for the reference image\n'
             ' * deltam: Ignore delta-M volumes in the ASL file, in the same way\n'
@@ -513,15 +519,20 @@ any spatial references.""",
         '--hmc-method',
         '--hmc_method',
         action='store',
-        default='typewise',
-        choices=['typewise', 'typewise_offset'],
+        default='typewise_offset',
+        choices=['typewise', 'typewise_offset', 'typewise_volreg'],
         help=(
-            'Head-motion correction method. "typewise" (default) registers each volume type '
-            'separately to the reference with MCFLIRT. "typewise_offset" (experimental) does the '
-            'same, then removes the systematic offset between the corrected label and control '
-            'volumes: for each post-labeling delay, the mean corrected label image is registered '
-            'rigidly to the mean corrected control image, and the correction is composed into '
-            "the label volumes' transforms."
+            'Head-motion correction method. "typewise" registers each volume type separately to '
+            'the reference with MCFLIRT. "typewise_offset" (default) does the same, then removes '
+            'the systematic offset between the corrected label and control volumes: for each '
+            'post-labeling delay of at least 1 s (inversion time of at least 0.8 s for PASL), '
+            'the mean corrected label image is registered rigidly to the mean corrected control '
+            "image, and the correction is composed into the label volumes' transforms; labels "
+            'at shorter delays, which may still hold arterial signal, are not corrected. '
+            '"typewise_volreg" (experimental) registers each volume type with AFNI '
+            "3dvolreg to the type's own mean, which FLIRT aligns to the reference, and then "
+            'removes the label offset as "typewise_offset" does; it is not suited to '
+            'multi-delay PCASL with background suppression.'
         ),
     )
     g_conf.add_argument(
@@ -537,7 +548,32 @@ any spatial references.""",
         help=(
             "FSL's CBF computation with spatial regularization and partial volume correction. "
             'BASIL partial volume correction always runs with --basil (except in sloppy mode), '
-            'independently of --pvc-method.'
+            'independently of --pvc-method, using the same tissue maps as --pvc-method '
+            '(see --asl-effective-resolution).'
+        ),
+    )
+    g_conf.add_argument(
+        '--kinetic-model',
+        action='store',
+        choices=['consensus', 'tissue-t1'],
+        default='consensus',
+        help=(
+            "ASLPrep's kinetic model for multi-delay data. "
+            "'consensus' (default): the general kinetic model of the ISMRM perfusion study group "
+            '(Woods et al., 2023), in which the labeled water decays with the T1 of blood '
+            'throughout, even after it has left the blood for the tissue. '
+            "'tissue-t1': the labeled blood water decays with the T1 of blood until it reaches the "
+            'tissue, and with the apparent T1 of gray and white matter afterwards '
+            '(Buxton et al., 1998). This can reduce the bias in ATT and CBF that the consensus '
+            "model's blood-T1 decay causes at long delays, especially in white matter. "
+            'Experimental: on simulated data it currently overestimates white matter CBF. '
+            'Its results depend on the tissue T1s: they are measured from the T1 map of the '
+            'participant (an anat/*_T1map image, in a --derivatives dataset or the raw dataset) when '
+            'there is one, and otherwise are the defaults for the field strength '
+            '(Wright et al., 2008). See --ignore t1map. '
+            'Single-delay runs need the ATT map of a multi-delay run (see --att-fill), and '
+            'stop with an error without one. '
+            'BASIL always uses its own model. See also --t1map-method.'
         ),
     )
     g_conf.add_argument(
@@ -564,7 +600,8 @@ any spatial references.""",
         metavar='{nominal,auto} | FWHM FWHM FWHM',
         help=(
             'How blurry the ASL images are, used only to build the tissue maps for '
-            '--pvc-method. ASL readouts blur each voxel into its neighbours (3D GRASE and '
+            '--pvc-method, BASIL partial volume correction and --kinetic-model tissue-t1. '
+            'ASL readouts blur each voxel into its neighbours (3D GRASE and '
             '3D spiral readouts mostly along the slice direction), so the gray and white '
             'matter fractions can be blurred to match. '
             "'nominal' (default): no blur beyond the voxel itself, the safest choice. "
@@ -588,6 +625,66 @@ any spatial references.""",
             'Kernel size, in voxels, for --pvc-method local-regression, ordered '
             '(in-plane, in-plane, slice). Values must be odd. '
             'Slice-timed acquisitions must use a single slice.'
+        ),
+    )
+
+    g_t1map = parser.add_argument_group(
+        'Options for using external T1 maps',
+        description=(
+            'These options are only used with --kinetic-model tissue-t1, when ASLPrep finds a '
+            'T1 map of the participant (an anat/*_T1map image, in a --derivatives dataset or the '
+            'raw dataset). Use --ignore t1map to use the default tissue T1s instead.'
+        ),
+    )
+    g_t1map.add_argument(
+        '--t1map-method',
+        action='store',
+        choices=['median', 'local-regression'],
+        default='median',
+        help=(
+            "How the participant's T1 map gives the tissue T1s. "
+            "'median' (default): one T1 per tissue, the median over its pure voxels. "
+            "'local-regression': a gray and a white matter T1 in each voxel, separated by local "
+            'regression of R1 (1/T1) on the gray matter, white matter and CSF probability maps '
+            '(see --t1map-kernel-size), with the medians where a tissue cannot be separated. '
+            'Experimental: it assumes that R1 mixes linearly across the tissues in a voxel, '
+            'which holds only approximately, and that the T1 map is well registered.'
+        ),
+    )
+    g_t1map.add_argument(
+        '--t1map-kernel-size',
+        action='store',
+        type=float,
+        default=7.0,
+        metavar='MM',
+        help=(
+            'Edge, in mm, of the cube in which --t1map-method local-regression separates the '
+            'tissue T1s, rounded to an odd number of anatomical voxels, and at least 3, along '
+            'each axis.'
+        ),
+    )
+
+    g_att = parser.add_argument_group(
+        'Options for using external ATT maps',
+        description=(
+            'These options are only used with --kinetic-model tissue-t1, for single-delay runs, '
+            'which that model can only quantify with the arterial transit time (ATT) of each '
+            'voxel: ASLPrep takes it from the native-space ATT map of a multi-delay run of the '
+            'participant, processed with --kinetic-model tissue-t1, in a --derivatives dataset. '
+            'Use --ignore att to not look for one (single-delay runs then stop with an error).'
+        ),
+    )
+    g_att.add_argument(
+        '--att-fill',
+        action='store',
+        choices=['median', 'none'],
+        default='median',
+        help=(
+            'How to fill the voxels where the multi-delay run did not locate ATT. '
+            "'median' (default): the medians of the located ATTs in gray and white matter, "
+            "combined as the tissue-T1 model weights the tissues, and clipped into the voxel's "
+            'ATT interval from the multi-delay fit when it has one. Their CBF is model-imputed. '
+            "'none': those voxels get no CBF."
         ),
     )
 
@@ -983,6 +1080,13 @@ def parse_args(args=None, namespace=None):
     if any(k % 2 == 0 for k in config.workflow.pvc_kernel_size):
         parser.error(
             f'--pvc-kernel-size values must be odd, got {config.workflow.pvc_kernel_size}.'
+        )
+
+    t1map_kernel_size = config.workflow.t1map_kernel_size
+    if not (math.isfinite(t1map_kernel_size) and t1map_kernel_size >= 3):
+        parser.error(
+            '--t1map-kernel-size must be a finite size of at least 3 mm, so that each fit has '
+            f'neighbors, got {t1map_kernel_size}.'
         )
 
     # Initialize --output-spaces if not defined

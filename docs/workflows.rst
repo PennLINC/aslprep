@@ -286,7 +286,9 @@ Head-motion estimation
    )
 
 Using the previously estimated reference scan,
-FSL ``mcflirt`` is used to estimate head-motion.
+FSL ``mcflirt`` is used to estimate head-motion
+(AFNI ``3dvolreg`` and FSL ``flirt`` with the experimental ``--hmc-method typewise_volreg``;
+see below).
 As a result, one rigid-body transform with respect to
 the reference image is written for each :abbr:`ASL (Arterial Spin Labeling)`
 time-step.
@@ -295,17 +297,62 @@ three translations) per time-step is written and fed to the
 :ref:`confounds workflow <asl_confounds>`,
 for a more accurate estimation of head-motion.
 
-Each volume type (control, label, M0, ...) is registered to the reference separately.
-This leaves a small rigid offset between the corrected label and control volumes,
-which appears at the edges of the brain after subtraction.
-With ``--hmc-method typewise_offset`` (experimental; the default is ``typewise``),
-*ASLPrep* removes it: for each post-labeling delay, the mean of the corrected label volumes is
-registered rigidly to the mean of the corrected control volumes with AFNI ``3dvolreg``,
-and the correction is composed into the transforms of that delay's label volumes.
-Delays shorter than 0.5 s (0.8 s for PASL), whose labels still hold arterial signal,
-use the estimate of the nearest other delay.
-The motion confounds are computed from the corrected transforms.
-The method is recorded in the transforms' sidecar (``HMCMethod``).
+``--hmc-method`` selects one of three methods.
+Each registers every volume type (control, label, M0, ...) separately, so that contrast
+differences between the types are not read as motion:
+
+``typewise``
+   FSL ``mcflirt`` registers each type's volumes to the ASL reference.
+   This was the default in earlier versions of *ASLPrep*.
+   Registering the types separately leaves a small rigid offset between the corrected label and
+   control volumes (hundredths of a millimetre, a fraction of a degree),
+   which appears at the edges of the brain after subtraction.
+
+``typewise_offset`` (the default)
+   ``typewise``, followed by a correction of that offset.
+   For each post-labeling delay of at least 1.0 s (inversion time of at least 0.8 s for PASL),
+   the mean of the corrected label volumes is registered rigidly to the mean of the corrected
+   control volumes with AFNI ``3dvolreg``,
+   and the correction is composed into the transforms of that delay's label volumes.
+   At those delays the two means should differ mainly by the perfusion signal, so what the
+   registration finds is mostly the offset; the cutoff is a conservative rule, not a guarantee
+   that no arterial signal is left.
+   Labels at shorter delays are not corrected and keep the ``typewise`` transforms:
+   before the arterial transit time (which can exceed a second) the labels still hold arterial
+   signal, bright vessels that the control images lack, and registering the two means would
+   read the vessels as an offset of the head.
+   Each delay is corrected with its own estimate because, when the delays are acquired one after
+   another, the estimate also carries the residual misregistration of that delay's volumes.
+   On simulated data with known motion, it halves ``typewise``'s edge error or better on series
+   without background suppression, single-delay and PASL multi-delay alike.
+   With background suppression it gains little or nothing: single-delay results were close to
+   ``typewise``'s (slightly worse in the median), and PCASL multi-delay results about 12% worse.
+
+``typewise_volreg`` (**experimental**)
+   Each type is registered, by least squares, to a reference of its own contrast:
+   AFNI ``3dvolreg`` registers the type's volumes to their middle volume,
+   FSL ``flirt`` (six degrees of freedom, mutual information) aligns their mean to the ASL
+   reference, and ``3dvolreg`` registers the type's volumes to that aligned mean.
+   The label offset correction of ``typewise_offset`` always follows, with the same delay
+   cutoff: each type is aligned to the reference separately, and without the correction the
+   types' alignments leave a larger offset than ``typewise`` does.
+   On most simulated data with known motion it leaves smaller label-control offsets and pose
+   errors than ``typewise_offset``, and on PASL multi-delay data it matches it;
+   it is not yet validated as widely on real data.
+   It is not suited to multi-delay PCASL with background suppression:
+   background suppression changes the images' intensity from one delay to the next, which
+   least squares (unlike MCFLIRT's mutual information) reads partly as motion.
+   On simulated data of that kind it was worse than both ``typewise`` and ``typewise_offset``,
+   and with motion it could leave large label-control offsets at the delays below the cutoff,
+   whose labels are not corrected.
+   The motion parameters it writes are decomposed from the transforms,
+   so they differ slightly in convention from MCFLIRT's.
+
+The motion confounds are computed from the final transforms.
+The method is recorded in the transforms' sidecar (``HMCMethod``):
+precomputed transforms recorded with another method are re-estimated,
+and transforms without the record (from versions before it existed) are reused, with a note in
+the log.
 
 Series of five volumes or fewer, and any series run with ``--force ge``, take the GE-specific path.
 If such a series has no label-control pairs (an M0 with delta-M or CBF images), head-motion
@@ -734,8 +781,10 @@ so "aBAT" should not be read as a synonym of ATT.
 Both depend on where the labeling plane or slab was placed,
 so they are not directly comparable across studies.
 
-For multi-delay ASL, ASLPrep uses a two-compartment general kinetic model recommended by
-:footcite:t:`woods2023recommendations`.
+For multi-delay ASL, ASLPrep uses by default (``--kinetic-model consensus``)
+the two-compartment general kinetic model recommended by
+:footcite:t:`woods2023recommendations`, given below.
+The optional tissue-T1 model changes its tissue term (see :ref:`tissue_t1_model`).
 The two-compartment model predicts the :math:`\Delta{M}` signal as a sum of two components:
 a tissue compartment and an intravascular compartment.
 The tissue compartment reflects labeled blood water that has reached the capillary bed in the
@@ -748,7 +797,7 @@ overestimation of CBF at voxels near the arteries.
 Pseudo-Continuous ASL
 ---------------------
 
-The tissue compartment is modeled as:
+In the consensus model, the tissue compartment is modeled as:
 
 .. math::
    :label: woods_eq2
@@ -782,6 +831,8 @@ which already includes the loss of label caused by background suppression.
 Pulsed ASL
 ----------
 
+In the consensus model, the tissue compartment is modeled as:
+
 .. math::
    :label: woods_eq3
 
@@ -803,6 +854,257 @@ The intravascular compartment is modeled as:
    \end{cases}
 
 For reference, please see Equations 3 and 5 in :footcite:t:`woods2023recommendations`.
+
+
+.. _tissue_t1_model:
+
+The Tissue-T1 Model (``--kinetic-model tissue-t1``)
+---------------------------------------------------
+
+.. warning::
+
+   The tissue-T1 model is experimental.
+   On simulated long-delay 3D GRASE data (aslscan), it currently overestimates white matter CBF,
+   by about 30% in nearly pure white matter, for reasons not yet understood.
+   Its CBF also depends on the default tissue T1s and, where ATT is shorter than every delay,
+   on the reported ATT (see :ref:`multidelay_identifiability`).
+   Use the consensus model (the default) for CBF that is comparable across studies.
+
+The consensus model above lets the labeled water decay with the T1 of blood throughout,
+including after it has left the blood for the tissue.
+In fact, once the labeled water is in the tissue it decays with the tissue's apparent T1,
+:math:`T_1' = 1 / (1 / T_{1,tissue} + f / \lambda)`, which is shorter than the T1 of blood,
+especially in white matter :footcite:p:`buxton1998general`.
+Here :math:`f` is CBF in mL/g/s (:math:`CBF / 6000`, with CBF in mL/100 g/min)
+and :math:`\lambda` is the blood-brain partition coefficient (0.9 mL/g).
+With long delays this matters:
+on aslscan simulations, which model this relaxation,
+the consensus model underestimates white matter CBF and ATT,
+because it can only explain the faster decay of the signal with an earlier arrival,
+less tissue signal, and some arterial signal.
+
+With ``--kinetic-model tissue-t1``, *ASLPrep* fits multi-delay data with the general kinetic model
+in which the labeled blood water decays with the T1 of blood until it reaches the tissue
+(at ATT), and with :math:`T_1'` once it is in the tissue.
+For PCASL, with :math:`k = 1 / T_{1b} - 1 / T_1'`:
+
+.. math::
+
+   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot T_1' \cdot e^{- \frac{ATT}{T_{1b}}}}{6000} \cdot \begin{cases}
+      0 & \text{if } LD + PLD < ATT \\
+      1 - e^{- \frac{LD + PLD - ATT}{T_1'}} & \text{if } ATT < LD + PLD < ATT + LD \\
+      e^{- \frac{PLD - ATT}{T_1'}} \cdot \left(1 - e^{- \frac{LD}{T_1'}}\right) & \text{if } ATT < PLD \\
+   \end{cases}
+
+and for PASL:
+
+.. math::
+
+   \Delta{M}_{tiss} = \frac{2 \cdot \alpha \cdot \alpha_{BS} \cdot M_{0a} \cdot CBF \cdot e^{- \frac{TI}{T_{1b}}}}{6000} \cdot \begin{cases}
+      0 & \text{if } TI < ATT \\
+      \frac{e^{k (TI - ATT)} - 1}{k} & \text{if } ATT < TI < ATT + TI_1 \\
+      e^{k (TI - ATT - TI_1)} \cdot \frac{e^{k \cdot TI_1} - 1}{k} & \text{if } ATT + TI_1 < TI \\
+   \end{cases}
+
+Both reduce to the consensus model when :math:`T_1' = T_{1b}`.
+The intravascular term is unchanged.
+Long delays help because the model's decay after arrival now matches the tissue's,
+so the fit no longer moves ATT earlier to explain a faster decay.
+After the bolus has arrived, ATT only scales a single tissue's signal, by
+:math:`e^{ATT (1 / T_1' - 1 / T_{1b})}` at every delay, so CBF absorbs it:
+as in the consensus model, ATT is located only by delays at which the bolus is still arriving.
+This has consequences when ATT is shorter than every delay
+(see :ref:`multidelay_identifiability`).
+
+Choices this model makes:
+
+- **Tissue T1.** The T1s of gray and white matter are measured from the participant's T1 map
+  when there is one (see :ref:`tissue_t1_from_t1map`), and are otherwise those of
+  :footcite:t:`wright2008water` for the field strength (1.5, 3 or 7 T; other field strengths
+  are not supported).
+  The results depend on them: in gray matter, with delays of 0.5-4 s (PCASL) and an ATT of
+  1 s, a 10% error in T1 changes CBF by about 10%. The size of the change depends on the
+  delays, labeling duration and ATT.
+  These values come from a dedicated measurement of gray and white matter T1 at all three field
+  strengths, and the gray matter value is the one *ASLPrep* already uses to correct short-TR M0
+  images.
+  Other ASL software uses a shorter gray matter T1 at 3 T:
+  1.3 s in BASIL (and so in ``--basil``), and 1.33 s in osipy and in the aslscan and ASLDRO
+  simulations, against 1.607 s here.
+  The tissue-T1 model's gray matter CBF is therefore lower than BASIL's would be for the same
+  data, from this choice alone: on the long-delay 3D GRASE aslscan simulation (delays 0.5-4 s),
+  about 20% lower.
+  White matter T1 does not differ in this way (0.838 s here, 0.83 s in aslscan).
+- **Flow in** :math:`T_1'`. :math:`T_1'` depends on CBF itself, which would make the model
+  nonlinear. It is instead calculated with a nominal CBF of 60 mL/100 g/min for gray matter and
+  20 mL/100 g/min for white matter. The flow term is small (about 2% of the relaxation rate in
+  gray matter at 3 T), but its error grows with time after arrival.
+- **Mixed voxels.** A voxel's tissue term is the sum of the gray and white matter terms,
+  each weighted by its partial volume times its nominal CBF, not one term at an average T1
+  (a sum of exponentials is not an exponential of the mean).
+  The partial volume maps are those built for partial volume correction
+  (see ``--asl-effective-resolution``).
+  CSF is not modeled as perfused, and voxels with almost no gray or white matter use the gray
+  matter term. CBF keeps its meaning: the voxel's mean CBF, calibrated by its M0.
+- **One ATT per voxel.** Gray and white matter in a voxel share one ATT.
+  In mixed voxels whose tissues have different ATTs, the fitted ATT lies between them.
+
+Local-regression partial volume correction fits each tissue's curve with that tissue's
+:math:`T_1'` alone. BASIL always uses its own model.
+At a single delay, the model needs a separate estimate of ATT, which it takes from a multi-delay
+run of the participant (see :ref:`single_delay_tissue_t1`).
+
+
+.. _tissue_t1_from_t1map:
+
+Tissue T1s from a T1 Map
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+With ``--kinetic-model tissue-t1``, *ASLPrep* measures the T1s of gray and white matter from the
+participant's quantitative T1 map, when there is one, instead of using the defaults.
+``--ignore t1map`` turns this off.
+
+- **Finding the map.** *ASLPrep* looks for an ``anat/*_T1map.nii[.gz]`` image of the participant
+  (and session) in each ``--derivatives`` dataset, then in the raw dataset, and uses the first one
+  it finds. A derivative map is preferred because it may have been corrected for the transmit
+  field, which a map written by the scanner (such as MP2RAGE's) may not have been;
+  MP2RAGE T1s depend on the transmit field, especially at 7 T.
+  Several maps in one dataset are an error; the ``t1map`` key of ``--bids-filter-file``
+  selects one. Its ``Units`` (``s`` or ``ms``) set its scale; without them, a map whose median
+  exceeds 100 is read as milliseconds. A map acquired at another field strength than an ASL run
+  (from the ``MagneticFieldStrength`` of its sidecar) is refused.
+- **Maps with a space entity.** By default, only maps without a ``space`` entity, in their own
+  acquisition space, are used. Pipelines such as pymp2rage write every map with one
+  (for example ``space-MP2RAGE``, ``space-T1w`` and ``space-MNI152NLin2009cAsym``, with and
+  without ``desc-B1corrected``), so *ASLPrep* warns that it found maps it did not use, and lists
+  them. Select one with the ``t1map`` key of ``--bids-filter-file``, for example::
+
+      {"t1map": {"space": "T1w", "desc": "B1corrected", "session": "01"}}
+
+  The session is only needed when there are maps in several sessions and the anatomical
+  reference spans them. The map's T1-weighted companion is then looked for in the same space
+  (pymp2rage's ``space-T1w`` UNIT1, here). Maps in a template space are refused, as a rigid
+  registration cannot bring them back to the participant.
+- **Aligning it with the anatomical image.** A T1-weighted image on the map's grid (MP2RAGE's
+  ``UNIT1``, or a ``T1w``) aligns the map with the anatomical reference. If that image is the only
+  T1w input of the anatomical workflow, the reference shares its scanner space, and no
+  registration is needed. Otherwise, it is rigidly registered to the reference. Without such an
+  image, the map's R1 (1/T1), whose contrast resembles a T1-weighted image's, is registered
+  instead. The transform is written as a ``from-T1map_to-T1w_mode-image_xfm.txt`` derivative,
+  and the anatomical section of the report shows the alignment: the anatomical reference and the
+  map's R1, resampled with the same transform, with the white matter contour.
+  Check it, above all when the map itself was registered.
+- **Measuring the T1s.** The map is resampled onto the anatomical reference, and each tissue's T1
+  is the median over voxels with a tissue probability of at least 95% and a CSF probability
+  below 5%, eroded by one voxel so that blurring across tissue boundaries is left out.
+  At least 100 such voxels are needed in each tissue. Values far from the defaults
+  (outside 0.6-1.5 times them) are reported as warnings, as they usually mean wrong units or a
+  misregistered map.
+- **Where the values go.** They replace ``GrayMatterT1`` and ``WhiteMatterT1`` in the calibration
+  parameters when the workflow runs, with the source ``measured``, so the CBF fit, local-regression
+  partial volume correction, the ``desc-calibration_parameters.json`` file and the ``Model``
+  metadata of the CBF and ATT maps all use them. BASIL keeps its own tissue T1, and the
+  correction of the M0 image for incomplete T1 recovery keeps the default gray matter T1.
+
+``--t1map-method local-regression`` (experimental) also uses regional differences in tissue T1,
+which one median per tissue leaves out (motor cortex, for example, has a shorter T1 than the rest
+of the cortex).
+
+- **Separating the tissues.** Under fast exchange, a voxel's R1 (1/T1) is approximately the sum
+  of its tissues' R1s, weighted by their fractions. So in a cube of ``--t1map-kernel-size`` mm
+  (7 by default, a heuristic choice that has not been validated against measured regional
+  T1s; rounded to an odd number of anatomical voxels, and at least 3, along each axis) around each
+  voxel of the anatomical brain mask, the R1 of the resampled map is regressed on the gray matter,
+  white matter and CSF probability maps, without an intercept, in the same way as
+  local-regression partial volume correction :footcite:p:`asllani2008regression`.
+  CSF is a regressor, because unlike perfusion its R1 is far from zero.
+  Where a tissue has too little support in the cube (less than 5% of its voxels), it is left
+  out, but only when that biases the gray and white matter estimates by at most 5% of the
+  left-out tissue's R1; fits with a condition number above 100 are not used.
+- **Falling back to the medians.** Where a tissue was not in the fit, or its estimate is more
+  than a factor of 2 from its median, the median is used. The ``Origin`` of ``GrayMatterT1`` and
+  ``WhiteMatterT1`` in the calibration parameters says how much of each tissue was estimated
+  locally.
+- **Onto the ASL grid.** Each tissue's R1 is averaged onto the ASL reference grid, weighted by
+  its probability, with the same response as its partial volume map
+  (see ``--asl-effective-resolution``), so the tissue T1s of a voxel weight the anatomical voxels
+  as its partial volumes do. They are written as ``label-GM_T1map`` and ``label-WM_T1map``
+  derivatives of each run, in seconds, and are zero where the tissue is absent (the median is
+  used there).
+- **Using them.** The CBF fit uses each voxel's gray and white matter :math:`T_1'`, and
+  local-regression partial volume correction fits each tissue curve with its tissue's
+  :math:`T_1'` in the voxel. BASIL and the M0 correction keep their scalar T1s.
+- **Limitations.** Fast exchange holds only approximately, especially between tissue and CSF, and
+  a T1 map fitted from an inversion-recovery or MP2RAGE sequence need not follow it exactly.
+  Segmentation and registration errors at tissue boundaries bias the separated R1s more than they
+  bias the medians, which only use pure voxels. Check the registration panel of the report.
+
+
+.. _single_delay_tissue_t1:
+
+Single-Delay Data with an ATT Map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+At a single delay, the data cannot say when the label arrived, so the tissue-T1 model needs each
+voxel's arterial transit time (ATT) from elsewhere. *ASLPrep* takes it from a multi-delay run of
+the participant, processed by *ASLPrep* with ``--kinetic-model tissue-t1``, and given to this run
+with ``--derivatives``. Without such a map, single-delay runs with ``--kinetic-model tissue-t1``
+stop with an error; ``--ignore att`` stops *ASLPrep* from looking for one.
+
+- **Finding the map.** In each ``--derivatives`` dataset, *ASLPrep* looks for a native-space ATT
+  map of the participant (and session): ``perf/*_att.nii.gz``, without a ``space`` or ``desc``
+  entity, which *ASLPrep* writes with ``--level minimal`` or ``resampling``, or with ``asl`` in
+  ``--output-spaces``. It also needs that run's ``attstatus`` map, its ``desc-ciLower`` and
+  ``desc-ciUpper`` ATT maps, its ``from-aslref_to-T1w`` transform, and the dataset's
+  ``desc-preproc_T1w`` image. Several ATT maps are an error; the ``att`` key of
+  ``--bids-filter-file`` selects one, for example ``{"att": {"acquisition": "multipld"}}``.
+- **Which ATT.** The map must come from the tissue-T1 model, which its sidecar's ``Model``
+  records. A consensus-model map is refused: in that model the label decays with the T1 of blood
+  throughout, which biases ATT, most of all in white matter. ATT depends on where the label is
+  applied, so labeling types or labeling distances that differ between the runs are reported,
+  from the multi-delay run's own sidecar in the raw dataset; when that run is not in the raw
+  dataset, or only one of the runs records its labeling distance, a warning says that the
+  labeling could not be compared. Field strengths that differ between the runs are reported
+  too.
+- **Bringing it onto this run's grid.** Both runs must have been registered to the same
+  anatomical image, which *ASLPrep* checks. Giving the multi-delay run's dataset to
+  ``--derivatives`` reuses its anatomical derivatives; with several ``--derivatives`` datasets,
+  the last one with anatomical derivatives takes precedence, so list that dataset last.
+  Each voxel of this run's ASL
+  reference is then mapped to the anatomical image through this run's transform, and from there
+  to the multi-delay run's reference through that run's. ATT is interpolated linearly from the
+  voxels where the multi-delay fit located it (``attstatus`` 1), normalized by their weight, so
+  that values from elsewhere do not blend in; a voxel counts as measured when at least half of
+  its weight is located. The ATT intervals are interpolated in the same way, and the status with
+  the nearest neighbor. The multi-delay run usually has a coarser resolution, so its ATT is
+  smooth on this run's grid.
+- **Filling the rest** (``--att-fill``). With ``median`` (the default), a voxel where ATT was not
+  located, with at least 1% gray and white matter, gets the medians of the measured ATTs in gray
+  and white matter (weighted by partial volume), combined with the same weights as the tissue
+  terms, and clipped into the voxel's own ATT interval from the multi-delay fit when it has one.
+  So the fill stays within what the multi-delay data allowed: where ATT was only bounded above
+  (it may have arrived before the earliest delay), the fill is at most that bound. The interval
+  is interpolated from neighboring voxels' intervals, so it is a guide rather than a confidence
+  interval with known coverage. The CBF of filled voxels is imputed by the model. With ``none``,
+  those voxels get no CBF.
+- **Thresholds.** The 50% located weight, the 1% tissue needed to fill and the 10% signal
+  needed to quantify (below) are heuristic choices, not values validated on data.
+- **Quantification.** With ATT known, the model is linear in CBF at one delay, so CBF is
+  calculated for each volume by dividing delta-M by the M0 of blood times the model's tissue
+  signal per unit CBF, with slice-timed delays and without an arterial term. The CBF time series
+  is kept, so SCORE/SCRUB and local-regression partial volume correction work as usual. Voxels
+  whose tissue signal is below 10% of its value with all of the label arrived (ATT near or after
+  the end of the bolus) get no CBF, as their delta-M would be mostly noise.
+  PASL needs the bolus duration, so only QUIPSS II and Q2TIPS are supported.
+- **Outputs.** The ATT used is written as ``desc-external_att``, and where it came from as
+  ``desc-external_attstatus`` (0: no ATT, outside the multi-delay run's coverage or the brain
+  mask, or where the multi-delay fit failed; 1: measured; 2: filled and clipped into the
+  interval; 3: filled, without an interval; 4: not filled, with ``--att-fill none``; 5: too little
+  tissue to fill; 6: no tissue signal at this run's delay; 7: not filled, because no gray or no
+  white matter median could be measured), both on the ASL reference grid. Restrict analyses to
+  status 1 for CBF that does not depend on the fill.
+- **Not covered.** BASIL keeps its own model. The external ATT is not resampled to other output
+  spaces. The tissue signal of a mixed voxel shares one ATT between gray and white matter.
 
 
 .. _multidelay_identifiability:
@@ -841,9 +1143,21 @@ Within that interval, the data therefore determine the product
 *ASLPrep* writes that product to the ``desc-decayed`` aBV map,
 and the aBV map holds the aBV implied by the reported aBAT.
 The one exception is an arterial signal that is large enough to need the largest allowed aBV
-(10% of the voxel): longer aBATs in the interval would need more than that,
+(the whole voxel): longer aBATs in the interval would need more than that,
 so they are ruled out, and the aBAT upper bound falls inside the interval.
 For PASL, the arterial signal does not contain aBAT, so the aBV map needs no counterpart.
+
+**An arterial term at the longest delay only fits one number.**
+Where the aBAT lower bound is at or after the second-longest :math:`PLD + LD` (PCASL)
+or the second-longest :math:`TI` (PASL), the arterial term is zero at every delay but the longest.
+Its aBV then absorbs whatever that delay holds beyond the tissue signal, such as noise or motion,
+so it does not measure arterial blood.
+For PCASL, aBAT is that late, so the reported aBV is :math:`e^{\frac{aBAT}{T_{1b}}}` times the
+``desc-decayed`` product (often 5 to 10 times); use the ``desc-decayed`` map rather than aBV there.
+Because the arterial term takes up the longest delay, CBF and ATT in these voxels rest on the other
+delays, and they can shift with what the arterial term absorbs.
+These voxels can be found from the native-space ``desc-lower_abat`` map,
+and they can be around a tenth of the brain.
 
 **ATT is only bounded above when it is shorter than every delay.**
 The tissue signal depends on ATT only at delays where the labeled blood is still arriving
@@ -858,11 +1172,49 @@ A protocol whose earliest delay (including slice-timing offsets) exceeds the exp
 cannot measure ATT with this model.
 CBF is unaffected in that case, because the signal does not depend on ATT there.
 
+With the tissue-T1 model (``--kinetic-model tissue-t1``), this is different in two ways.
+In a voxel of one tissue, the ATT range is the same, but CBF is not unaffected:
+it is scaled by :math:`e^{ATT (1 / T_1' - 1 / T_{1b})}`,
+so it depends on the ATT reported from the range.
+In white matter at 3 T, a range of 1 s spans a factor of about 1.8 in CBF.
+ATT is reported at the middle of the range,
+so with the true ATT at the low end of the range, CBF is about 25% low.
+In a voxel that mixes gray and white matter, the two tissues' terms scale by different factors,
+so the fit can locate ATT from the shape of their sum alone.
+That estimate rests on the assumed tissue T1s, nominal CBFs and partial volumes,
+and on one ATT for both tissues, so it is not a measurement of ATT;
+with noise, the profile-likelihood interval below is usually wide.
+
 Ranges of equally good ATTs can also occur between delays,
 when the arterial term can absorb the part of the tissue signal that ATT changes.
 Unlike the case above, CBF and aBV can differ across such a range.
 Where no tissue signal is detected (CBF is zero), ATT has no effect at all,
 and its bounds span every value that fits equally well.
+
+With noise, ATTs that the model cannot distinguish no longer fit exactly as well as each
+other, so the fit can report a precise-looking ATT just above the earliest delay in a voxel
+whose blood arrived before it.
+*ASLPrep* therefore also calculates a 95% profile-likelihood interval for ATT:
+the ATTs whose sum of squared errors, minimized over CBF, aBV, and aBAT, exceeds the minimum
+by at most 3.84 (the 95th percentile of a chi-squared distribution with one degree of freedom)
+times the noise variance.
+The noise variance is estimated from the residuals of every volume (around the mean of its
+delay and of those means around the fit), as the median across voxels with positive CBF,
+scaled to be unbiased for Gaussian noise.
+It is pooled across voxels, which assumes that the delta-M noise is the same everywhere.
+The interval's ends are written to the native-space ``desc-ciLower`` and ``desc-ciUpper`` maps.
+Because aBAT may move to another interval, where the arterial term can absorb part of the
+tissue signal, the interval can be wider than the ``desc-lower`` to ``desc-upper`` range
+even without noise; it always contains that range.
+
+*ASLPrep* classifies each voxel from this interval in the native-space ``attstatus`` map,
+and the report plots the classes by slice (see :doc:`outputs`).
+ATT counts as located where its interval does not reach 0 s and is at most 0.5 s wide.
+Where the interval reaches 0 s, the data only bound ATT above.
+To locate ATT, the earliest effective delay, including the slice-timing offset of the
+latest slice, must come before the shortest ATT expected in the tissue of interest.
+3D readouts, or 2D readouts with a short first delay and compressed slice timing,
+meet this requirement more easily.
 
 .. note::
    The ATT bounds are found with aBAT kept in its reported interval,
@@ -942,6 +1294,10 @@ As in *ASLPrep*'s own models, the bolus duration is fixed (``--fixbolus``):
 it is the labeling duration for (P)CASL data,
 and the bolus cut-off delay time (TI1) for PASL data with a bolus cut-off.
 Without this flag, ``oxford_asl`` would estimate the bolus duration for multi-delay PASL data.
+
+For partial volume correction, BASIL is given the gray and white matter fractions of each ASL
+voxel, built by :py:func:`~aslprep.workflows.asl.pv.init_asl_pv_wf` (described below), which
+local-regression PVC also uses.
 
 A sample of BASIL CBF with spatial regularization is shown below:
 

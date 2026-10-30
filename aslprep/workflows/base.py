@@ -852,6 +852,51 @@ tasks and sessions), the following preprocessing was performed.
             )
         asl2anat_init = 't2w' if has_t2w else 't1w'
 
+    # The participant's T1 map gives the tissue T1s of the tissue-T1 kinetic model,
+    # the only model with tissue T1s
+    t1map = None
+    t1map_wf = None
+    if config.workflow.kinetic_model == 'tissue-t1' and 't1map' not in config.workflow.ignore:
+        from aslprep.utils.bids import collect_t1map
+
+        t1map = collect_t1map(
+            config.execution.layout,
+            config.execution.derivatives or {},
+            subject_id,
+            session_id=session_id,
+            bids_filters=config.execution.bids_filters,
+        )
+
+    def get_t1map_wf(field_strength):
+        """Build the T1 map workflow the first time a run uses it, and return it."""
+        nonlocal t1map_wf
+        if t1map_wf is not None:
+            return t1map_wf
+
+        from aslprep.workflows.t1map import init_t1map_wf
+
+        # smriprep's anatomical reference shares the scanner space of a single T1w input
+        identity = (
+            t1map['companion'] is not None
+            and 't1w_preproc' not in anatomical_cache
+            and [os.path.abspath(path) for path in subject_data['t1w']]
+            == [os.path.abspath(t1map['companion'])]
+        )
+        t1map_wf = init_t1map_wf(
+            t1map=t1map,
+            identity=identity,
+            output_dir=aslprep_dir,
+            field_strength=field_strength,
+        )
+        workflow.connect([
+            (anat_fit_wf, t1map_wf, [
+                ('outputnode.t1w_preproc', 'inputnode.t1w_preproc'),
+                ('outputnode.t1w_mask', 'inputnode.t1w_mask'),
+                ('outputnode.t1w_tpms', 'inputnode.t1w_tpms'),
+            ]),
+        ])  # fmt:skip
+        return t1map_wf
+
     for asl_file in subject_data['asl']:
         fieldmap_id = estimator_map.get(asl_file)
         jacobian = False
@@ -897,6 +942,7 @@ tasks and sessions), the following preprocessing was performed.
             fieldmap_id=fieldmap_id,
             jacobian=jacobian,
             asl2anat_init=asl2anat_init,
+            t1map=t1map,
         )
 
         if asl_wf is None:
@@ -904,6 +950,22 @@ tasks and sessions), the following preprocessing was performed.
 
         # The run's acquisition, then the preprocessing that its subworkflows describe
         asl_wf.__desc__ = (asl_wf.__desc__ or '') + asl_pre_desc
+
+        if asl_wf.t1map_field_strength is not None:
+            workflow.connect([
+                (get_t1map_wf(asl_wf.t1map_field_strength), asl_wf, [
+                    ('outputnode.updates', 'inputnode.tissue_t1_updates'),
+                    ('outputnode.warnings', 'inputnode.tissue_t1_warnings'),
+                ]),
+            ])  # fmt:skip
+            if config.workflow.t1map_method == 'local-regression':
+                workflow.connect([
+                    (get_t1map_wf(asl_wf.t1map_field_strength), asl_wf, [
+                        ('outputnode.gm_r1', 'inputnode.tissue_gm_r1'),
+                        ('outputnode.wm_r1', 'inputnode.tissue_wm_r1'),
+                        ('outputnode.r1_summary', 'inputnode.tissue_r1_summary'),
+                    ]),
+                ])  # fmt:skip
 
         workflow.connect([
             (anat_fit_wf, asl_wf, [

@@ -345,6 +345,76 @@ def test_pvc_options(tmp_path, supp_args, method, resolution, kernel):
 
 
 @pytest.mark.parametrize(
+    ('supp_args', 'model'),
+    [([], 'consensus'), (['--kinetic-model', 'tissue-t1'], 'tissue-t1')],
+)
+def test_kinetic_model_option(tmp_path, supp_args, model):
+    """The kinetic model reaches the config and survives a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.kinetic_model == model
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.kinetic_model == model
+    reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'method', 'kernel'),
+    [
+        ([], 'median', 7.0),
+        (
+            ['--t1map-method', 'local-regression', '--t1map-kernel-size', '5'],
+            'local-regression',
+            5.0,
+        ),
+    ],
+)
+def test_t1map_method_options(tmp_path, supp_args, method, kernel):
+    """The T1 map method and kernel reach the config and survive a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.t1map_method == method
+    assert config.workflow.t1map_kernel_size == kernel
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.t1map_method == method
+    assert config.workflow.t1map_kernel_size == kernel
+    reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'fill', 'ignored'),
+    [([], 'median', False), (['--att-fill', 'none', '--ignore', 'att'], 'none', True)],
+)
+def test_att_options(tmp_path, supp_args, fill, ignored):
+    """The external ATT options reach the config and survive a round trip."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.att_fill == fill
+    assert ('att' in config.workflow.ignore) == ignored
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.att_fill == fill
+    reset_config()
+
+
+@pytest.mark.parametrize(
     ('supp_args', 'message'),
     [
         (['--asl-effective-resolution', '3', '3'], 'three FWHM values'),
@@ -355,6 +425,11 @@ def test_pvc_options(tmp_path, supp_args, method, resolution, kernel):
         (['--asl-effective-resolution', '3', '3', 'inf'], 'finite and positive'),
         (['--pvc-kernel-size', '4', '5', '1'], 'must be odd'),
         (['--pvc-method', 'basil'], 'invalid choice'),
+        (['--t1map-kernel-size', '2'], 'at least 3 mm'),
+        (['--t1map-kernel-size', 'nan'], 'at least 3 mm'),
+        (['--t1map-kernel-size', 'inf'], 'at least 3 mm'),
+        (['--t1map-method', 'mean'], 'invalid choice'),
+        (['--att-fill', 'mean'], 'invalid choice'),
     ],
 )
 def test_pvc_option_errors(tmp_path, capsys, supp_args, message):
@@ -390,6 +465,42 @@ def test_skull_strip_asl(tmp_path, supp_args, method):
     reset_config()
     config.load(config_file)
     assert config.workflow.skull_strip_asl == method
+    reset_config()
+
+
+@pytest.mark.parametrize(
+    ('supp_args', 'method'),
+    [
+        ([], 'typewise_offset'),
+        (['--hmc-method', 'typewise'], 'typewise'),
+        (['--hmc-method', 'typewise_offset'], 'typewise_offset'),
+        (['--hmc-method', 'typewise_volreg'], 'typewise_volreg'),
+    ],
+)
+def test_hmc_method(tmp_path, supp_args, method):
+    """The head-motion correction method (default typewise_offset) reaches the config."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    parse_args(_gradwarp_cli_args(tmp_path) + supp_args)
+    assert config.workflow.hmc_method == method
+
+    config_file = tmp_path / 'config.toml'
+    config.to_filename(config_file)
+    reset_config()
+    config.load(config_file)
+    assert config.workflow.hmc_method == method
+    reset_config()
+
+
+def test_hmc_method_errors(tmp_path, capsys):
+    """Unknown head-motion correction methods stop the run at parse time."""
+    from aslprep.cli.parser import parse_args
+
+    reset_config()
+    with pytest.raises(SystemExit):
+        parse_args(_gradwarp_cli_args(tmp_path) + ['--hmc-method', 'volreg'])
+    assert 'invalid choice' in capsys.readouterr().err
     reset_config()
 
 

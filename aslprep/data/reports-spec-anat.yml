@@ -31,6 +31,20 @@ sections:
       Surfaces (white and pial) reconstructed with FreeSurfer (<code>recon-all</code>)
       overlaid on the participant's T1w template.
     subtitle: Surface reconstruction
+  - bids: {datatype: figures, desc: coreg, suffix: T1map, extension: [.svg]}
+    caption: |
+      Alignment of the participant's T1 map with the anatomical reference, from which the
+      tissue-T1 kinetic model's gray and white matter T1s were measured.
+      The T1 map is shown as R1 (1/T1), whose contrast resembles a T1-weighted image, after
+      resampling onto the anatomical reference with the same transform as the T1s.
+      The contour is the white matter probability map of the anatomical reference.
+      The tissue boundaries should line up in both panels; a shift between them biases the
+      measured T1s toward those of the neighboring tissues.
+    description: |
+      Hover on the panels with the mouse pointer to transition between the anatomical
+      reference and the T1 map.
+    static: false
+    subtitle: Alignment of the T1 map with the anatomical reference
 
 - name: About
   reportlets:

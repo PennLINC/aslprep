@@ -8,6 +8,7 @@ import filelock
 import nibabel as nb
 import numpy as np
 from bids.layout import Config
+from isal.igzip import IGzipFile
 from nipype.interfaces.base import (
     BaseInterfaceInputSpec,
     Directory,
@@ -20,11 +21,38 @@ from nipype.interfaces.base import (
     traits,
 )
 from nipype.interfaces.io import add_traits
+from niworkflows.interfaces import bids as niworkflows_bids
 from niworkflows.interfaces.bids import DerivativesDataSink as BaseDerivativesDataSink
 
 from aslprep import config
 from aslprep.data import load as load_data
 from aslprep.utils.bids import _get_bidsuris, get_entity
+
+
+def write_nifti_isal(fname, header, data):
+    """Write a NIfTI image as niworkflows does, compressing with ISA-L.
+
+    niworkflows' DerivativesDataSink writes every image it rewrites through
+    ``unsafe_write_nifti_header_and_data``, which compresses with zlib at level
+    9. ISA-L writes the same gzip format, at nearly the same size, an order of
+    magnitude faster. As in niworkflows, the gzip header holds no file name or
+    modification time, so the output is deterministic.
+    """
+    compress = str(fname).endswith('.gz')
+    with open(fname, 'wb') as fobj:
+        if compress:
+            fobj = IGzipFile('', 'wb', fileobj=fobj, mtime=0)
+        header.write_to(fobj)
+        nb.volumeutils.array_to_file(
+            data, fobj, header.get_data_dtype(), offset=header.get_data_offset()
+        )
+        if compress:
+            fobj.close()
+
+
+# niworkflows' DerivativesDataSink looks this writer up in its own module's namespace,
+# so replacing it there covers every ASLPrep sink, all of which subclass it.
+niworkflows_bids.unsafe_write_nifti_header_and_data = write_nifti_isal
 
 # NOTE: Modified for aslprep's purposes
 aslprep_spec = loads(load_data.readable('aslprep_bids_config.json').read_text())

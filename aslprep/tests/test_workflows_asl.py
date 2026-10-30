@@ -366,11 +366,12 @@ def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
             for src_field, dst_field in data['connect']
         }
         basil_inputs = {
-            dst_field
-            for _, dst, data in wf._graph.edges(data=True)
+            dst_field: src.name
+            for src, dst, data in wf._graph.edges(data=True)
             if dst.name == 'basilcbf'
             for _, dst_field in data['connect']
         }
+        has_pv_maps = wf.get_node('asl_pv_wf') is not None
 
     assert basilcbf.inputs.pvc is (not sloppy)
     assert ('--pvcorr' in basilcbf.interface._parse_inputs(skip=['deltam', 'mask'])) is (
@@ -381,12 +382,14 @@ def test_init_cbf_wf_basil_sloppy(tmp_path, sloppy):
         # The corrected maps are stand-ins, so the rest of the workflow still runs.
         assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_basil')
         assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_basil')
-        assert not {'gm_tpm', 'wm_tpm'} & basil_inputs
+        assert not {'gm_tpm', 'wm_tpm'} & set(basil_inputs)
+        assert not has_pv_maps
         assert 'Partial volume correction was skipped' in wf.__desc__
     else:
         assert outputs['mean_cbf_gm_basil'] == ('basilcbf', 'mean_cbf_gm_basil')
         assert outputs['mean_cbf_wm_basil'] == ('basilcbf', 'mean_cbf_wm_basil')
-        assert {'gm_tpm', 'wm_tpm'} <= basil_inputs
+        # The voxel-averaged PV maps, not the point-sampled TPMs (gh-740)
+        assert basil_inputs['gm_tpm'] == basil_inputs['wm_tpm'] == 'asl_pv_wf'
         assert 'partial-volume corrected CBF image' in wf.__desc__
 
 
@@ -995,7 +998,7 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
             basil=True,
             m0_scale=0.001,
         )
-        calibration = wf.get_node('compute_cbf').inputs.calibration
+        calibration = wf.get_node('runtime_calibration').inputs.calibration
         basil_node = wf.get_node('basilcbf')
         basil = basil_node.inputs
         to_basil = wf._graph.get_edge_data(wf.get_node('extract_deltam'), basil_node)['connect']
@@ -1018,6 +1021,142 @@ def test_init_cbf_wf_backends_share_calibration(tmp_path, m0type):
         assert ('m0_file', 'mzero') not in to_basil
         for name in ('m0_scale', 'm0tr', 't1tissue_calib'):
             assert not isdefined(getattr(basil, name)), name
+
+
+@pytest.mark.parametrize('pvc_method', ['none', 'local-regression'])
+def test_init_cbf_wf_tissue_t1(tmp_path, pvc_method):
+    """The tissue-T1 model gets partial volume maps, and is described in the boilerplate."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    plds = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MRAcquisitionType': '3D',
+        'PostLabelingDelay': [delay for delay in plds for _ in range(2)],
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+    }
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    volume_types = ['control', 'label'] * len(plds)
+    pd.DataFrame({'volume_type': volume_types}).to_csv(aslcontext, sep='\t', index=False)
+    reset_config()
+    with mock_config():
+        config.workflow.kinetic_model = 'tissue-t1'
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            pvc_method=pvc_method,
+        )
+        compute_cbf = wf.get_node('compute_cbf')
+        pv_wf = wf.get_node('asl_pv_wf')
+        edge = wf._graph.get_edge_data(pv_wf, compute_cbf)
+        desc = wf.__desc__
+
+        config.workflow.kinetic_model = 'consensus'
+        consensus = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+        )
+        consensus_desc = consensus.__desc__
+        consensus_nodes = consensus.list_node_names()
+
+        single_delay = {**metadata, 'PostLabelingDelay': 1.8}
+        config.workflow.kinetic_model = 'tissue-t1'
+        with pytest.raises(ValueError, match='needs an arterial transit time map'):
+            init_cbf_wf(
+                name_source=str(asl_file),
+                processing_target='control',
+                aslcontext=str(aslcontext),
+                metadata=single_delay,
+            )
+
+    reset_config()
+    assert ('outputnode.gm_pv', 'gm_pv') in edge['connect']
+    assert ('outputnode.wm_pv', 'wm_pv') in edge['connect']
+    assert 'apparent T1 of the tissue' in desc
+    assert '[@wright2008water]' in desc
+    assert 'apparent T1' not in consensus_desc
+    assert not any(name.startswith('asl_pv_wf') for name in consensus_nodes)
+
+
+def test_init_cbf_wf_tissue_t1_from_t1map(tmp_path):
+    """Tissue T1s measured from a T1 map replace the defaults at run time."""
+    import pandas as pd
+
+    from aslprep.workflows.asl.cbf import init_cbf_wf
+
+    asl_file = tmp_path / 'sub-01_asl.nii.gz'
+    asl_file.touch()
+    plds = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
+    metadata = {
+        'ArterialSpinLabelingType': 'PCASL',
+        'MRAcquisitionType': '3D',
+        'PostLabelingDelay': [delay for delay in plds for _ in range(2)],
+        'LabelingDuration': 1.8,
+        'M0Type': 'Estimate',
+        'M0Estimate': 1000.0,
+        'MagneticFieldStrength': 3,
+        'BackgroundSuppression': False,
+    }
+    aslcontext = tmp_path / 'sub-01_aslcontext.tsv'
+    volume_types = ['control', 'label'] * len(plds)
+    pd.DataFrame({'volume_type': volume_types}).to_csv(aslcontext, sep='\t', index=False)
+    t1map = {
+        't1map': 'sub-01_T1map.nii.gz',
+        'metadata': {},
+        'uri': 'bids:raw:sub-01/anat/sub-01_T1map.nii.gz',
+        'companion': None,
+    }
+    reset_config()
+    with mock_config():
+        config.workflow.kinetic_model = 'tissue-t1'
+        wf = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            t1map=t1map,
+        )
+        to_runtime = wf._graph.get_edge_data(
+            wf.get_node('inputnode'),
+            wf.get_node('runtime_calibration'),
+        )['connect']
+        desc = wf.__desc__
+
+        # With the consensus model, the T1 map is not used
+        config.workflow.kinetic_model = 'consensus'
+        consensus = init_cbf_wf(
+            name_source=str(asl_file),
+            processing_target='control',
+            aslcontext=str(aslcontext),
+            metadata=metadata,
+            t1map=t1map,
+        )
+        consensus_edge = consensus._graph.get_edge_data(
+            consensus.get_node('inputnode'),
+            consensus.get_node('runtime_calibration'),
+        )
+
+    reset_config()
+    assert ('tissue_t1_updates', 'updates') in to_runtime
+    assert ('tissue_t1_warnings', 'warnings') in to_runtime
+    assert "measured from the participant's T1 map" in desc
+    # The boilerplate is a methods description, so it names no files
+    assert 'sub-01' not in desc
+    # The default values are not described, as the measured ones replace them
+    assert '[@wright2008water]' not in desc
+    assert consensus_edge is None
 
 
 def test_init_cbf_wf_smoothing_from_calibration(tmp_path):
@@ -1071,18 +1210,30 @@ def test_init_asl_wf_calibration_outputs():
         asl_file = config.execution.bids_dir / 'sub-01' / 'perf' / 'sub-01_asl.nii.gz'
         wf = init_asl_wf(asl_file=str(asl_file))
         ds_calibration = wf.get_node('ds_calibration_wf.ds_calibration')
-        write_calibration = wf.get_node('ds_calibration_wf.write_calibration')
-        compute_cbf = wf.get_node('cbf_wf.compute_cbf')
+        cbf_wf = wf.get_node('cbf_wf')
+        ds_calibration_wf = wf.get_node('ds_calibration_wf')
+        ds_native_wf = wf.get_node('ds_asl_native_wf')
         ds_mean_cbf = wf.get_node('ds_asl_native_wf.ds_mean_cbf')
+        to_ds_calibration = wf._graph.get_edge_data(cbf_wf, ds_calibration_wf)['connect']
+        to_ds_native = wf._graph.get_edge_data(cbf_wf, ds_native_wf)['connect']
+        to_ds_mean_cbf = ds_native_wf._graph.get_edge_data(
+            ds_native_wf.get_node('inputnode'),
+            ds_mean_cbf,
+        )['connect']
 
     assert ds_calibration.inputs.desc == 'calibration'
     assert ds_calibration.inputs.suffix == 'parameters'
     assert wf.get_node('ds_calibration_wf.ds_report_calibration') is not None
-    calibration = write_calibration.inputs.calibration
-    assert calibration == compute_cbf.inputs.calibration
-    model = ds_mean_cbf.interface._metadata['Model']
-    assert 'ASLPrep' in model['Description']
-    assert model['Parameters']['BloodT1'] == calibration['Parameters']['BloodT1']['Value']
+    # The file, report and sidecars record the specification completed at run time
+    assert ('outputnode.calibration', 'inputnode.calibration') in to_ds_calibration
+    assert ('outputnode.model_metadata', 'inputnode.model_metadata') in to_ds_native
+    # The Model metadata reaches the sidecar at run time, not as a fixed sink argument
+    assert 'Model' not in ds_mean_cbf.interface._metadata
+    (source, _, args), _ = next(
+        connection for connection in to_ds_mean_cbf if connection[1] == 'meta_dict'
+    )
+    assert source == 'model_metadata'
+    assert args == ('mean_cbf',)
 
 
 def test_calibration_summary(tmp_path):
