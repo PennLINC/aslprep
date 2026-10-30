@@ -185,7 +185,8 @@ its median, the median was used.
         workflow.connect([
             (inputnode, register, [
                 ('t1w_preproc', 'fixed_image'),
-                ('t1w_mask', 'fixed_image_mask'),
+                # fixed_image_mask is deprecated (nipype refuses it for ANTs > 2.1.0)
+                ('t1w_mask', 'fixed_image_masks'),
             ]),
             (register, xfm, [(('forward_transforms', _first), 'xfm')]),
         ])  # fmt:skip

@@ -190,6 +190,7 @@ sections:
   - bids: {datatype: figures, desc: rois, suffix: asl, extension: [.svg]}
     caption: |
       Brain mask calculated on the ASL signal (red contour).
+    subtitle: Brain mask and (anatomical/temporal) CompCor ROIs
   - bids:
       datatype: figures
       desc: '[at]compcor'
@@ -210,6 +211,13 @@ sections:
       cerebellum (green), white matter and CSF (red), indicated by the color map on the left-hand side.
       The SCORE index with values greater than zero indicates which volume(s) are removed by SCORE.
     subtitle: CBF Summary
+  - bids: {datatype: figures, desc: calibration, suffix: asl, extension: [.html]}
+    caption: |
+      The calibration and physiological parameters used to quantify CBF, by every model.
+      The source of each value is the command line ("user"), the BIDS metadata ("metadata"),
+      a calculation from other acquisition parameters ("inferred"), or a default from the
+      literature ("default"). The same values are in the desc-calibration_parameters.json file.
+    subtitle: Calibration
   - bids: {datatype: figures, desc: brain, suffix: cbf, extension: [.svg]}
     caption: |
       The maps plot cerebral blood flow (CBF) for basic CBF.
@@ -233,6 +241,23 @@ sections:
       which is common in the later slices of 2D acquisitions, because slice timing adds to their
       delays. The right-hand panel shows the fraction of brain voxels with each status in every
       slice, and the earliest delay of each slice, including its slice-timing offset.
+  - subtitle: External Arterial Transit Time
+    bids: {datatype: figures, desc: external, suffix: att, extension: [.svg]}
+    caption: |
+      The arterial transit time (ATT) used by the tissue-T1 model for this single-delay run.
+      It was not estimated from this run: a single delay cannot separate ATT from CBF.
+      It was taken from the ATT map of a multi-delay run of the same participant (named in the
+      figure title), and resampled onto this run's ASL reference grid through that run's
+      transform to the anatomical image and this run's transform from it.
+      The top row shows where each brain voxel's ATT came from.
+      The middle row shows ATT where the multi-delay run measured it.
+      The bottom row shows ATT where that run did not locate it, filled with the median of the
+      measured gray and white matter values, weighted by this voxel's tissue fractions and
+      clipped into the multi-delay run's interval: these values are imputed, and so is the CBF
+      quantified with them. Voxels without an ATT get no CBF.
+      The right-hand panel shows the fraction of brain, gray matter and white matter voxels with
+      each status. Errors in the multi-delay ATT, or in either registration, carry over into
+      this run's CBF.
   - subtitle: Arterial Bolus Arrival Time
     bids: {datatype: figures, desc: brain, suffix: abat, extension: [.svg]}
     caption: |

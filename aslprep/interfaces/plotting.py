@@ -500,6 +500,198 @@ class ATTStatusPlot(SimpleInterface):
         return runtime
 
 
+class _ExternalATTPlotInputSpec(BaseInterfaceInputSpec):
+    att = File(
+        exists=True,
+        mandatory=True,
+        desc="External ATT map on this run's ASL reference grid, including filled voxels.",
+    )
+    att_status = File(
+        exists=True,
+        mandatory=True,
+        desc='External ATT status map (see aslprep.utils.att.EXTERNAL_ATT_STATUS).',
+    )
+    ref_vol = File(exists=True, mandatory=True, desc='ASL reference image.')
+    mask = File(exists=True, mandatory=True, desc='Brain mask.')
+    gm_pv = File(exists=True, mandatory=True, desc='Gray matter partial volume map.')
+    wm_pv = File(exists=True, mandatory=True, desc='White matter partial volume map.')
+    source_name = traits.Str(mandatory=True, desc='The multi-delay ATT map the ATT came from.')
+    n_cuts = traits.Int(5, usedefault=True, desc='Number of cuts to show.')
+
+
+class _ExternalATTPlotOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The figure.')
+
+
+class ExternalATTPlot(SimpleInterface):
+    """Plot the arterial transit time a single-delay run took from a multi-delay run.
+
+    The ATT is not estimated from the single-delay data: it is resampled from the multi-delay
+    run's map, and filled where that run did not locate it.
+    The top row shows the status of each brain voxel
+    (:data:`~aslprep.utils.att.EXTERNAL_ATT_STATUS`),
+    the middle row the ATT the multi-delay run measured,
+    and the bottom row the filled ATT, with other brain voxels in gray.
+    The right-hand panel shows the fraction of brain, gray matter and white matter voxels with
+    each status.
+    """
+
+    input_spec = _ExternalATTPlotInputSpec
+    output_spec = _ExternalATTPlotOutputSpec
+
+    def _run_interface(self, runtime):
+        import os
+
+        import matplotlib.pyplot as plt
+        from matplotlib.colors import ListedColormap
+        from matplotlib.patches import Patch
+        from nibabel.affines import apply_affine
+        from nilearn import plotting
+
+        status_img = nb.load(self.inputs.att_status)
+        ref_img = nb.load(self.inputs.ref_vol)
+        affine = status_img.affine
+        att, status, mask, gm_pv, wm_pv = (
+            np.squeeze(nb.load(fname).get_fdata())
+            for fname in (
+                self.inputs.att,
+                self.inputs.att_status,
+                self.inputs.mask,
+                self.inputs.gm_pv,
+                self.inputs.wm_pv,
+            )
+        )
+        status = np.round(status).astype(int)
+        mask = mask > 0
+
+        # Short labels of aslprep.utils.att.EXTERNAL_ATT_STATUS
+        labels = {
+            0: ('no ATT', '#555555'),
+            1: ('measured by the multi-delay run', '#2da467'),
+            2: ('filled, clipped into its interval', '#1b60a5'),
+            3: ('filled, without an interval', '#7fb3e0'),
+            4: ('not filled (--att-fill none)', '#bdbdbd'),
+            5: ('not filled: too little GM and WM', '#9d8f25'),
+            6: ("no tissue signal at this run's delay", '#c0392b'),
+            7: ('not filled: no GM or WM median', '#8e44ad'),
+        }
+        n_levels = max(labels) + 1
+        status_cmap = ListedColormap([labels[level][1] for level in range(n_levels)])
+
+        # Sagittal cuts, which show how the ATT changes along the superior-inferior axis
+        world = apply_affine(affine, np.argwhere(mask))
+        cuts = np.percentile(world[:, 0], np.linspace(15, 85, self.inputs.n_cuts))
+
+        fig = plt.figure(figsize=(20, 11))
+        grid = fig.add_gridspec(
+            3,
+            2,
+            width_ratios=[3.2, 1],
+            wspace=0.15,
+            hspace=0.25,
+            left=0.03,
+            right=0.98,
+            top=0.9,
+            bottom=0.06,
+        )
+        common = {
+            'bg_img': ref_img,
+            'display_mode': 'x',
+            'cut_coords': cuts,
+            'figure': fig,
+            'black_bg': False,
+            'draw_cross': False,
+            'annotate': True,
+        }
+
+        # Status, shifted up by one so that background voxels (zero) are not drawn
+        shifted = nb.Nifti1Image(np.where(mask, status + 1, 0).astype(np.uint8), affine)
+        plotting.plot_roi(
+            shifted,
+            axes=fig.add_subplot(grid[0, 0]),
+            title='External ATT status',
+            cmap=status_cmap,
+            vmin=0.5,
+            vmax=n_levels + 0.5,
+            alpha=0.9,
+            # The legend next to the fractions names the colors
+            colorbar=False,
+            **common,
+        )
+
+        rows = (
+            ('ATT measured by the multi-delay run (s)', (1,)),
+            ('ATT filled by tissue median (s)', (2, 3)),
+        )
+        for row, (title, codes) in enumerate(rows, start=1):
+            shown = mask & np.isin(status, codes)
+            display = plotting.plot_stat_map(
+                nb.Nifti1Image(np.where(shown, att, 0).astype(np.float32), affine),
+                axes=fig.add_subplot(grid[row, 0]),
+                title=title,
+                cmap='viridis',
+                vmin=0,
+                vmax=3,
+                symmetric_cbar=False,
+                threshold=1e-6,
+                colorbar=True,
+                resampling_interpolation='nearest',
+                **common,
+            )
+            if (mask & ~shown).any():
+                display.add_overlay(
+                    nb.Nifti1Image((mask & ~shown).astype(np.uint8), affine),
+                    cmap=ListedColormap(['#bdbdbd']),
+                    threshold=0.5,
+                )
+
+        # Fraction of the voxels of the brain and of each tissue with each status
+        groups = {
+            'Brain': mask,
+            'GM (PV >= 0.5)': mask & (gm_pv >= 0.5),
+            'WM (PV >= 0.5)': mask & (wm_pv >= 0.5),
+        }
+        # The legend goes below the bars, beside the bottom row
+        ax = fig.add_subplot(grid[:2, 1])
+        positions = np.arange(len(groups))[::-1]
+        left = np.zeros(len(groups))
+        for level, (label, color) in labels.items():
+            fraction = np.array(
+                [(sel & (status == level)).sum() / max(sel.sum(), 1) for sel in groups.values()]
+            )
+            ax.barh(positions, fraction, left=left, height=0.6, color=color, label=label)
+            left += fraction
+        ax.set_yticks(positions, labels=list(groups))
+        ax.set_xlim(0, 1)
+        ax.set_xlabel('Fraction of voxels')
+        ax.legend(
+            handles=[Patch(color=color, label=label) for label, color in labels.values()],
+            loc='upper center',
+            bbox_to_anchor=(0.5, -0.12),
+            ncol=1,
+            fontsize=9,
+            frameon=False,
+        )
+
+        source = os.path.basename(self.inputs.source_name.split(':')[-1])
+        measured = mask & (status == 1)
+        fig.suptitle(
+            f'Arterial transit time taken from the multi-delay run ({source}), not estimated '
+            f'from this run.\nMeasured there in {100 * measured.sum() / max(mask.sum(), 1):.1f}% '
+            'of brain voxels; filled values are imputed.'
+        )
+
+        self._results['out_file'] = fname_presuffix(
+            self.inputs.att_status,
+            suffix='_externalattplot.svg',
+            use_ext=False,
+            newpath=runtime.cwd,
+        )
+        fig.savefig(self._results['out_file'])
+        plt.close(fig)
+        return runtime
+
+
 class _PVCDiagnosticsPlotInputSpec(BaseInterfaceInputSpec):
     mean_cbf = File(exists=True, mandatory=True, desc='Uncorrected mean CBF.')
     gm_cbf = File(exists=True, mandatory=True, desc='Gray matter CBF after LR PVC.')

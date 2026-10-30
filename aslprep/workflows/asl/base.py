@@ -281,6 +281,35 @@ def init_asl_wf(
     # specification at run time, and its outputs carry the version every output records,
     # with the "Model" sidecar dictionary of each model, as in BIDS diffusion derivatives
     # (BEP 016).
+    # Single-delay data need each voxel's ATT for the tissue-T1 model, from a multi-delay run
+    external_att = None
+    if (
+        processing_target != 'cbf'
+        and not is_multi_pld
+        and config.workflow.kinetic_model == 'tissue-t1'
+        and 'att' not in config.workflow.ignore
+    ):
+        from aslprep.utils.att import check_external_att_metadata
+        from aslprep.utils.bids import collect_external_att
+
+        entities = layout.parse_file_entities(asl_file)
+        external_att = collect_external_att(
+            config.execution.derivatives or {},
+            entities['subject'],
+            session_id=entities.get('session'),
+            bids_filters=config.execution.bids_filters,
+            layout=layout,
+        )
+        if external_att is not None:
+            for warning in check_external_att_metadata(
+                external_att['metadata'],
+                external_att['source_metadata'],
+                metadata,
+                external_att['uri'],
+                asl_file,
+            ):
+                config.loggers.workflow.warning(warning)
+
     calibration = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
@@ -298,6 +327,7 @@ def init_asl_wf(
             haematocrit_source=run_data.get('haematocrit_source'),
             basil=basil,
             kinetic_model=config.workflow.kinetic_model,
+            external_att=external_att is not None,
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')
@@ -585,8 +615,51 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         asl_effective_resolution=config.workflow.asl_effective_resolution,
         calibration=calibration,
         t1map=t1map,
+        external_att=external_att,
         name='cbf_wf',
     )
+    if external_att is not None:
+        workflow.connect([
+            (inputnode, cbf_wf, [('t1w_preproc', 'inputnode.t1w_preproc')]),
+            (asl_fit_wf, cbf_wf, [('outputnode.coreg_aslref', 'inputnode.aslref')]),
+        ])  # fmt:skip
+        # Its base directory and source file are set with the other reportlets' (below)
+        ds_report_external_att = pe.Node(
+            DerivativesDataSink(datatype='figures', desc='external', suffix='att'),
+            name='ds_report_external_att',
+            run_without_submitting=True,
+            mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+        )
+        workflow.connect([
+            (cbf_wf, ds_report_external_att, [('outputnode.external_att_report', 'in_file')]),
+        ])  # fmt:skip
+        # The ATT the run used, on its ASL reference grid. Like the partial volume maps, it is an
+        # input of the model, so it is written in every mode.
+        for field, suffix in (('external_att', 'att'), ('external_att_status', 'attstatus')):
+            ds_external_att = pe.Node(
+                DerivativesDataSink(
+                    base_directory=config.execution.aslprep_dir,
+                    source_file=asl_file,
+                    desc='external',
+                    suffix=suffix,
+                    compress=True,
+                    dismiss_entities=('echo',),
+                    **({'Units': 's'} if suffix == 'att' else {}),
+                ),
+                name=f'ds_{field}',
+                run_without_submitting=True,
+                mem_gb=config.DEFAULT_MEMORY_MIN_GB,
+            )
+            workflow.connect([
+                (cbf_wf, ds_external_att, [
+                    (f'outputnode.{field}', 'in_file'),
+                    (
+                        ('outputnode.external_att_summary', _external_att_metadata, suffix),
+                        'meta_dict',
+                    ),
+                ]),
+            ])  # fmt:skip
+
     if t1map is not None:
         workflow.connect([
             (inputnode, cbf_wf, [
@@ -1442,6 +1515,24 @@ def _tissue_t1_metadata(summary, tissue):
         ),
         'TissueT1Method': summary,
     }
+
+
+def _external_att_metadata(summary, suffix):
+    """Describe the external ATT a single-delay run used, or its status, for the sidecars."""
+    if suffix == 'att':
+        description = (
+            'Arterial transit time used by the tissue-T1 kinetic model for this single-delay '
+            f"run, from the multi-delay run {summary['Source']}, resampled onto this run's ASL "
+            'reference grid. Where that run did not locate it, it is the median of the located '
+            'values, weighted by tissue (see the status map). Zero where there is none.'
+        )
+    else:
+        description = 'Where the arterial transit time of the desc-external_att map came from.'
+
+    out = {'Description': description, 'Sources': [summary['Source']], 'ExternalATT': summary}
+    if suffix == 'attstatus':
+        out['Levels'] = summary['StatusLevels']
+    return out
 
 
 def _read_json(in_file):

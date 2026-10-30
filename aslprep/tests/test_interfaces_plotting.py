@@ -7,8 +7,10 @@ import pytest
 from aslprep.interfaces.plotting import (
     ATTStatusPlot,
     CBFByTissueTypePlot,
+    ExternalATTPlot,
     MultiPLDByTissueTypePlot,
 )
+from aslprep.utils.att import EXTERNAL_ATT_STATUS
 from aslprep.utils.cbf import ATT_STATUS
 
 
@@ -38,6 +40,35 @@ def test_att_status_plot(tmp_path, slice_axis, with_seg):
     results = ATTStatusPlot(slice_axis=slice_axis, **files).run(cwd=tmp_path)
     assert results.outputs.out_file.endswith('.svg')
     assert '<svg' in open(results.outputs.out_file).read(2000)
+
+
+def test_external_att_plot(tmp_path):
+    """The external ATT figure renders every status, and its title names the source run."""
+    rng = np.random.default_rng(0)
+    shape = (12, 10, 8)
+    mask = np.zeros(shape, np.uint8)
+    mask[2:-2, 2:-2, 1:-1] = 1
+    gm_pv = rng.uniform(0, 1, shape)
+    data = {
+        'att': rng.uniform(0.5, 2.0, shape),
+        'att_status': rng.choice(list(EXTERNAL_ATT_STATUS), shape).astype(np.uint8),
+        'ref_vol': rng.uniform(0, 1000, shape),
+        'mask': mask,
+        'gm_pv': gm_pv,
+        'wm_pv': 1 - gm_pv,
+    }
+    files = {}
+    for name, arr in data.items():
+        files[name] = str(tmp_path / f'{name}.nii.gz')
+        nb.Nifti1Image(arr, np.eye(4)).to_filename(files[name])
+
+    source = 'bids:multi:sub-01/perf/sub-01_acq-multidelay_att.nii.gz'
+    results = ExternalATTPlot(source_name=source, **files).run(cwd=tmp_path)
+    svg = open(results.outputs.out_file).read()
+    assert svg.startswith('<?xml') or '<svg' in svg[:2000]
+    # The figure says the ATT came from the multi-delay run, not from this run
+    assert 'sub-01_acq-multidelay_att.nii.gz' in svg
+    assert 'not estimated' in svg
 
 
 def _write_maps(tmp_path, shape=(12, 12, 6)):

@@ -643,6 +643,9 @@ class workflow(_Config):
     """How the tissue-T1 model uses a T1 map: ``median`` or ``local-regression``."""
     t1map_kernel_size = 7.0
     """Edge, in mm, of the cube in which ``local-regression`` unmixes the T1 map."""
+    att_fill = 'median'
+    """How single-delay tissue-T1 CBF fills voxels where the external ATT was not located:
+    ``median`` or ``none``."""
     pvc_method = 'none'
     """Additional partial volume correction of the CBF maps: ``none`` or ``local-regression``."""
     asl_effective_resolution = 'nominal'

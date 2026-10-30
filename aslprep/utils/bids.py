@@ -420,6 +420,169 @@ def collect_t1map(layout, derivatives, subject_id, session_id=None, bids_filters
     }
 
 
+def collect_external_att(
+    derivatives,
+    subject_id,
+    session_id=None,
+    bids_filters=None,
+    layout=None,
+):
+    """Find an ATT map from an ASLPrep multi-delay run, for single-delay tissue-T1 CBF.
+
+    Each derivatives dataset is searched, in order, for a native-space ATT map
+    (``perf/*_att.nii[.gz]`` without a ``space`` or ``desc`` entity) of the participant, and the
+    first dataset with one is used. The map's status and interval maps, the transform from its
+    run's ASL reference to the anatomical image, and the dataset's preprocessed T1w image must
+    be there too: they say where ATT was located, and how to bring it onto another run's grid.
+
+    Parameters
+    ----------
+    derivatives : :obj:`dict`
+        Derivatives datasets, as ``{name: path}`` (``config.execution.derivatives``).
+    subject_id : :obj:`str`
+        The participant label, without ``sub-``.
+    session_id : :obj:`str` or None, optional
+        The ASL run's session, or None.
+    bids_filters : :obj:`dict` or None, optional
+        The ``--bids-filter-file`` filters. An ``att`` entry narrows the query.
+    layout : :obj:`bids.layout.BIDSLayout` or None, optional
+        The raw dataset, in which the multi-delay run's own ASL sidecar is looked for.
+
+    Returns
+    -------
+    :obj:`dict` or None
+        None if there is no ATT map. Otherwise, the paths ``att``, ``att_status``,
+        ``att_ci_lower``, ``att_ci_upper``, ``aslref2anat`` and ``t1w_preproc``, the ATT map's
+        sidecar (``metadata``), a BIDS URI naming it (``uri``), and the multi-delay run's raw
+        ASL metadata (``source_metadata``), or None if that run is not in ``layout``.
+
+    Raises
+    ------
+    ValueError
+        If the first dataset with an ATT map has more than one, or lacks one of the other files.
+    """
+    from bids.layout import Query
+
+    query = {
+        'subject': subject_id,
+        'datatype': 'perf',
+        'suffix': 'att',
+        'extension': ['.nii', '.nii.gz'],
+        # The map in its run's own ASL reference space, where its status and intervals are
+        'space': Query.NONE,
+        'desc': Query.NONE,
+        **((bids_filters or {}).get('att') or {}),
+    }
+    if session_id is not None:
+        query['session'] = session_id
+
+    att = None
+    for name, path in derivatives.items():
+        dataset = _get_layout(Path(path))
+        found = dataset.get(return_type='file', **query)
+        if len(found) > 1:
+            raise ValueError(
+                f'Found {len(found)} ATT maps for sub-{subject_id} in {dataset.root}: '
+                f'{sorted(found)}. Use the "att" key of --bids-filter-file to select one.'
+            )
+
+        if found:
+            att, label = found[0], name
+            break
+
+    if att is None:
+        return None
+
+    entities = dataset.parse_file_entities(att)
+    run_entities = {
+        key: entities[key]
+        for key in (
+            'subject',
+            'session',
+            'task',
+            'acquisition',
+            'reconstruction',
+            'direction',
+            'run',
+        )
+        if key in entities
+    }
+    companions = {
+        'att_status': {'suffix': 'attstatus', 'space': Query.NONE, 'desc': Query.NONE},
+        'att_ci_lower': {'suffix': 'att', 'space': Query.NONE, 'desc': 'ciLower'},
+        'att_ci_upper': {'suffix': 'att', 'space': Query.NONE, 'desc': 'ciUpper'},
+    }
+    result = {'att': att}
+    for key, companion in companions.items():
+        result[key] = _lookup(
+            dataset,
+            f'external ATT {key}',
+            {'datatype': 'perf', 'extension': ['.nii', '.nii.gz'], **companion},
+            run_entities,
+        )
+
+    _spec = json.loads(load_data.readable('io_spec.json').read_text())['queries']
+    result['aslref2anat'] = _lookup(
+        dataset,
+        'external ATT aslref2anat',
+        _spec['transforms']['aslref2anat'],
+        run_entities,
+    )
+    # The anatomical image of the session, or else of the subject
+    anat_query = {
+        'subject': subject_id,
+        'datatype': 'anat',
+        'space': Query.NONE,
+        'desc': 'preproc',
+        'suffix': 'T1w',
+        'extension': ['.nii', '.nii.gz'],
+    }
+    result['t1w_preproc'] = None
+    if entities.get('session'):
+        result['t1w_preproc'] = _lookup(
+            dataset,
+            'external ATT t1w_preproc',
+            anat_query,
+            {'session': entities['session']},
+        )
+
+    if result['t1w_preproc'] is None:
+        result['t1w_preproc'] = _lookup(
+            dataset,
+            'external ATT t1w_preproc',
+            anat_query,
+            {'session': Query.NONE},
+        )
+
+    missing = [key for key, value in result.items() if value is None]
+    if missing:
+        raise ValueError(
+            f'The ATT map {att} lacks the {", ".join(missing)} file(s) of the same run in '
+            f'{dataset.root}, which are needed to use it. Run ASLPrep on that multi-delay run '
+            'with its native-space outputs (--level minimal or resampling, or asl in '
+            '--output-spaces), or use --ignore att.'
+        )
+
+    # Not resolved, so that a DataLad (git-annex) symlink still lies inside its dataset
+    relpath = Path(os.path.relpath(os.path.abspath(att), os.path.abspath(dataset.root)))
+    result['metadata'] = dataset.get_metadata(att)
+    result['uri'] = f'bids:{label}:{relpath.as_posix()}'
+    # The multi-delay run's acquisition, which ASLPrep's ATT sidecars do not record
+    result['source_metadata'] = None
+    if layout is not None:
+        sources = layout.get(
+            return_type='file',
+            datatype='perf',
+            suffix='asl',
+            extension=['.nii', '.nii.gz'],
+            **{key: value for key, value in run_entities.items() if key != 'task'},
+        )
+        if len(sources) == 1:
+            result['source_metadata'] = layout.get_metadata(sources[0])
+
+    return result
+
+
 def explain_missing_asl(layout, subject_id):
     """Explain why no ASL runs were found, when the dataset's location is the cause.
 

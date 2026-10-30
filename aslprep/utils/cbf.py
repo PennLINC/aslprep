@@ -1633,6 +1633,92 @@ def get_array_module(use_gpu=False):
     return cupy
 
 
+def quantify_single_delay_tissue_t1(
+    deltam_arr,
+    scaled_m0data,
+    plds,
+    att,
+    *,
+    labeleff,
+    t1blood,
+    partition_coefficient,
+    is_casl,
+    bolus,
+    t1prime,
+    tissue_weights,
+    min_relative_basis=0.1,
+):
+    """Quantify single-delay CBF with the tissue-T1 model, given each voxel's ATT.
+
+    With ATT known, the tissue-T1 model is linear in CBF at a single delay, so CBF is delta-M
+    divided by M0a times the model's tissue basis (:func:`_gkm_tissue_basis`), in each volume.
+    As in the single-delay consensus model, there is no arterial term.
+
+    Parameters
+    ----------
+    deltam_arr : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        Delta-M.
+    scaled_m0data : :obj:`numpy.ndarray` of shape (n_voxels,)
+        M0, scaled, corrected and thresholded as for the consensus model.
+    plds : :obj:`numpy.ndarray`
+        Delays, broadcastable to ``deltam_arr``: post-labeling delays for (P)CASL, inversion
+        times for PASL, including slice timing.
+    att : :obj:`numpy.ndarray` of shape (n_voxels,)
+        ATT, in seconds, NaN where there is none.
+    labeleff, t1blood, partition_coefficient, is_casl
+        As for :func:`fit_deltam_multipld`.
+    bolus : :obj:`float` or :obj:`numpy.ndarray`
+        The labeling duration for (P)CASL, or TI1 for PASL.
+    t1prime, tissue_weights : :obj:`numpy.ndarray`
+        The tissues' apparent T1s and their weights, of shape (n_tissues,) or
+        (n_voxels, n_tissues).
+    min_relative_basis : :obj:`float`
+        Voxels whose basis, in any volume, is below this fraction of the basis with all of the
+        label arrived (ATT of zero) get no CBF: their ATT leaves almost no tissue signal at this
+        delay (ATT near or beyond the end of the bolus), so delta-M would be amplified by noise.
+
+    Returns
+    -------
+    cbf_ts : :obj:`numpy.ndarray` of shape (n_voxels, n_volumes)
+        CBF, in mL/100 g/min, zero where it is not quantified.
+    has_att : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Voxels with a finite, non-negative ATT.
+    has_signal : :obj:`numpy.ndarray` of shape (n_voxels,)
+        Voxels with an ATT whose basis is large enough, where CBF is quantified.
+    """
+    deltam_arr = np.asarray(deltam_arr, dtype=float)
+    n_voxels = deltam_arr.shape[0]
+    plds = np.broadcast_to(np.asarray(plds, dtype=float), deltam_arr.shape)
+    att = np.asarray(att, dtype=float)
+    has_att = np.isfinite(att) & (att >= 0)
+    t1prime = np.broadcast_to(np.atleast_1d(np.asarray(t1prime, dtype=float)), (n_voxels, 2))
+    tissue_weights = np.broadcast_to(
+        np.atleast_1d(np.asarray(tissue_weights, dtype=float)),
+        (n_voxels, 2),
+    )
+    kwargs = {
+        'plds': plds,
+        'bolus': np.asarray(bolus, dtype=float),
+        'is_casl': is_casl,
+        'labeleff': labeleff,
+        't1blood': t1blood,
+        'xp': np,
+        't1prime': t1prime,
+        'tissue_weights': tissue_weights,
+    }
+    basis = _gkm_tissue_basis(np.where(has_att, att, 0.0)[:, None], **kwargs)
+    arrived = _gkm_tissue_basis(np.zeros((n_voxels, 1)), **kwargs)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        relative = np.where(arrived > 0, basis / arrived, 0.0)
+        has_signal = has_att & np.all(relative >= min_relative_basis, axis=1)
+        m0a = np.asarray(scaled_m0data, dtype=float) / partition_coefficient
+        cbf_ts = deltam_arr / (m0a[:, None] * basis)
+
+    cbf_ts = np.where(has_signal[:, None], cbf_ts, 0.0)
+    cbf_ts = np.nan_to_num(cbf_ts, nan=0, posinf=0, neginf=0)
+    return cbf_ts, has_att, has_signal
+
+
 def fit_deltam_multipld(
     deltam_arr,
     scaled_m0data,

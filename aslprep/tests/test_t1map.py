@@ -434,6 +434,19 @@ def test_init_t1map_wf(identity, companion):
         source = wf.get_node('inputnode') if companion else wf.get_node('prepare_t1map')
         edge = wf._graph.get_edge_data(source, register)['connect']
         assert (('companion' if companion else 'r1'), 'moving_image') in edge
+        edge = wf._graph.get_edge_data(wf.get_node('inputnode'), register)['connect']
+        assert ('t1w_mask', 'fixed_image_masks') in edge
+        # nipype refuses an input with a maximum ANTs version only when the node runs, so check
+        # every input that is set or connected here
+        connected = {
+            field
+            for *_, data in wf._graph.in_edges(register, data=True)
+            for _, field in data['connect']
+        }
+        names = connected | set(register.inputs.get_traitsfree())
+        traits = register.interface.inputs.traits()
+        deprecated = sorted(name for name in names if traits[name].max_ver is not None)
+        assert not deprecated, f'inputs deprecated for newer ANTs: {deprecated}'
 
 
 @pytest.mark.parametrize(

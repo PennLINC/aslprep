@@ -951,8 +951,8 @@ Choices this model makes:
 
 Local-regression partial volume correction fits each tissue's curve with that tissue's
 :math:`T_1'` alone. BASIL always uses its own model.
-The model is only available for multi-delay data:
-at a single delay, it would need a separate estimate of ATT.
+At a single delay, the model needs a separate estimate of ATT, which it takes from a multi-delay
+run of the participant (see :ref:`single_delay_tissue_t1`).
 
 
 .. _tissue_t1_from_t1map:
@@ -1038,6 +1038,73 @@ of the cortex).
   a T1 map fitted from an inversion-recovery or MP2RAGE sequence need not follow it exactly.
   Segmentation and registration errors at tissue boundaries bias the separated R1s more than they
   bias the medians, which only use pure voxels. Check the registration panel of the report.
+
+
+.. _single_delay_tissue_t1:
+
+Single-Delay Data with an ATT Map
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+At a single delay, the data cannot say when the label arrived, so the tissue-T1 model needs each
+voxel's arterial transit time (ATT) from elsewhere. *ASLPrep* takes it from a multi-delay run of
+the participant, processed by *ASLPrep* with ``--kinetic-model tissue-t1``, and given to this run
+with ``--derivatives``. Without such a map, single-delay runs with ``--kinetic-model tissue-t1``
+stop with an error; ``--ignore att`` stops *ASLPrep* from looking for one.
+
+- **Finding the map.** In each ``--derivatives`` dataset, *ASLPrep* looks for a native-space ATT
+  map of the participant (and session): ``perf/*_att.nii.gz``, without a ``space`` or ``desc``
+  entity, which *ASLPrep* writes with ``--level minimal`` or ``resampling``, or with ``asl`` in
+  ``--output-spaces``. It also needs that run's ``attstatus`` map, its ``desc-ciLower`` and
+  ``desc-ciUpper`` ATT maps, its ``from-aslref_to-T1w`` transform, and the dataset's
+  ``desc-preproc_T1w`` image. Several ATT maps are an error; the ``att`` key of
+  ``--bids-filter-file`` selects one, for example ``{"att": {"acquisition": "multipld"}}``.
+- **Which ATT.** The map must come from the tissue-T1 model, which its sidecar's ``Model``
+  records. A consensus-model map is refused: in that model the label decays with the T1 of blood
+  throughout, which biases ATT, most of all in white matter. ATT depends on where the label is
+  applied, so labeling types or labeling distances that differ between the runs are reported,
+  from the multi-delay run's own sidecar in the raw dataset; when that run is not in the raw
+  dataset, or only one of the runs records its labeling distance, a warning says that the
+  labeling could not be compared. Field strengths that differ between the runs are reported
+  too.
+- **Bringing it onto this run's grid.** Both runs must have been registered to the same
+  anatomical image, which *ASLPrep* checks. Giving the multi-delay run's dataset to
+  ``--derivatives`` reuses its anatomical derivatives; with several ``--derivatives`` datasets,
+  the last one with anatomical derivatives takes precedence, so list that dataset last.
+  Each voxel of this run's ASL
+  reference is then mapped to the anatomical image through this run's transform, and from there
+  to the multi-delay run's reference through that run's. ATT is interpolated linearly from the
+  voxels where the multi-delay fit located it (``attstatus`` 1), normalized by their weight, so
+  that values from elsewhere do not blend in; a voxel counts as measured when at least half of
+  its weight is located. The ATT intervals are interpolated in the same way, and the status with
+  the nearest neighbor. The multi-delay run usually has a coarser resolution, so its ATT is
+  smooth on this run's grid.
+- **Filling the rest** (``--att-fill``). With ``median`` (the default), a voxel where ATT was not
+  located, with at least 1% gray and white matter, gets the medians of the measured ATTs in gray
+  and white matter (weighted by partial volume), combined with the same weights as the tissue
+  terms, and clipped into the voxel's own ATT interval from the multi-delay fit when it has one.
+  So the fill stays within what the multi-delay data allowed: where ATT was only bounded above
+  (it may have arrived before the earliest delay), the fill is at most that bound. The interval
+  is interpolated from neighboring voxels' intervals, so it is a guide rather than a confidence
+  interval with known coverage. The CBF of filled voxels is imputed by the model. With ``none``,
+  those voxels get no CBF.
+- **Thresholds.** The 50% located weight, the 1% tissue needed to fill and the 10% signal
+  needed to quantify (below) are heuristic choices, not values validated on data.
+- **Quantification.** With ATT known, the model is linear in CBF at one delay, so CBF is
+  calculated for each volume by dividing delta-M by the M0 of blood times the model's tissue
+  signal per unit CBF, with slice-timed delays and without an arterial term. The CBF time series
+  is kept, so SCORE/SCRUB and local-regression partial volume correction work as usual. Voxels
+  whose tissue signal is below 10% of its value with all of the label arrived (ATT near or after
+  the end of the bolus) get no CBF, as their delta-M would be mostly noise.
+  PASL needs the bolus duration, so only QUIPSS II and Q2TIPS are supported.
+- **Outputs.** The ATT used is written as ``desc-external_att``, and where it came from as
+  ``desc-external_attstatus`` (0: no ATT, outside the multi-delay run's coverage or the brain
+  mask, or where the multi-delay fit failed; 1: measured; 2: filled and clipped into the
+  interval; 3: filled, without an interval; 4: not filled, with ``--att-fill none``; 5: too little
+  tissue to fill; 6: no tissue signal at this run's delay; 7: not filled, because no gray or no
+  white matter median could be measured), both on the ASL reference grid. Restrict analyses to
+  status 1 for CBF that does not depend on the fill.
+- **Not covered.** BASIL keeps its own model. The external ATT is not resampled to other output
+  spaces. The tissue signal of a mixed voxel shares one ATT between gray and white matter.
 
 
 .. _multidelay_identifiability:

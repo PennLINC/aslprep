@@ -451,6 +451,19 @@ They are zero where the voxel has none of the tissue; the calibration parameters
 used there. Their sidecars describe how they were made, and the fraction of each tissue whose T1
 was estimated locally rather than taken from the median.
 
+For single-delay runs with ``--kinetic-model tissue-t1``, the arterial transit time taken from a
+multi-delay run (see :ref:`single_delay_tissue_t1`), and where it came from in each voxel, are
+written on the ASL reference grid::
+
+   sub-<label>/[ses-<label>/]
+      perf/
+         <source_entities>_desc-external_att.nii.gz  # ATT used in each voxel, in s (aslref only)
+         <source_entities>_desc-external_attstatus.nii.gz  # measured, filled, or none (aslref only)
+
+Their sidecars name the multi-delay run's ATT map (``Sources``), the fill (``--att-fill``) and the
+gray and white matter medians, and the status sidecar describes its levels.
+The CBF of filled voxels (status 2 and 3) is imputed by the model.
+
 The JSON sidecar of each quantitative map, in every output space, also describes the model that
 produced the map, in a ``Model`` dictionary organized as proposed for BIDS diffusion derivatives
 (`BEP 016 <https://github.com/bids-standard/bids-specification/pull/2258>`_).

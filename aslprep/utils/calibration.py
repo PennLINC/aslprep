@@ -125,6 +125,7 @@ def resolve_calibration(
     haematocrit_source=None,
     basil=False,
     kinetic_model='consensus',
+    external_att=False,
 ):
     """Resolve the calibration and physiological parameters for an ASL run.
 
@@ -150,7 +151,11 @@ def resolve_calibration(
         Whether BASIL also quantifies CBF. Adds the parameters that only BASIL uses.
     kinetic_model : {"consensus", "tissue-t1"}, optional
         ASLPrep's kinetic model (``--kinetic-model``). ``tissue-t1`` adds the gray and white
-        matter T1s and nominal CBFs it uses, and is only available for multi-delay data.
+        matter T1s and nominal CBFs it uses, and is only available for multi-delay data, or
+        for single-delay data with ``external_att``.
+    external_att : :obj:`bool`, optional
+        Whether an ATT map from a multi-delay run is available, for the tissue-T1 model of
+        single-delay data (see :func:`~aslprep.utils.bids.collect_external_att`).
 
     Returns
     -------
@@ -183,10 +188,16 @@ def resolve_calibration(
             f'Unknown kinetic model {kinetic_model!r}; expected one of {KINETIC_MODELS}.'
         )
 
-    if kinetic_model == 'tissue-t1' and not determine_multi_pld(metadata=metadata):
+    if (
+        kinetic_model == 'tissue-t1'
+        and not external_att
+        and not determine_multi_pld(metadata=metadata)
+    ):
         raise ValueError(
-            'The tissue-T1 kinetic model (--kinetic-model tissue-t1) is only available for '
-            'multi-delay data. Single-delay data need an arterial transit time to use it.'
+            'The tissue-T1 kinetic model (--kinetic-model tissue-t1) needs an arterial transit '
+            'time map for single-delay data: the ATT map of a multi-delay run of the '
+            'participant, processed with --kinetic-model tissue-t1, in a --derivatives dataset '
+            '(and not excluded with --ignore att).'
         )
 
     params = {}
@@ -826,7 +837,15 @@ def describe_model(calibration, model, *, asl_type, multi_delay):
         raise ValueError(f'Unknown model {model!r}; expected one of {MODELS}.')
 
     delays = 'multi-delay' if multi_delay else 'single-delay'
-    if calibration_kinetic_model(calibration) == 'tissue-t1':
+    if calibration_kinetic_model(calibration) == 'tissue-t1' and not multi_delay:
+        kinetic_model = (
+            'single-compartment general kinetic model (Buxton et al., 1998), in which the labeled '
+            'blood water decays with the T1 of blood until it reaches the tissue and with the '
+            'apparent T1 of gray and white matter afterwards, weighted by their partial volumes '
+            "and nominal CBFs in mixed voxels, with each voxel's arterial transit time taken from "
+            'a multi-delay run'
+        )
+    elif calibration_kinetic_model(calibration) == 'tissue-t1':
         kinetic_model = (
             'two-compartment general kinetic model, with tissue and macrovascular terms '
             '(Buxton et al., 1998; Woods et al., 2023), in which the labeled blood water decays '

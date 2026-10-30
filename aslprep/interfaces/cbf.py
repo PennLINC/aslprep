@@ -41,6 +41,7 @@ from aslprep.utils.cbf import (
     fit_deltam_multipld,
     get_array_module,
     multipld_bolus,
+    quantify_single_delay_tissue_t1,
     slice_shifted_delays,
     tissue_mixing_weights,
     voxel_delays,
@@ -391,6 +392,21 @@ class _ComputeCBFInputSpec(BaseInterfaceInputSpec):
         exists=True,
         desc='White matter T1 (s) in each voxel, on the grid of deltam, likewise.',
     )
+    external_att = File(
+        exists=True,
+        desc=(
+            'Arterial transit time (s) on the grid of deltam, from a multi-delay run, for '
+            'single-delay data with the tissue-T1 kinetic model (see '
+            'aslprep.interfaces.att.ExternalATT). Required by that model for single-delay data.'
+        ),
+    )
+    external_att_status = File(
+        exists=True,
+        desc=(
+            'Where external_att came from (see aslprep.utils.att.EXTERNAL_ATT_STATUS). '
+            'Voxels without an ATT get no CBF.'
+        ),
+    )
 
 
 class _ComputeCBFOutputSpec(TraitedSpec):
@@ -525,6 +541,14 @@ class _ComputeCBFOutputSpec(TraitedSpec):
             'Mask of voxels where CBF could be quantified: M0 is finite and positive, and the '
             'delta-M values and quantification factor are finite. '
             'Only generated with write_calibration, and not for scanner-provided CBF.'
+        ),
+    )
+    external_att_status = traits.Either(
+        File(exists=True),
+        None,
+        desc=(
+            'external_att_status, with the voxels whose ATT leaves no tissue signal at this '
+            "run's delay (status 6), which get no CBF. Only generated with external_att."
         ),
     )
 
@@ -680,44 +704,43 @@ class ComputeCBF(SimpleInterface):
         # tau is defined for (P)CASL
         tau = metadata['LabelingDuration'] if is_casl else None
 
+        def _on_grid(in_file):
+            # The masker samples by array index, so the grids must be the same.
+            img = nb.load(in_file)
+            if img.shape != dims or not np.allclose(img.affine, deltam_img.affine, atol=1e-3):
+                raise ValueError(f'{in_file} does not match the delta-M grid ({dims}).')
+
+            return np.ravel(masker.transform(in_file))
+
+        # The tissue-T1 model weights the gray and white matter bases in each voxel
+        tissue_kwargs = {}
+        tissue_t1 = tissue_t1_kinetics(calibration)
+        if tissue_t1 is not None:
+            if not (isdefined(self.inputs.gm_pv) and isdefined(self.inputs.wm_pv)):
+                raise ValueError(
+                    'The tissue-T1 kinetic model needs gray and white matter partial '
+                    'volume maps (gm_pv and wm_pv).'
+                )
+
+            pvs = [_on_grid(pv_file) for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv)]
+            t1prime = tissue_t1['t1prime']
+            if isdefined(self.inputs.gm_t1) and isdefined(self.inputs.wm_t1):
+                t1_files = (self.inputs.gm_t1, self.inputs.wm_t1)
+                tissue_t1s = np.column_stack([_on_grid(f) for f in t1_files])
+                t1prime = voxelwise_tissue_t1prime(calibration, tissue_t1s)
+
+            tissue_kwargs = {
+                't1prime': t1prime,
+                'tissue_weights': tissue_mixing_weights(*pvs, *tissue_t1['nominal_cbf']),
+            }
+
+        self._results['external_att_status'] = None
+        # Single-delay voxels where the quantification factor is defined
+        single_delay_valid = None
+
         # Now estimate CBF and any other metrics
         if is_multi_pld:
             tau, ti1 = multipld_bolus(metadata, is_casl)
-
-            # The tissue-T1 model weights the gray and white matter bases in each voxel
-            tissue_kwargs = {}
-            tissue_t1 = tissue_t1_kinetics(calibration)
-            if tissue_t1 is not None:
-                if not (isdefined(self.inputs.gm_pv) and isdefined(self.inputs.wm_pv)):
-                    raise ValueError(
-                        'The tissue-T1 kinetic model needs gray and white matter partial '
-                        'volume maps (gm_pv and wm_pv).'
-                    )
-
-                def _on_grid(in_file):
-                    # The masker samples by array index, so the grids must be the same.
-                    img = nb.load(in_file)
-                    if img.shape != dims or not np.allclose(
-                        img.affine,
-                        deltam_img.affine,
-                        atol=1e-3,
-                    ):
-                        raise ValueError(f'{in_file} does not match the delta-M grid ({dims}).')
-
-                    return np.ravel(masker.transform(in_file))
-
-                pvs = [_on_grid(pv_file) for pv_file in (self.inputs.gm_pv, self.inputs.wm_pv)]
-                t1prime = tissue_t1['t1prime']
-                if isdefined(self.inputs.gm_t1) and isdefined(self.inputs.wm_t1):
-                    t1_files = (self.inputs.gm_t1, self.inputs.wm_t1)
-                    tissue_t1s = np.column_stack([_on_grid(f) for f in t1_files])
-                    t1prime = voxelwise_tissue_t1prime(calibration, tissue_t1s)
-
-                tissue_kwargs = {
-                    't1prime': t1prime,
-                    'tissue_weights': tissue_mixing_weights(*pvs, *tissue_t1['nominal_cbf']),
-                }
-
             cbf, att, abat, abv, failures, bounds = fit_deltam_multipld(
                 deltam_arr=deltam_arr,
                 scaled_m0data=scaled_m0data,
@@ -820,6 +843,71 @@ class ComputeCBF(SimpleInterface):
             at_bound_img.set_data_dtype(np.uint8)
             at_bound_img.to_filename(self._results['abv_at_bound'])
 
+        elif tissue_kwargs:
+            # Single-delay data with the tissue-T1 model, with each voxel's ATT from a
+            # multi-delay run
+            if not (
+                isdefined(self.inputs.external_att) and isdefined(self.inputs.external_att_status)
+            ):
+                raise ValueError(
+                    'The tissue-T1 kinetic model needs an arterial transit time map for '
+                    'single-delay data (external_att and external_att_status).'
+                )
+
+            if not is_casl and metadata.get('BolusCutOffTechnique') not in ('QUIPSSII', 'Q2TIPS'):
+                raise ValueError(
+                    'The tissue-T1 kinetic model needs the bolus duration (TI1) of single-delay '
+                    'PASL data, which only QUIPSS II and Q2TIPS give.'
+                )
+
+            tau, ti1 = multipld_bolus(metadata, is_casl)
+            status = _on_grid(self.inputs.external_att_status).round().astype(np.uint8)
+            external_att = _on_grid(self.inputs.external_att)
+            external_att = np.where(np.isin(status, (1, 2, 3)), external_att, np.nan)
+            cbf_ts, has_att, has_signal = quantify_single_delay_tissue_t1(
+                deltam_arr,
+                scaled_m0data,
+                plds,
+                external_att,
+                labeleff=labeleff,
+                t1blood=t1blood,
+                partition_coefficient=partition_coefficient,
+                is_casl=is_casl,
+                bolus=tau if is_casl else ti1,
+                **tissue_kwargs,
+            )
+            status = np.where(has_att & ~has_signal, 6, status).astype(np.uint8)
+            single_delay_valid = has_signal
+            n_no_signal = int((has_att & ~has_signal).sum())
+            if n_no_signal:
+                config.loggers.interface.warning(
+                    f'{n_no_signal} voxel(s) have an external ATT that leaves almost no tissue '
+                    "signal at this run's delay, so they get no CBF."
+                )
+
+            status_img = masker.inverse_transform(status.astype(float))
+            status_img = nb.Nifti1Image(
+                np.asarray(status_img.dataobj).astype(np.uint8),
+                status_img.affine,
+            )
+            self._results['external_att_status'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_external_attstatus',
+                newpath=runtime.cwd,
+            )
+            status_img.to_filename(self._results['external_att_status'])
+
+            cbf_ts_img = masker.inverse_transform(cbf_ts.T)
+            mean_cbf_img = image.mean_img(cbf_ts_img)
+            self._results['cbf_ts'] = fname_presuffix(
+                self.inputs.deltam,
+                suffix='_cbf',
+                newpath=runtime.cwd,
+            )
+            cbf_ts_img.to_filename(self._results['cbf_ts'])
+            # The ATT is an input here, not an estimate
+            self._results['att'] = None
+
         else:  # Single-delay
             if is_casl:
                 denom_factor = t1blood * (1 - np.exp(-(tau / t1blood)))
@@ -879,6 +967,10 @@ class ComputeCBF(SimpleInterface):
 
             cbf_ts = deltam_scaled * perfusion_factor
             cbf_ts = np.nan_to_num(cbf_ts, nan=0, posinf=0, neginf=0)
+            single_delay_valid = np.all(
+                np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)),
+                axis=1,
+            )
             cbf_ts_img = masker.inverse_transform(cbf_ts.T)
             mean_cbf_img = image.mean_img(cbf_ts_img)
             self._results['cbf_ts'] = fname_presuffix(
@@ -903,9 +995,7 @@ class ComputeCBF(SimpleInterface):
                 & np.all(np.isfinite(np.broadcast_to(plds, deltam_arr.shape)), axis=1)
             )
             if not is_multi_pld:
-                quant_valid &= np.all(
-                    np.isfinite(np.broadcast_to(perfusion_factor, deltam_arr.shape)), axis=1
-                )
+                quant_valid &= single_delay_valid
             self._results['m0_calib'] = fname_presuffix(
                 self.inputs.deltam,
                 suffix='_m0calib',
