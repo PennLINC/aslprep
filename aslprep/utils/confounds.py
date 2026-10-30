@@ -497,7 +497,9 @@ def compute_background_suppression_qc(
     control = data[..., is_control]
     label = data[..., is_label]
     floor, background = estimate_noise_floor(
-        data[..., is_control | is_label], mask_arr, img.header.get_zooms()[:3]
+        data[..., is_control | is_label],
+        mask_arr,
+        img.header.get_zooms()[:3],
     )
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio = np.sqrt(np.mean(control**2, axis=-1)) / floor
@@ -507,7 +509,7 @@ def compute_background_suppression_qc(
     metrics['bs_noise_floor'] = floor
     if np.isfinite(floor):
         metrics['bs_perc_voxels_near_noise_floor'] = 100 * float(
-            np.mean(ratio[mask_arr] < BS_NEAR_FLOOR_RATIO)
+            np.mean(ratio[mask_arr] < BS_NEAR_FLOOR_RATIO),
         )
 
     if gm is None or csf is None:
@@ -536,7 +538,7 @@ def compute_background_suppression_qc(
 
     if profile['signal_floor_ratio_median'].notna().any():
         metrics['bs_csf_profile_signal_floor_ratio_min'] = float(
-            profile['signal_floor_ratio_median'].min()
+            profile['signal_floor_ratio_median'].min(),
         )
     dm = profile['deltam_median']
     scale = dm.abs().max()

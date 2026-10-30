@@ -147,7 +147,9 @@ def test_bs_qc_needs_control_and_label(tmp_path):
     files = _phantom(tmp_path, tissue=300, csf_signal=200, deltam=30)
     n_volumes = nb.load(files['asl_file']).shape[-1]
     pd.DataFrame({'volume_type': ['deltam'] * n_volumes}).to_csv(
-        files['aslcontext'], sep='\t', index=False
+        files['aslcontext'],
+        sep='\t',
+        index=False,
     )
     qc = compute_background_suppression_qc(**files)
 
@@ -159,7 +161,9 @@ def test_bs_qc_without_tissue_maps(tmp_path):
     """Without tissue maps, only the floor measures are computed."""
     files = _phantom(tmp_path, tissue=300, csf_signal=200, deltam=30)
     metrics = compute_background_suppression_qc(
-        asl_file=files['asl_file'], aslcontext=files['aslcontext'], mask=files['mask']
+        asl_file=files['asl_file'],
+        aslcontext=files['aslcontext'],
+        mask=files['mask'],
     )['metrics']
 
     assert np.isfinite(metrics['bs_noise_floor'])
@@ -179,7 +183,9 @@ def test_cbf_qc_interface_bs_columns(tmp_path, with_aslcontext):
     nb.Nifti1Image(np.full(SHAPE, 50.0, dtype=np.float32), mask.affine).to_filename(cbf_file)
     confounds_file = str(tmp_path / 'confounds.tsv')
     pd.DataFrame({'framewise_displacement': [0.1], 'rmsd': [0.05]}).to_csv(
-        confounds_file, sep='\t', index=False
+        confounds_file,
+        sep='\t',
+        index=False,
     )
     wm_file = str(tmp_path / 'wm.nii.gz')
     nb.Nifti1Image(np.zeros(SHAPE, dtype=np.float32), mask.affine).to_filename(wm_file)
@@ -204,6 +210,7 @@ def test_cbf_qc_interface_bs_columns(tmp_path, with_aslcontext):
     for key in BS_QC_METADATA:
         assert key in qc_df.columns
         assert metadata[key]['LongName']
+
     if with_aslcontext:
         assert qc_df['bs_csf_profile_deltam_min'].iloc[0] == pytest.approx(-1)
     else:

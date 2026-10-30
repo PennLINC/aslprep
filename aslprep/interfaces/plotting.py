@@ -858,7 +858,10 @@ class BackgroundSuppressionPlot(SimpleInterface):
         for i_slice, k in enumerate(slices):
             ax_map = fig.add_subplot(grid[0, i_slice])
             im_ratio = ax_map.imshow(
-                np.rot90(ratio[:, :, k]), cmap='magma', vmin=0, vmax=ratio_vmax
+                np.rot90(ratio[:, :, k]),
+                cmap='magma',
+                vmin=0,
+                vmax=ratio_vmax,
             )
             near_floor = mask[:, :, k] & (ratio[:, :, k] < BS_NEAR_FLOOR_RATIO)
             ax_map.imshow(
@@ -910,7 +913,10 @@ class BackgroundSuppressionPlot(SimpleInterface):
             ax_dm.plot(centers, profile['deltam_median'] / scale, 'o-', color='#2da467')
         ax_ratio.axhline(1, color='#c0392b', linestyle='--', label='noise floor')
         ax_ratio.axhline(
-            BS_NEAR_FLOOR_RATIO, color='#9d8f25', linestyle=':', label='twice the noise floor'
+            BS_NEAR_FLOOR_RATIO,
+            color='#9d8f25',
+            linestyle=':',
+            label='twice the noise floor',
         )
         ax_ratio.set_ylim(bottom=0)
         ax_ratio.set_ylabel('Control / noise floor\n(median and IQR)')
@@ -938,7 +944,10 @@ class BackgroundSuppressionPlot(SimpleInterface):
         fig.tight_layout()
 
         self._results['out_file'] = fname_presuffix(
-            self.inputs.asl_file, suffix='_bsplot.svg', use_ext=False, newpath=runtime.cwd
+            self.inputs.asl_file,
+            suffix='_bsplot.svg',
+            use_ext=False,
+            newpath=runtime.cwd,
         )
         fig.savefig(self._results['out_file'])
         plt.close(fig)
