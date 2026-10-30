@@ -1,5 +1,6 @@
 """Functions for calculating and collecting confounds."""
 
+import itertools
 import os
 
 import nibabel as nb
@@ -338,6 +339,213 @@ def compute_clipped_voxel_percentage(in_file, mask):
     max_value = data[finite].max()
     clipped = np.any(data == max_value, axis=3)
     return 100.0 * np.sum(clipped & mask_bool) / n_voxels
+
+
+#: Upper edges of the CSF partial volume bins of the background-suppression profile.
+BS_CSF_BINS = np.linspace(0, 1, 11)
+#: Signal-to-floor ratio below which a voxel counts as near the noise floor.
+#: At twice the floor, a magnitude image keeps about 87% of the label-control difference.
+BS_NEAR_FLOOR_RATIO = 2.0
+
+
+def _resample_to(img, target, interpolation):
+    """Resample ``img`` to the grid of the 3D or 4D image ``target`` when the grids differ."""
+    from nilearn import image
+
+    if img.shape[:3] == target.shape[:3] and np.allclose(img.affine, target.affine):
+        return img
+    return image.resample_to_img(
+        img,
+        image.index_img(target, 0) if target.ndim > 3 else target,
+        interpolation=interpolation,
+        force_resample=True,
+        copy_header=True,
+    )
+
+
+def estimate_noise_floor(data, mask, zooms, margin=20.0):
+    """Estimate the magnitude noise floor from the background of an image series.
+
+    In a magnitude image, a voxel with no signal does not read zero: it reads the
+    magnitude of the noise (Rayleigh-distributed for one receive channel and noncentral
+    chi for a sum-of-squares or adaptive coil combination).
+    For any of these, the mean squared magnitude is the squared true signal plus the
+    squared floor, :math:`E[M^2] = A^2 + F^2`, where :math:`F^2` is the mean squared
+    magnitude of pure noise.
+
+    Parameters
+    ----------
+    data : :obj:`numpy.ndarray` of shape (X, Y, Z, T)
+        Magnitude images, as acquired.
+    mask : :obj:`numpy.ndarray` of shape (X, Y, Z)
+        Boolean brain mask.
+    zooms : :obj:`tuple` of :obj:`float`
+        Voxel size in mm.
+    margin : :obj:`float`
+        Background voxels are farther than this many mm from the brain mask,
+        which leaves out the skull and scalp.
+
+    Returns
+    -------
+    floor : :obj:`float`
+        Root mean squared magnitude of the background, in the units of ``data``.
+        NaN if fewer than 100 background voxels have nonzero values in every volume
+        (for example, when the scanner sets the background to zero).
+    background : :obj:`numpy.ndarray` of shape (X, Y, Z)
+        The background voxels used.
+    """
+    from scipy import ndimage
+
+    distance = ndimage.distance_transform_edt(~mask, sampling=zooms)
+    background = (distance > margin) & np.all(data > 0, axis=3) & np.all(np.isfinite(data), axis=3)
+    if background.sum() < 100:
+        return np.nan, background
+
+    # The median over voxels ignores bright structures outside the brain (face, neck, ghosts).
+    # Each voxel's mean over volumes is close to symmetric, so its median is close to its mean.
+    mean_square = np.mean(data[background] ** 2, axis=1)
+    return float(np.sqrt(np.median(mean_square))), background
+
+
+def compute_background_suppression_qc(
+    asl_file,
+    aslcontext,
+    mask,
+    gm=None,
+    csf=None,
+    tpm_threshold=0.7,
+    min_bin_voxels=20,
+):
+    """Measure how close background-suppressed control and label images are to zero.
+
+    Background suppression lowers the static tissue signal at readout.
+    Scanners usually reconstruct magnitude images, which have two consequences
+    when the suppressed signal is small:
+
+    1.  Near the noise floor, the magnitude overestimates the signal, and the
+        label-control difference (delta-M) is compressed.
+        A voxel whose mean squared control magnitude is :math:`M^2` keeps about
+        :math:`\\sqrt{1 - F^2 / M^2}` of its delta-M, where :math:`F` is the noise floor.
+    2.  If the static magnetization is inverted at readout, the magnitude flips its sign.
+        Labeling lowers the signed magnetization, so the label image is then *brighter*
+        than the control image and delta-M is negative.
+        Tissue and CSF have different T1s, so they cross zero at different readout times.
+        When one is inverted and the other is not, the net magnetization of voxels that
+        mix them passes through zero, and the magnitude dips to the noise floor.
+
+    Both are summarized along the tissue-to-CSF partial volume axis:
+    the median signal-to-floor ratio and the median delta-M in bins of CSF fraction.
+
+    Parameters
+    ----------
+    asl_file : :obj:`str`
+        ASL series, as acquired (not resampled or motion corrected).
+    aslcontext : :obj:`str`
+        The ``aslcontext.tsv`` file of ``asl_file``.
+    mask : :obj:`str`
+        Binary brain mask. Resampled to ``asl_file``'s grid if needed.
+    gm, csf : :obj:`str` or None
+        Gray matter and CSF probability maps. Resampled to ``asl_file``'s grid if needed.
+        Without them, only the noise floor and the near-floor percentage are computed.
+    tpm_threshold : :obj:`float`
+        Probability threshold for the gray matter mask.
+    min_bin_voxels : :obj:`int`
+        Bins of the CSF profile with fewer voxels are left out.
+
+    Returns
+    -------
+    :obj:`dict`
+        ``metrics`` (scalar QC measures), ``profile`` (a DataFrame with one row per CSF
+        bin), and the arrays ``signal_floor_ratio`` (root mean squared control magnitude
+        over the floor), ``deltam`` (mean control minus mean label magnitude), ``mask``,
+        and ``background``, plus the ``affine`` of ``asl_file``.
+        Measures that cannot be computed are NaN: all of them for series without both
+        control and label volumes, and all but the CSF delta-M profile when there is no
+        background to estimate the floor from.
+    """
+    img = nb.load(asl_file)
+    context = pd.read_table(aslcontext)['volume_type'].to_numpy()
+    mask_arr = _resample_to(nb.load(mask), img, 'nearest').get_fdata() > 0
+    shape = img.shape[:3]
+
+    metrics = dict.fromkeys(
+        (
+            'bs_noise_floor',
+            'bs_gm_signal_floor_ratio',
+            'bs_gm_deltam_retained',
+            'bs_perc_voxels_near_noise_floor',
+            'bs_csf_profile_signal_floor_ratio_min',
+            'bs_csf_profile_deltam_min',
+        ),
+        np.nan,
+    )
+    out = {
+        'metrics': metrics,
+        'profile': pd.DataFrame(),
+        'signal_floor_ratio': np.full(shape, np.nan),
+        'deltam': np.full(shape, np.nan),
+        'mask': mask_arr,
+        'background': np.zeros(shape, dtype=bool),
+        'affine': img.affine,
+    }
+    is_control = context == 'control'
+    is_label = context == 'label'
+    if img.ndim != 4 or not is_control.any() or not is_label.any() or not mask_arr.any():
+        return out
+
+    data = img.get_fdata()
+    control = data[..., is_control]
+    label = data[..., is_label]
+    floor, background = estimate_noise_floor(
+        data[..., is_control | is_label],
+        mask_arr,
+        img.header.get_zooms()[:3],
+    )
+    with np.errstate(divide='ignore', invalid='ignore'):
+        ratio = np.sqrt(np.mean(control**2, axis=-1)) / floor
+        retained = np.sqrt(np.clip(1 - 1 / ratio**2, 0, 1))
+    deltam = control.mean(axis=-1) - label.mean(axis=-1)
+    out.update(signal_floor_ratio=ratio, deltam=deltam, background=background)
+    metrics['bs_noise_floor'] = floor
+    if np.isfinite(floor):
+        metrics['bs_perc_voxels_near_noise_floor'] = 100 * float(
+            np.mean(ratio[mask_arr] < BS_NEAR_FLOOR_RATIO),
+        )
+
+    if gm is None or csf is None:
+        return out
+
+    gm_arr, csf_arr = (
+        _resample_to(nb.load(tpm), img, 'continuous').get_fdata() for tpm in (gm, csf)
+    )
+    gm_mask = mask_arr & (gm_arr >= tpm_threshold)
+    if gm_mask.any() and np.isfinite(floor):
+        metrics['bs_gm_signal_floor_ratio'] = float(np.median(ratio[gm_mask]))
+        metrics['bs_gm_deltam_retained'] = float(np.median(retained[gm_mask]))
+
+    rows = []
+    for low, high in itertools.pairwise(BS_CSF_BINS):
+        in_bin = mask_arr & (csf_arr >= low) & ((csf_arr < high) | (high == BS_CSF_BINS[-1]))
+        n_voxels = int(in_bin.sum())
+        row = {'csf_low': low, 'csf_high': high, 'n_voxels': n_voxels}
+        enough = n_voxels >= min_bin_voxels
+        for name, arr in (('signal_floor_ratio', ratio), ('deltam', deltam)):
+            q25, q50, q75 = np.percentile(arr[in_bin], [25, 50, 75]) if enough else [np.nan] * 3
+            row.update({f'{name}_q25': q25, f'{name}_median': q50, f'{name}_q75': q75})
+        rows.append(row)
+    profile = pd.DataFrame(rows)
+    out['profile'] = profile
+
+    if profile['signal_floor_ratio_median'].notna().any():
+        metrics['bs_csf_profile_signal_floor_ratio_min'] = float(
+            profile['signal_floor_ratio_median'].min(),
+        )
+    dm = profile['deltam_median']
+    scale = dm.abs().max()
+    if dm.notna().any() and scale > 0:
+        metrics['bs_csf_profile_deltam_min'] = float(dm.min() / scale)
+
+    return out
 
 
 def _load_one_image(nii_file):

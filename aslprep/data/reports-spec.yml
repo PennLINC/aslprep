@@ -191,6 +191,19 @@ sections:
     caption: |
       Brain mask calculated on the ASL signal (red contour).
     subtitle: Brain mask and (anatomical/temporal) CompCor ROIs
+  - bids: {datatype: figures, desc: backgroundSuppression, suffix: asl, extension: [.svg]}
+    caption: |
+      Background suppression lowers the static signal of the control and label images.
+      In magnitude images, a signal close to the noise floor is overestimated, which compresses
+      the label-control difference (delta-M), and a magnetization that is inverted at readout
+      has its sign flipped, which makes the label image brighter than the control image.
+      The maps show the control signal over the noise floor (the magnitude of the background;
+      cyan: brain voxels below twice the floor, which lose more than about 13% of delta-M)
+      and delta-M (blue: label brighter than control), in the ASL file as acquired.
+      The profiles show both against the CSF fraction of brain voxels.
+      If tissue and CSF have opposite signs at readout, the signal dips to the floor at an
+      intermediate CSF fraction and delta-M is negative on one side of the dip.
+    subtitle: Background suppression and the noise floor
   - bids:
       datatype: figures
       desc: '[at]compcor'
