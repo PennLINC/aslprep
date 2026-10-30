@@ -57,3 +57,19 @@ def test_generate_reports_per_subject(tmp_path, monkeypatch):
     assert out_files[1] == 'sub-02_anat.html'
     assert out_files[2:] == [f'sub-02_ses-{ses}_asl.html' for ses in sessions['02']]
     assert calls[1]['bootstrap_file'] != calls[0]['bootstrap_file']
+
+
+def test_asl_sections_match():
+    """The per-session report spec has the same ASL reportlets as the per-subject one."""
+    from pathlib import Path
+
+    import yaml
+
+    from aslprep.data import load as load_data
+
+    def asl_section(name):
+        spec = yaml.safe_load(Path(load_data(name)).read_text())
+        sections = {section['name']: section for section in spec['sections']}
+        return sections['Arterial Spin Labeling']
+
+    assert asl_section('reports-spec-asl.yml') == asl_section('reports-spec.yml')
