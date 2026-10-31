@@ -252,9 +252,26 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   test (gate 1) gives every arm `C0 = C*` without optimizing (ANTs at zero iterations, FLIRT
   `-applyxfm`) and reads the result back as the arm's own: passes on `rc_pcasl` and
   `rc_pcasl_flip` for S1, S2, Q1, J1, S1-inv (2e-5 mm) and FSL BBR from the conventional
-  reference (both signs), P-winsor and P-masked (5e-9 mm). The capture range of the comparators
-  (R0, R1, R2) runs after the freeze below; the ANTs arms' in Task 4. The production
-  chain's robustness (`mri_coreg` kept) is not built yet.
+  reference (both signs), P-winsor, P-masked and P-mean (5e-9 mm). The ANTs arms' capture range
+  runs in Task 4. The production chain's robustness (`mri_coreg` kept) is not built yet.
+- Capture range of the comparators (2026-10-31, after the freeze below; 17 development
+  fixtures, 80 starts each; `task3/capture/comparators.tsv`). R1 uses the rule's sign per
+  fixture. Converged share at 2 / 5 / 10 / 15 mm:
+
+  | Comparator | With fMRIPrep's fallback | Optimizer alone |
+  |---|---|---|
+  | R0 | 71 / 71 / 0 / 0% | 71% at every level |
+  | R1 | 100 / 100 / 0 / 0% | 100% at every level (worst 0.46 mm) |
+  | R2 | 100 / 100 / 0 / 0% | 100% at every level (worst 0.84 mm) |
+
+  R0 misses every start on the five fixtures the default sign misses (`rc_grase`,
+  `rc_grase_off2`, `rc_grase_raw`, `st_spiral`, `st_spiral_raw`). The zeros at 10 and 15 mm
+  come from the fallback check, not from BBR. The starts are 13–20 mm RMS from the truth, so the
+  correct answer moves more than the check's 15 mm limit from the start, and the check returns
+  the start. Deviation: `capture.py` now also records the optimizer's result before the check
+  (`optimizer_*`, rescored from the results on disk with `--rescore`), since with the check no
+  FSL arm can show a capture range beyond about 15 mm. Capture range is reported on both
+  results.
 - `review.py` (a Task 1 item not built until now): the blinded figures, batches with repeats
   (sides swapped, later in the batch) and known-answer pairs (1, 2, 4 mm), and the key in a
   separate file. Deviation: slices are placed from the ASL brain mask's extent, not the T1w

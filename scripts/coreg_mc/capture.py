@@ -8,7 +8,10 @@ many mm along a random direction, then a rotation of that many degrees about a r
 draws per level. The draws are drawn once from a fixed seed, so every arm and fixture gets the
 same ones. FSL arms run FLIRT-BBR from ``C0`` with ``mri_coreg`` skipped (fMRIPrep's fallback
 check then compares BBR with ``C0``); ANTs arms take ``C0`` as ``--initial-moving-transform``.
-A draw converges if the result is within 0.5 acquisition voxel of ``C*``.
+A draw converges if the result is within 0.5 acquisition voxel of ``C*``. The table also scores
+the optimizer's result before the fallback check (``optimizer_*``): the check keeps ``C0`` when
+BBR moved more than 15 mm from it, so with it no FSL arm can recover from a start that far off.
+``--rescore`` scores results already on disk without running the arms.
 
 ``--identity-test`` checks the input conventions instead (gate 1, "the unperturbed start scores
 zero"): each arm is given ``C0 = C*`` and run without optimizing (ANTs with zero iterations,
@@ -151,20 +154,25 @@ def arm_lines(arm, tag, identity):
 
 
 def read_result(work, arm, tag, c0):
-    """(pull or None, fallback) for one arm and start, as the arm's own result is read."""
+    """(pull or None, fallback, optimizer's pull or None) for one arm and start.
+
+    The first is the arm's own result, after fMRIPrep's fallback check for FSL arms; the last is
+    the optimizer's result before that check.
+    """
     kind, name, _ = parse_arm(arm)
     result = work / 'capture' / f'{tag}__{arm.replace(" ", "_")}'
     if kind == 'ANTs':
-        return run_ants.read_ants(work, name, Path(f'{result}_0GenericAffine.mat')), False
+        pull = run_ants.read_ants(work, name, Path(f'{result}_0GenericAffine.mat'))
+        return pull, False, pull
 
     mat = Path(f'{result}.mat')
     if not mat.exists():
-        return None, False
+        return None, False, None
 
     image = SOURCES[name][0]
     bbr = _pull(mat, nb.load(work / f'{image}.nii.gz'), nb.load(work / 't1w_brain.nii.gz'))
     fallback = fmriprep_fallback(c0, bbr)
-    return (c0 if fallback else bbr), fallback
+    return (c0 if fallback else bbr), fallback, bbr
 
 
 def run_fixture(name, args):
@@ -181,20 +189,22 @@ def run_fixture(name, args):
             for level, i, direction, axis in draws()
         ]
 
-    shutil.rmtree(work / 'capture', ignore_errors=True)
-    (work / 'capture').mkdir()
-    lines = ['S=$FSLDIR/etc/flirtsch/bbr.sch']
-    for tag, _level, _draw, p in starts:
-        start_files(work, tag, truth @ p)
-        for arm in args.arms:
-            lines += arm_lines(arm, tag, args.identity_test)
+    if not args.rescore:
+        shutil.rmtree(work / 'capture', ignore_errors=True)
+        (work / 'capture').mkdir()
+        lines = ['S=$FSLDIR/etc/flirtsch/bbr.sch']
+        for tag, _level, _draw, p in starts:
+            start_files(work, tag, truth @ p)
+            for arm in args.arms:
+                lines += arm_lines(arm, tag, args.identity_test)
 
-    run_ants.run_script(work, 'capture.sh', lines)
+        run_ants.run_script(work, 'capture.sh', lines)
+
     rows = []
     for tag, level, draw, p in starts:
         c0 = truth @ p
         for arm in args.arms:
-            est, fallback = read_result(work, arm, tag, c0)
+            est, fallback, optimizer = read_result(work, arm, tag, c0)
             row = {
                 'fixture': name,
                 'arm': arm,
@@ -206,9 +216,15 @@ def run_fixture(name, args):
             }
             if est is None:
                 row |= {'error_mm': np.nan, 'converged': False, 'problem': 'no transform'}
+                row |= {'optimizer_error_mm': np.nan, 'optimizer_converged': False}
             else:
                 error = scoring.distance(est, truth, points)
                 row |= {'error_mm': error, 'converged': error <= CONVERGED_VOXELS * voxel}
+                error = scoring.distance(optimizer, truth, points)
+                row |= {
+                    'optimizer_error_mm': error,
+                    'optimizer_converged': error <= CONVERGED_VOXELS * voxel,
+                }
             rows.append(row)
     return rows
 
@@ -223,6 +239,11 @@ def main(argv=None):
     p.add_argument('--arms', nargs='+', required=True)
     p.add_argument('--identity-test', action='store_true')
     p.add_argument('--parallel', type=int, default=4)
+    p.add_argument(
+        '--rescore',
+        action='store_true',
+        help='score the results already under <work>/<fixture>/capture without running the arms',
+    )
     args = p.parse_args(argv)
     for arm in args.arms:
         parse_arm(arm)
@@ -239,7 +260,9 @@ def main(argv=None):
             print('IDENTITY PASS' if ok else 'IDENTITY FAIL')
             return 0 if ok else 1
 
-        print(df.pivot_table(index='arm', columns='level', values='converged', aggfunc='mean'))
+        for column in ('converged', 'optimizer_converged'):
+            print(column)
+            print(df.pivot_table(index='arm', columns='level', values=column, aggfunc='mean'))
     return 0
 
 

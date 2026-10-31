@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Walkthrough HTML report of Task 3's comparator evidence: R1's sign rule and R2's D3 level.
 
-Reads ``freeze_comparators.py``'s ``fixtures.tsv`` and ``real.tsv`` and writes one Artifact page
+Reads ``freeze_comparators.py``'s ``fixtures.tsv`` and ``real.tsv`` (and, with ``--capture``,
+``capture.py``'s table of the comparators' capture range) and writes one Artifact page
 fragment (no doctype or ``<html>``/``<body>``). The chart helpers and styling are the HMC probe's
 (``scripts/hmc_probe/report.py``). Every number in the prose is computed here from the data.
 
@@ -509,12 +510,103 @@ can say which run of a pair is wrong.</p>
 </section>"""
 
 
-def build(freeze):
+# ---------------------------------------------------------------------------------------------
+# Capture range of the frozen comparators
+# ---------------------------------------------------------------------------------------------
+def capture_comparators(capture, fix):
+    """``capture.py``'s table with one ``comparator`` per row: R0, R1 (the rule's sign) and R2."""
+    contrast = fix.drop_duplicates('fixture').set_index('fixture')['contrast']
+    sign = capture['arm'].str.split().str[-1]
+    conventional = capture['arm'].str.startswith('FSL conventional')
+    rule = capture['fixture'].map(contrast).map(rule_sign)
+    parts = [
+        capture[capture['arm'] == 'FSL conventional BBR default'].assign(comparator='R0'),
+        capture[conventional & (sign == rule)].assign(comparator='R1'),
+        capture[capture['arm'] == 'FSL P-mean BBR default'].assign(comparator='R2'),
+    ]
+    return pd.concat(parts, ignore_index=True)
+
+
+def section_capture(capture, fix):
+    c = capture_comparators(capture, fix)
+    levels = sorted(c['level'].unique())
+    start = c.groupby('level')['start_error_mm'].median()
+    rows = []
+    for comparator, g in c.groupby('comparator'):
+        by = g.groupby('level')
+        rows.append(
+            [comparator, 'with the fallback']
+            + [f'{v:.0%}' for v in by['converged'].mean().reindex(levels)],
+        )
+        rows.append(
+            ['', 'optimizer alone']
+            + [f'{v:.0%}' for v in by['optimizer_converged'].mean().reindex(levels)],
+        )
+    head = ['Comparator', 'Result'] + [
+        f'{lv:g} mm/&deg; (start {fmt(start[lv])} mm)' for lv in levels
+    ]
+    table = plain_table(head, rows, num_cols=tuple(range(2, 2 + len(levels))))
+    n_fix = c['fixture'].nunique()
+    draws = int(c.groupby(['comparator', 'level']).size().iloc[0] / n_fix)
+    r0 = c[c['comparator'] == 'R0']
+    r0_miss = sorted(f for f, g in r0.groupby('fixture') if not g['optimizer_converged'].any())
+    r0_misses = ', '.join(f'<code>{esc(f)}</code>' for f in r0_miss)
+    low = c[c['level'] <= 5]
+    low_fallback = low.groupby('comparator')['fallback'].mean()
+    flat = all(
+        g.groupby('level')['optimizer_converged'].mean().nunique() == 1
+        for _, g in c.groupby('comparator')
+    )
+    rule_ok = c[c['comparator'].isin(['R1', 'R2'])]['optimizer_converged'].all()
+    worst = c[c['comparator'].isin(['R1', 'R2'])].groupby('comparator')['optimizer_error_mm'].max()
+    top = max(levels)
+    verb = 'converges' if rule_ok else 'does not always converge'
+    high = c.loc[c['level'] >= 10, 'converged'].mean()
+    bullet = (
+        f'<li><b>Capture range: BBR {verb} from {top:g} mm and {top:g}&deg; with R1 and R2.</b> '
+        f"With fMRIPrep's fallback check, {high:.0%} of draws at 10 mm and above converge for "
+        'any comparator.</li>'
+    )
+    if rule_ok:
+        lead = 'R1 and R2 converge from every start, at every level, before the fallback check'
+    else:
+        lead = 'R1 and R2 do not converge from every start'
+
+    level_note = ''
+    if flat:
+        level_note = 'Convergence does not depend on the start level for any comparator.'
+    body = f"""
+<section id="capture">
+<h2>Capture range</h2>
+<p>Each comparator starts from the truth moved by a random rigid transform: a shift of L mm and
+a rotation of L degrees, {draws} draws per level on each of the {n_fix} development fixtures, with
+the same draws for every arm. FLIRT-BBR runs from that start without <code>mri_coreg</code>, and
+fMRIPrep's fallback check compares the result with the start. A draw converges if the result is
+within half an acquisition voxel of the truth. R1 takes the sign the frozen rule picks for each
+fixture.</p>
+{table}
+<p>{lead}; the worst result is {fmt(worst.get('R1'))} mm for R1 and {fmt(worst.get('R2'))} mm
+for R2. R0 misses every draw on {len(r0_miss)} fixtures ({r0_misses}): these are the fixtures the
+default sign misses whatever the start. {level_note}</p>
+<p>With the fallback, no comparator converges at 10 or 15 mm. That limit comes from the check, not
+from BBR: from these starts the correct answer is more than 15 mm (the check's limit) from the
+start, so the check returns the start. At 2 and 5 mm the check fires on {low_fallback['R0']:.0%} of
+R0's draws, on fixtures where BBR went wrong, and on {low_fallback['R1']:.0%} of R1's and
+{low_fallback['R2']:.0%} of R2's. In production the check compares BBR with
+<code>mri_coreg</code>'s result instead, so it bounds how far BBR may move from
+<code>mri_coreg</code>, and this protocol cannot show a capture range beyond about 15 mm for any
+FSL arm. The optimizer's own result is the measure of BBR's capture range.</p>
+</section>"""
+    return bullet, body
+
+
+def build(freeze, capture=None):
     fix, real = load(freeze)
     r1, f1 = section_r1(fix, real, 1)
     r2, f2 = section_r2(fix, real, 2)
     elig = section_eligibility(real)
     review = section_review(real)
+    cap_bullet, cap = section_capture(pd.read_table(capture), fix) if capture else ('', '')
     lo, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -541,6 +633,7 @@ bad runs; the edge limit of 0.5 is kept because no other limit does better.</li>
 <li><b>The perfusion image is the weaker comparator on real data.</b> The best level beats the
 conventional reference on {f2['beats']:.0%} of eligible runs. The development review batch decides
 the comparator per family; these numbers point to R1 everywhere.</li>
+{cap_bullet}
 </ul>"""
     return f"""{head}
 <div class="wrap">
@@ -553,12 +646,14 @@ joint arm is screened.</p>
 <p class="meta">{f1['fixtures']} development fixtures &middot; {len(runs_of(real))} development real
 runs &middot; held-out data not used</p>
 <nav class="toc"><a href="#r1">R1 sign</a><a href="#r2">R2 level</a>
-<a href="#eligibility">Eligibility</a><a href="#review">For the reviewer</a></nav>
+<a href="#eligibility">Eligibility</a>{'<a href="#capture">Capture range</a>' if cap else ''}
+<a href="#review">For the reviewer</a></nav>
 </header>
-<section id="summary"><h2>Proposals</h2>{summary}</section>
+<section id="summary"><h2>Frozen as proposed (2026-10-30)</h2>{summary}</section>
 {r1}
 {r2}
 {elig}
+{cap}
 {review}
 </div>"""
 
@@ -567,8 +662,9 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     p.add_argument('--freeze', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--capture', type=Path, help="capture.py's table of the comparators")
     args = p.parse_args(argv)
-    args.out.write_text(build(args.freeze))
+    args.out.write_text(build(args.freeze, args.capture))
 
 
 if __name__ == '__main__':
