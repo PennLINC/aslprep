@@ -8,7 +8,7 @@ resampling). Over them, contours carried from T1w space through each side's pull
 aslref point): the white-matter boundary (the 0.5 isocontour of the run's WM mask) as a solid
 line and the T1w brain mask's outline as a dashed line. Seven slices (three axial, two coronal,
 two sagittal) are placed from the ASL brain mask's extent, which no arm changes, and are the
-same for every figure of a run.
+same for every figure of a run; each panel is cropped to that extent plus a margin.
 
 Rows: side A, side B (one colour, the same for both), and an overlay of the two in two colours
 assigned at random per figure. The intensity window is the 1-99th percentile inside the union of
@@ -55,6 +55,13 @@ UPSAMPLE = 4
 SIDE_COLOUR = '#ffd400'
 OVERLAY_COLOURS = ('#ff3bd4', '#00e676')
 LINE_WIDTH = 1.2
+#: Each panel is cropped to the ASL brain mask's extent plus this margin (mm), so contours
+#: carried a few millimetres outside the mask stay in view.
+CROP_MARGIN_MM = 8.0
+#: Panel size (inches) and resolution: the page fits the figure to its width, and its
+#: click-to-zoom shows it at full resolution.
+PANEL_INCHES = 2.0
+DPI = 200
 KNOWN_MM = (1.0, 2.0, 4.0)
 REPEAT_FRACTION = 0.1
 
@@ -79,15 +86,26 @@ class RunImages:
         self.t1_affine = wm.affine
         self.wm = np.asanyarray(wm.dataobj, float)
         self.t1_mask = np.asanyarray(t1_mask.dataobj, float)
+        idx = np.argwhere(self.asl_mask)
+        self.extent = idx.min(0), idx.max(0)
         self.slices = self._place()
         self.brain_points = scoring.mask_points(self.work / 't1w_mask.nii.gz', every=20)
 
     def _place(self):
         """[(view, axis, index)] from the ASL brain mask's extent along each canonical axis."""
-        idx = np.argwhere(self.asl_mask)
-        lo, hi = idx.min(0), idx.max(0)
+        lo, hi = self.extent
         span = hi - lo
         return [(view, axis, round(lo[axis] + f * span[axis])) for view, axis, f in SLICES]
+
+    def crop(self, axis):
+        """(xlim, ylim) in voxel coordinates for a slice across ``axis``: the ASL brain mask's
+        extent in the slice's plane plus ``CROP_MARGIN_MM``. No arm changes it."""
+        lo, hi = self.extent
+        limits = []
+        for a in (a for a in range(3) if a != axis):
+            margin = 0.5 + CROP_MARGIN_MM / self.zooms[a]
+            limits.append((lo[a] - margin, hi[a] + margin))
+        return limits
 
     def plane(self, axis, index):
         """Fractional voxel coordinates (3, n, m) of an upsampled grid over one slice."""
@@ -136,8 +154,22 @@ def figure(run, pull_a, pull_b, out, colours):
         inside = image[union] if union.any() else image.ravel()
         windows.append(np.percentile(inside, [1, 99]))
 
+    # Each column is as wide as its cropped slice is (in mm) for a panel height of PANEL_INCHES,
+    # so the panels fill the figure without gaps.
     n = len(run.slices)
-    fig, axes = plt.subplots(6, n, figsize=(2.0 * n, 12.4), facecolor='black')
+    ratios = []
+    for _view, axis, _index in run.slices:
+        (x0, x1), (y0, y1) = run.crop(axis)
+        u, v = (a for a in range(3) if a != axis)
+        ratios.append((x1 - x0) * run.zooms[u] / ((y1 - y0) * run.zooms[v]))
+
+    fig, axes = plt.subplots(
+        6,
+        n,
+        figsize=(PANEL_INCHES * (sum(ratios) + 0.4), PANEL_INCHES * 6.2),
+        facecolor='black',
+        gridspec_kw={'width_ratios': ratios},
+    )
     row_titles = ('A', 'A', 'B', 'B', 'A + B', 'A + B')
     for (_view, axis, index), col in zip(run.slices, range(n), strict=True):
         contours = {}
@@ -172,6 +204,9 @@ def figure(run, pull_a, pull_b, out, colours):
                 if mask.max() > 0.5 > mask.min():
                     ax.contour(uu, vv, mask, levels=[0.5], linestyles='dashed', **kwargs)
 
+            xlim, ylim = run.crop(axis)
+            ax.set_xlim(*xlim)
+            ax.set_ylim(*ylim)
             ax.set_axis_off()
             if col == 0:
                 ax.text(
@@ -189,8 +224,9 @@ def figure(run, pull_a, pull_b, out, colours):
     for x, side, colour in ((0.45, 'A', colours[0]), (0.55, 'B', colours[1])):
         fig.text(x, 0.006, f'{side} (A + B rows)', color=colour, ha='center', fontsize=12)
 
-    fig.subplots_adjust(left=0.07, right=0.995, top=0.995, bottom=0.03, wspace=0.02, hspace=0.02)
-    fig.savefig(out, dpi=100, facecolor='black', metadata={'Software': None})
+    left = 0.4 / (sum(ratios) + 0.4)
+    fig.subplots_adjust(left=left, right=0.995, top=0.995, bottom=0.03, wspace=0.02, hspace=0.02)
+    fig.savefig(out, dpi=DPI, facecolor='black', metadata={'Software': None})
     plt.close(fig)
 
 

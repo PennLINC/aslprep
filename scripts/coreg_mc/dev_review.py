@@ -13,7 +13,8 @@ larger of ``MIN_SEPARATION_MM`` (the smallest known-answer size) and the run's m
 over its partners (its family's median when it has none). The tie distance itself is frozen after
 this batch, from the reviewer's known-answer sensitivity. Pairs are drawn by seed, round-robin over
 families, at most one per subject per comparison. Known-answer pairs are R1's solution against
-itself moved by 1, 2 and 4 mm, on runs drawn the same way.
+itself moved by 1, 2 and 4 mm, on runs drawn the same way among those where R1 passes the
+gross-failure rule.
 
 Writes ``<out>/batch.json`` and ``<out>/figures`` (what the review page loads), and
 ``<out>/key.json`` and ``<out>/selection.tsv`` (never published with the page).
@@ -41,7 +42,9 @@ import scoring  # noqa: E402
 
 SEED = 20261030
 PER_COMPARISON = 12
-KNOWN_PER_SIZE = 5
+#: Known-answer pairs per size (mm). The first batch (4726cfd) had 5 of each and drew its runs
+#: without checking R1's verdict; 2 mm, the size gate 4 is judged at, now gets more pairs.
+KNOWN_PER_SIZE = {1.0: 5, 2.0: 10, 4.0: 5}
 MIN_SEPARATION_MM = min(review.KNOWN_MM)
 R2_ARM = 'FSL P-mean default'
 
@@ -178,14 +181,20 @@ def main(argv=None):
             },
         )
 
+    # A known-answer pair only has a right answer where R1's own solution is right.
     runs = real.drop_duplicates(['dataset', 'run'])
-    runs = runs[~runs['shared_failure']].reset_index(drop=True)
+    verdict = real.set_index(['dataset', 'run', 'arm'])['verdict']
+    r1_passes = [
+        verdict.get((d, r, r1_arm(c))) == 'pass'
+        for d, r, c in zip(runs['dataset'], runs['run'], runs['contrast'], strict=True)
+    ]
+    runs = runs[r1_passes].reset_index(drop=True)
     runs['work'] = [
         str(args.dev_real / 'work' / f'{d}__{r}')
         for d, r in zip(runs['dataset'], runs['run'], strict=True)
     ]
-    known_runs = draw(runs, KNOWN_PER_SIZE * len(review.KNOWN_MM), rng)
-    sizes = np.repeat(review.KNOWN_MM, KNOWN_PER_SIZE)
+    known_runs = draw(runs, sum(KNOWN_PER_SIZE.values()), rng)
+    sizes = np.repeat(list(KNOWN_PER_SIZE), list(KNOWN_PER_SIZE.values()))
     known = []
     for row, size in zip(known_runs.itertuples(index=False), sizes, strict=True):
         arms, _ = run_real.collect(Path(row.work), [])
