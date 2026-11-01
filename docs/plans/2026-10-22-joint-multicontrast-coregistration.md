@@ -342,6 +342,21 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
       EPI or GE.
     - Proposed, not frozen: R1 as the comparator in every family. The tie distance, the floor
       limit and the reviewer's sensitivity wait for the redesigned figures' batch.
+  - Figure redesign (2026-11-01), after the reviewer found the brains too small:
+    - Panels cropped to the ASL brain mask's extent plus 8 mm (no arm changes it), columns sized
+      to the cropped slices, 200 dpi, 256-colour palette PNGs. The brain shows at about twice
+      its former size.
+    - A flicker view: per figure, two frames (reference and perfusion rows with only A's or
+      only B's contours, one colour, identical backgrounds and palette) that the page
+      alternates every 600 ms, labeled A or B, with pause and step.
+    - Known-answer runs only where R1 passes the gross-failure rule; 5 pairs at 1 mm, 10 at
+      2 mm, 5 at 4 mm.
+  - Development batch 2 (`dev_review.py`, seed 20261101; page "Coregistration Review 2",
+    https://claude.ai/artifact/917DXvSi5dNdy4Xub4JWYV, choices in its `choices` collection with
+    `batch` "development-2"). Same candidates as batch 1; 24 comparisons (12 R1 vs R2, 12 signs),
+    2 repeats and 20 known-answer pairs: 46 figures, 138 images, 85 MB, no leak. Pairs may
+    repeat batch 1's, since the draw is from the same candidates with a new seed. Key and
+    selection in `/home/tsalo/coreg-mc/task3/review-dev2`, never published.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,

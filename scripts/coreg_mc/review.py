@@ -12,7 +12,9 @@ same for every figure of a run; each panel is cropped to that extent plus a marg
 
 Rows: side A, side B (one colour, the same for both), and an overlay of the two in two colours
 assigned at random per figure. The intensity window is the 1-99th percentile inside the union of
-the two carried brain masks.
+the two carried brain masks. Each figure also has two flicker frames (``flicker``): the
+reference and perfusion rows with only A's or only B's contours, in one colour, which the page
+alternates so a small shift shows as motion.
 
 A batch (``build_batch``) holds comparison pairs, about 10 % of them repeated later with sides
 swapped, and known-answer pairs (one side an arm's solution, the other the same solution moved
@@ -145,8 +147,9 @@ def _section(volume, axis, index):
     return np.take(volume, index, axis=axis)
 
 
-def figure(run, pull_a, pull_b, out, colours):
-    """Write one blinded figure to ``out`` (PNG, no metadata)."""
+def _backgrounds(run, pull_a, pull_b):
+    """The two background images (3-D) and their windows, the same for every rendering of a
+    pair: the 1-99th percentile inside the union of the two carried brain masks."""
     union = run.carried_mask_voxels(pull_a) | run.carried_mask_voxels(pull_b)
     images = [im[..., 0] if im.ndim == 4 else im for im in run.images]
     windows = []
@@ -154,80 +157,148 @@ def figure(run, pull_a, pull_b, out, colours):
         inside = image[union] if union.any() else image.ravel()
         windows.append(np.percentile(inside, [1, 99]))
 
-    # Each column is as wide as its cropped slice is (in mm) for a panel height of PANEL_INCHES,
-    # so the panels fill the figure without gaps.
-    n = len(run.slices)
+    return images, windows
+
+
+def _layout(run, rows, bottom_inches):
+    """A figure of ``rows`` x slices panels, each column as wide as its cropped slice is (in
+    mm) for a panel height of ``PANEL_INCHES``, so the panels fill it without gaps."""
     ratios = []
     for _view, axis, _index in run.slices:
         (x0, x1), (y0, y1) = run.crop(axis)
         u, v = (a for a in range(3) if a != axis)
         ratios.append((x1 - x0) * run.zooms[u] / ((y1 - y0) * run.zooms[v]))
 
+    width = PANEL_INCHES * (sum(ratios) + 0.4)
+    height = PANEL_INCHES * rows + bottom_inches
     fig, axes = plt.subplots(
-        6,
-        n,
-        figsize=(PANEL_INCHES * (sum(ratios) + 0.4), PANEL_INCHES * 6.2),
+        rows,
+        len(ratios),
+        figsize=(width, height),
         facecolor='black',
         gridspec_kw={'width_ratios': ratios},
+        squeeze=False,
     )
-    row_titles = ('A', 'A', 'B', 'B', 'A + B', 'A + B')
-    for (_view, axis, index), col in zip(run.slices, range(n), strict=True):
-        contours = {}
-        for side, pull in (('A', pull_a), ('B', pull_b)):
-            contours[side] = run.carried(pull, axis, index)
+    fig.subplots_adjust(
+        left=PANEL_INCHES * 0.4 / width,
+        right=0.995,
+        top=1 - 0.01 * PANEL_INCHES / height,
+        bottom=bottom_inches / height,
+        wspace=0.02,
+        hspace=0.02,
+    )
+    return fig, axes
 
+
+def _panel(ax, run, images, windows, image_i, axis, index, contours, sides, title=None):
+    """One slice of one background image with the given sides' contours, cropped."""
+    lo, hi = windows[image_i]
+    inplane = [a for a in range(3) if a != axis]
+    ax.imshow(
+        _section(images[image_i], axis, index).T,
+        cmap='gray',
+        vmin=lo,
+        vmax=hi,
+        origin='lower',
+        interpolation='nearest',
+        aspect=run.zooms[inplane[1]] / run.zooms[inplane[0]],
+    )
+    for side, colour in sides:
+        uu, vv, (wm, mask) = contours[side]
+        kwargs = {'colors': [colour], 'linewidths': LINE_WIDTH}
+        if wm.max() > 0.5 > wm.min():
+            ax.contour(uu, vv, wm, levels=[0.5], linestyles='solid', **kwargs)
+
+        if mask.max() > 0.5 > mask.min():
+            ax.contour(uu, vv, mask, levels=[0.5], linestyles='dashed', **kwargs)
+
+    xlim, ylim = run.crop(axis)
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_axis_off()
+    if title:
+        ax.text(
+            -0.06,
+            0.5,
+            title,
+            color='white',
+            fontsize=14,
+            ha='right',
+            va='center',
+            transform=ax.transAxes,
+        )
+
+
+def _save(fig, out, palette=None):
+    """Save as a 256-colour palette PNG (a third of the size of RGBA); return the image, whose
+    palette the second flicker frame reuses so the two frames' backgrounds match exactly."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format='png', dpi=DPI, facecolor='black', metadata={'Software': None})
+    plt.close(fig)
+    image = Image.open(buf).convert('RGB')
+    if palette is None:
+        image = image.quantize(256, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+    else:
+        image = image.quantize(palette=palette, dither=Image.Dither.NONE)
+
+    image.save(out, 'PNG', optimize=True)
+    return image
+
+
+def _contours(run, pull_a, pull_b):
+    """{slice: {side: carried contours}} for every slice of the run."""
+    return {
+        (axis, index): {
+            side: run.carried(pull, axis, index) for side, pull in (('A', pull_a), ('B', pull_b))
+        }
+        for _view, axis, index in run.slices
+    }
+
+
+def figure(run, pull_a, pull_b, out, colours):
+    """Write one blinded figure to ``out`` (PNG, no metadata)."""
+    images, windows = _backgrounds(run, pull_a, pull_b)
+    contours = _contours(run, pull_a, pull_b)
+    fig, axes = _layout(run, 6, 0.2 * PANEL_INCHES)
+    row_titles = ('A', 'A', 'B', 'B', 'A + B', 'A + B')
+    for col, (_view, axis, index) in enumerate(run.slices):
         for row in range(6):
-            ax = axes[row, col]
-            image_i = row % 2
-            lo, hi = windows[image_i]
-            inplane = [a for a in range(3) if a != axis]
-            ax.imshow(
-                _section(images[image_i], axis, index).T,
-                cmap='gray',
-                vmin=lo,
-                vmax=hi,
-                origin='lower',
-                interpolation='nearest',
-                aspect=run.zooms[inplane[1]] / run.zooms[inplane[0]],
-            )
             if row < 4:
                 sides = [('A' if row < 2 else 'B', SIDE_COLOUR)]
             else:
                 sides = [('A', colours[0]), ('B', colours[1])]
 
-            for side, colour in sides:
-                uu, vv, (wm, mask) = contours[side]
-                kwargs = {'colors': [colour], 'linewidths': LINE_WIDTH}
-                if wm.max() > 0.5 > wm.min():
-                    ax.contour(uu, vv, wm, levels=[0.5], linestyles='solid', **kwargs)
-
-                if mask.max() > 0.5 > mask.min():
-                    ax.contour(uu, vv, mask, levels=[0.5], linestyles='dashed', **kwargs)
-
-            xlim, ylim = run.crop(axis)
-            ax.set_xlim(*xlim)
-            ax.set_ylim(*ylim)
-            ax.set_axis_off()
-            if col == 0:
-                ax.text(
-                    -0.06,
-                    0.5,
-                    row_titles[row],
-                    color='white',
-                    fontsize=14,
-                    ha='right',
-                    va='center',
-                    transform=ax.transAxes,
-                )
+            title = row_titles[row] if col == 0 else None
+            c = contours[axis, index]
+            _panel(axes[row, col], run, images, windows, row % 2, axis, index, c, sides, title)
 
     # The overlay's colour key, as coloured labels.
     for x, side, colour in ((0.45, 'A', colours[0]), (0.55, 'B', colours[1])):
         fig.text(x, 0.006, f'{side} (A + B rows)', color=colour, ha='center', fontsize=12)
 
-    left = 0.4 / (sum(ratios) + 0.4)
-    fig.subplots_adjust(left=left, right=0.995, top=0.995, bottom=0.03, wspace=0.02, hspace=0.02)
-    fig.savefig(out, dpi=DPI, facecolor='black', metadata={'Software': None})
-    plt.close(fig)
+    _save(fig, out)
+
+
+def flicker(run, pull_a, pull_b, out_a, out_b):
+    """Write the two flicker frames of a pair: the reference and perfusion rows with one side's
+    contours each, in one colour, on identical backgrounds and windows, so the frames differ only
+    where the contours do. The page alternates them and labels which side is showing."""
+    images, windows = _backgrounds(run, pull_a, pull_b)
+    contours = _contours(run, pull_a, pull_b)
+    palette = None
+    for side, out in (('A', out_a), ('B', out_b)):
+        fig, axes = _layout(run, 2, 0.0)
+        for col, (_view, axis, index) in enumerate(run.slices):
+            for row in range(2):
+                c = contours[axis, index]
+                sides = [(side, SIDE_COLOUR)]
+                _panel(axes[row, col], run, images, windows, row, axis, index, c, sides)
+
+        palette = _save(fig, out, palette)
 
 
 def known_answer(run, pull, size_mm, rng):
@@ -300,7 +371,14 @@ def build_batch(pairs, known, out_dir, seed, repeat_fraction=REPEAT_FRACTION):
             out_dir / 'figures' / f'{fid}.png',
             colours,
         )
-        batch.append({'id': fid, 'image': f'figures/{fid}.png'})
+        frames = [f'figures/{secrets.token_hex(8)}.png' for _ in 'AB']
+        flicker(
+            images[work],
+            item[f'pull_{left}'],
+            item[f'pull_{right}'],
+            *(out_dir / f for f in frames),
+        )
+        batch.append({'id': fid, 'image': f'figures/{fid}.png', 'flicker': frames})
         key[fid] = {
             'kind': 'repeat' if repeat_of is not None else item['kind'],
             'run': item['run'],
