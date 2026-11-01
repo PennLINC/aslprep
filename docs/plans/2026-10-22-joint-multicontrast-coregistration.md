@@ -322,6 +322,26 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
     by 1, 2 and 4 mm, 5 each): 41 figures, no leak. Candidates: R1 vs R2 differ on 44 runs (none
     in 7 T 3D EPI); the signs differ on 209. Key and selection in
     `/home/tsalo/coreg-mc/task3/review-dev` (`key.json`, `selection.tsv`), never published.
+  - Development batch results (2026-11-01, all 41 answered; `score_review.py`, unblinded table
+    in `review-dev/scored/choices.tsv`):
+    - Known-answer pairs: detected 0 / 5 at 1 mm (all ties), 3 / 5 at 2 mm (one tie, one wrong),
+      4 / 5 at 4 mm. The 4 mm miss (`ds004146/sub-0387_ses-01`) has no right answer: R1 is 10.1
+      mm inconsistent with its partner there (ambiguous), while every perfusion level with the
+      default sign is within 1.6 mm, and the reviewer flagged both sides. `dev_review.py` drew
+      known-answer runs without checking R1's verdict. On runs where R1 passes: 0 / 5, 3 / 5,
+      4 / 4. Detection at 2 mm is 60 %, below the 80 % of gate 4, so **the figures are
+      redesigned before any held-out pair is shown**, as the plan requires.
+    - Repeats: 1 of 2 agree; the disagreement is on a pair 1.49 mm apart (`jsr-aslprep-debug/
+      sub-lsa116_ses-01`; reviewer's note: not enough contrast to tell).
+    - Sign: the default sign preferred on 11 of 12 and the opposite flagged misaligned on 6; the
+      one opposite win is 2.3 mm apart. R1's rule picks the default sign on all 12 runs.
+    - R1 vs R2: on pairs at least 4 mm apart, R1 preferred on 6 of 8, R2 on 1
+      (`ds007116/sub-20976_ses-2_run-01`, spirals, 7.3 mm), one tie with both flagged. R2
+      flagged misaligned on 7 pairs, every 2D EPI pair (12–48 mm) among them. R2's other wins
+      are under 2 mm apart, which the figures do not resolve. No R1 vs R2 candidates in 7 T 3D
+      EPI or GE.
+    - Proposed, not frozen: R1 as the comparator in every family. The tie distance, the floor
+      limit and the reviewer's sensitivity wait for the redesigned figures' batch.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,

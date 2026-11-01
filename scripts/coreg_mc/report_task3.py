@@ -600,13 +600,188 @@ FSL arm. The optimizer's own result is the measure of BBR's capture range.</p>
     return bullet, body
 
 
-def build(freeze, capture=None):
+# ---------------------------------------------------------------------------------------------
+# The development review batch
+# ---------------------------------------------------------------------------------------------
+#: The smallest known-answer size the figures must resolve, and the rate they must reach (gate 4).
+GATE_MM, GATE_RATE = 2.0, 0.8
+#: Comparison pairs at least this far apart count as resolvable (the largest known-answer size).
+RESOLVABLE_MM = 4.0
+
+
+def section_dev_review(choices, real):
+    df = choices.fillna({'note': '', 'failed': ''})
+    verdict = real.set_index(['dataset', 'run', 'arm'])['verdict']
+
+    def base_verdict(row):
+        dataset, run = row['run'].split('/', 1)
+        base = row['arm_B'] if ' moved ' in row['arm_A'] else row['arm_A']
+        return verdict.get((dataset, run, base.replace(' BBR', '')), 'none')
+
+    known = df[df['kind'] == 'known'].copy()
+    known['base'] = known.apply(base_verdict, axis=1)
+    unmoved = known['arm_A'].where(~known['arm_A'].str.contains(' moved '), known['arm_B'])
+    known['outcome'] = np.select(
+        [known['preferred'] == unmoved, known['preferred'] == 'tie'],
+        ['detected', 'tie'],
+        'wrong',
+    )
+    valid = known[known['base'] == 'pass']
+    invalid = known[known['base'] != 'pass']
+    rows = []
+    for size, g in known.groupby('size_mm'):
+        v = valid[valid['size_mm'] == size]
+        rows.append(
+            [
+                f'{size:g} mm',
+                str(len(g)),
+                str(count(g['outcome'], 'detected')),
+                str(count(g['outcome'], 'tie')),
+                str(count(g['outcome'], 'wrong')),
+                f'{count(v["outcome"], "detected")} / {len(v)}',
+            ],
+        )
+    known_table = plain_table(
+        ['Size', 'Pairs', 'Detected', 'Tie', 'Wrong', 'Detected, R1 passing'],
+        rows,
+        num_cols=(1, 2, 3, 4, 5),
+    )
+    gate = valid[valid['size_mm'] == GATE_MM]
+    gate_rate = count(gate['outcome'], 'detected') / max(len(gate), 1)
+    bad_base = ''.join(
+        f'<li><code>{esc(r.run)}</code> ({r.size_mm:g} mm): R1 is {esc(r.base)} there; '
+        f'you preferred the {"unmoved" if r.outcome == "detected" else "moved"} side'
+        f'{" and flagged both" if ";" in r.failed else ""}.</li>'
+        for r in invalid.itertuples(index=False)
+    )
+    misses = valid[(valid['size_mm'] >= GATE_MM) & (valid['outcome'] != 'detected')]
+    miss_items = ', '.join(
+        f'<code>{esc(r.run)}</code> ({r.size_mm:g} mm, {r.outcome})'
+        for r in misses.itertuples(index=False)
+    )
+
+    by_id = df.set_index('id')
+    repeats = df[df['kind'] == 'repeat']
+    agree = sum(by_id.loc[r.repeat_of, 'preferred'] == r.preferred for r in repeats.itertuples())
+    repeat_items = ''.join(
+        f'<li><code>{esc(r.run)}</code> ({fmt(by_id.loc[r.repeat_of, "distance_mm"])} mm apart): '
+        f'{"the same choice" if by_id.loc[r.repeat_of, "preferred"] == r.preferred else "a different choice"}'
+        '</li>'
+        for r in repeats.itertuples(index=False)
+    )
+
+    comp = df[df['kind'] == 'comparison'].copy()
+    sign = comp[comp['comparison'] == 'sign']
+    opposite_flagged = int(sign['failed'].str.contains('opposite').sum())
+    default_wins = count(sign['preferred'], 'FSL conventional default')
+    opposite_wins = sign[sign['preferred'] == 'FSL conventional opposite']
+    contrast = runs_of(real).assign(run=lambda r: r['dataset'] + '/' + r['run'])
+    contrast = contrast.set_index('run')['contrast']
+    rule_default = int((sign['run'].map(contrast).map(rule_sign) == 'default').sum())
+    if rule_default == len(sign):
+        rule_text = 'On all of these runs R1&rsquo;s rule picks the default sign'
+    else:
+        rule_text = f'R1&rsquo;s rule picks the default sign on {rule_default} of these runs'
+    rr = comp[comp['comparison'] == 'R1 vs R2'].copy()
+    rr['band'] = np.where(
+        rr['distance_mm'] >= RESOLVABLE_MM,
+        f'&ge; {RESOLVABLE_MM:g} mm',
+        f'&lt; {RESOLVABLE_MM:g} mm',
+    )
+    who = {'FSL P-mean default': 'R2', 'tie': 'tie'}
+    rr['who'] = rr['preferred'].map(who).fillna('R1')
+    rr_rows = []
+    for (family, band), g in rr.groupby(['family', 'band']):
+        rr_rows.append(
+            [
+                esc(family),
+                band,
+                str(count(g['who'], 'R1')),
+                str(count(g['who'], 'R2')),
+                str(count(g['who'], 'tie')),
+                ', '.join(fmt(d) for d in sorted(g['distance_mm'])),
+            ],
+        )
+    rr_table = plain_table(
+        ['Family', 'Distance', 'R1', 'R2', 'Tie', 'Distances (mm)'],
+        rr_rows,
+        num_cols=(2, 3, 4),
+    )
+    far = rr[rr['distance_mm'] >= RESOLVABLE_MM]
+    r2_far = far[far['who'] == 'R2']
+    r2_far_items = ', '.join(
+        f'<code>{esc(r.run)}</code> ({fmt(r.distance_mm)} mm)' for r in r2_far.itertuples()
+    )
+    r2_flagged = int(rr['failed'].str.contains('P-mean').sum())
+    passed = gate_rate >= GATE_RATE
+    verdict_text = (
+        'passes the plan&rsquo;s bar'
+        if passed
+        else 'is below the plan&rsquo;s bar, so the figures are redesigned before any held-out '
+        'pair is shown'
+    )
+    facts = {
+        'gate_rate': gate_rate,
+        'gate_n': len(gate),
+        'passed': passed,
+        'far_r1': count(far['who'], 'R1'),
+        'far_n': len(far),
+        'default_wins': default_wins,
+        'sign_n': len(sign),
+    }
+    body = f"""
+<section id="dev-review">
+<h2>The development review batch</h2>
+<p>{len(df)} figures, all answered: {len(comp)} comparisons, {len(repeats)} repeats and
+{len(known)} known-answer pairs. Unblinded here because the batch is complete and development
+only.</p>
+<h3>Known-answer pairs</h3>
+<p>Each pairs R1's solution with the same solution moved by a random rigid error of the given
+size. A pair only has a right answer when R1's own solution is right. On {len(invalid)} pair R1
+does not pass the gross-failure rule:</p>
+<ul>{bad_base}</ul>
+{known_table}
+<p>On the remaining pairs, detection at {GATE_MM:g} mm is {gate_rate:.0%}
+({count(gate['outcome'], 'detected')} of {len(gate)}), which {verdict_text}. No 1 mm pair was
+resolved; every one was called a tie. The misses at {GATE_MM:g} mm and above, on runs where R1
+passes: {miss_items}. With five pairs per size a single miss moves the rate by 20 points.</p>
+<h3>Repeats</h3>
+<p>{agree} of {len(repeats)} repeats got the same choice:</p>
+<ul>{repeat_items}</ul>
+<h3>The BBR sign on real data</h3>
+<p>The default sign was preferred on {default_wins} of {len(sign)} pairs, and the opposite sign
+was flagged as misaligned on {opposite_flagged}. The opposite sign was preferred once, on
+{', '.join(f'<code>{esc(r.run)}</code> ({fmt(r.distance_mm)} mm)' for r in opposite_wins.itertuples())},
+below the size the figures resolve. {rule_text}, and the review prefers the sign R1 picks.</p>
+<h3>R1 against R2</h3>
+{rr_table}
+<p>On pairs at least {RESOLVABLE_MM:g} mm apart, R1 was preferred on {count(far['who'], 'R1')} of
+{len(far)}, R2 on {len(r2_far)} ({r2_far_items or 'none'}). R2 was flagged as misaligned on
+{r2_flagged} pairs, including every 2D EPI pair. R2's other wins are on pairs under
+{RESOLVABLE_MM:g} mm apart, where the known-answer pairs show the figures do not reliably
+resolve a difference.</p>
+</section>"""
+    return facts, body
+
+
+def build(freeze, capture=None, choices=None):
     fix, real = load(freeze)
     r1, f1 = section_r1(fix, real, 1)
     r2, f2 = section_r2(fix, real, 2)
     elig = section_eligibility(real)
     review = section_review(real)
     cap_bullet, cap = section_capture(pd.read_table(capture), fix) if capture else ('', '')
+    rev, rev_bullet = '', ''
+    if choices:
+        rf, rev = section_dev_review(pd.read_table(choices), real)
+        outcome = 'passes' if rf['passed'] else 'falls short: the figures are redesigned'
+        rev_bullet = (
+            f'<li><b>Development review: R1 for every family.</b> R1 was preferred on '
+            f'{rf["far_r1"]} of {rf["far_n"]} R1-against-R2 pairs at least {RESOLVABLE_MM:g} mm '
+            f'apart, and the default sign on {rf["default_wins"]} of {rf["sign_n"]} sign pairs. '
+            f'Known-answer detection at {GATE_MM:g} mm is {rf["gate_rate"]:.0%} of '
+            f'{rf["gate_n"]} and {outcome}.</li>'
+        )
     lo, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -634,6 +809,7 @@ bad runs; the edge limit of 0.5 is kept because no other limit does better.</li>
 conventional reference on {f2['beats']:.0%} of eligible runs. The development review batch decides
 the comparator per family; these numbers point to R1 everywhere.</li>
 {cap_bullet}
+{rev_bullet}
 </ul>"""
     return f"""{head}
 <div class="wrap">
@@ -647,13 +823,15 @@ joint arm is screened.</p>
 runs &middot; held-out data not used</p>
 <nav class="toc"><a href="#r1">R1 sign</a><a href="#r2">R2 level</a>
 <a href="#eligibility">Eligibility</a>{'<a href="#capture">Capture range</a>' if cap else ''}
+{'<a href="#dev-review">Review batch</a>' if rev else ''}
 <a href="#review">For the reviewer</a></nav>
 </header>
-<section id="summary"><h2>Frozen as proposed (2026-10-30)</h2>{summary}</section>
+<section id="summary"><h2>Summary</h2>{summary}</section>
 {r1}
 {r2}
 {elig}
 {cap}
+{rev}
 {review}
 </div>"""
 
@@ -663,8 +841,9 @@ def main(argv=None):
     p.add_argument('--freeze', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--capture', type=Path, help="capture.py's table of the comparators")
+    p.add_argument('--review', type=Path, help="score_review.py's choices.tsv (development)")
     args = p.parse_args(argv)
-    args.out.write_text(build(args.freeze, args.capture))
+    args.out.write_text(build(args.freeze, args.capture, args.review))
 
 
 if __name__ == '__main__':
