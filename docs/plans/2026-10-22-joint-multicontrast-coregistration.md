@@ -288,7 +288,8 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   runs (`freeze_comparators.py`, report `report_task3.py`, published as "Coregistration
   Comparators", https://claude.ai/artifact/JsgPdbuPgn6etjrMwCTvoA):
   - **R1:** production's FSL path with the BBR sign chosen per run, not per family: the opposite
-    sign when the conventional reference's contrast is positive, the default sign otherwise. The
+    sign when the conventional reference's contrast is positive, the default sign otherwise
+    (threshold amended to +0.03 on 2026-11-02; see "Frozen from the development review"). The
     contrast is the median of the reference at eroded white-matter voxels (2 T1w voxels) minus
     its median at grey-matter-core voxels (smoothed GM probability above 0.5, outside WM), both
     sampled through the `mri_coreg` initialization and divided by the median over the T1w brain
@@ -377,6 +378,31 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
     - Floor limits against the development pairs (R0, conventional frame): above 2 mm, 17 of
       812 cross-run and 34 of 104 cross-session pairs; above 3 mm, 14 and 20; above 4 mm, 4 and
       11.
+- **Frozen from the development review (2026-11-02)**, development data only, before any J-arm
+  is scored:
+  - **R1's threshold amended:** the opposite sign when the contrast exceeds +0.03
+    (`freeze_comparators.R1_CONTRAST_THRESHOLD`; was 0). It sits between the largest development
+    real-run contrast (+0.025, `ds007116/sub-20976_ses-2`, whose sign change the reviewer judged
+    worse than R2 in both batches and flagged as misaligned once) and the smallest contrast of a
+    fixture the default sign misses (+0.036). It still fixes all five fixture misses, and it now
+    changes the sign on no development real run. The margin is narrow on both sides; a held-out
+    run between +0.025 and +0.036 is decided by a threshold set on one subject.
+  - **Comparator: R1 in every family.** Over both batches R1 wins every resolvable R1-vs-R2
+    pair except two with known causes: an R1 failure that the consistency check already flags
+    (`ds004146/sub-0387_ses-01`) and the sign change the amendment removes. 7 T 3D EPI and GE
+    had no R1-vs-R2 candidates, and R2 is weaker on real data (it beats the conventional
+    reference on 23 % of eligible runs).
+  - **Tie distance:** the larger of 2 mm and the run's median noise floor (its family's median
+    when it has no partner). 2 mm is the smallest known-answer size the reviewer detected at
+    80 % or better (batch 2: 9 / 10; 1 mm: 2 / 5). Pairs closer than that are tied and not shown.
+  - **Floor limit: 3 mm.** Consistency pairs whose noise floor exceeds it are excluded and
+    counted: 14 of 812 cross-run and 20 of 104 cross-session development pairs. Chosen over
+    2 mm (34 of 104 cross-session) to keep enough subjects for gate 4's ten-subject requirement;
+    on the pairs kept, inconsistency differences under the pair's floor are not resolved.
+  - **The reviewer's calibration:** detection 2 / 5 at 1 mm, 9 / 10 at 2 mm, 5 / 5 at 4 mm;
+    repeat agreement 3 of 4 over both batches (the disagreement on a 1.5 mm pair in batch 1).
+    The held-out batches use the batch 2 figures (cropped panels and flicker).
+  - Still open in Task 3: the margins, the review set's sample, and the run-time budget.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,
@@ -546,7 +572,7 @@ panel is rerun. Success is defined against what production gets at the pinned re
 | ID | Engine | Cost terms (moving -> fixed) | Role |
 |---|---|---|---|
 | R0 | FSL | coregistration reference -> T1w, BBR default sign, fallback | Production (FSL path), as run |
-| R1 | FSL | as R0, BBR sign per run by the reference's WM-GM contrast (frozen in Task 3) | Production with the known defect fixed |
+| R1 | FSL | as R0, BBR sign per run by the reference's WM-GM contrast, opposite above +0.03 (frozen in Task 3) | Production with the known defect fixed |
 | R2 | FSL | P-mean -> T1w, BBR default sign; eligible with 4+ pairs and edge statistic 0.5+ (frozen in Task 3) | Single perfusion reference (#672) |
 | RA | FSL | R1 or R2, chosen per run by the HMC probe's DA rule | Automatic single reference (#672) |
 | S1 | ANTs | coregistration reference -> T1w, MI | Static-only ablation |

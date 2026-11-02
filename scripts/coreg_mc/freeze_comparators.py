@@ -51,6 +51,16 @@ import run_real  # noqa: E402
 WM_EROSION = 2
 #: GM core: the smoothed GM probability (``gm_target``) above this, outside the WM mask.
 GM_CORE = 0.5
+#: R1's rule takes the opposite BBR sign above this contrast. Frozen at 0 on 2026-10-30;
+#: amended on 2026-11-02 to sit between the largest development real-run contrast (+0.025,
+#: ``ds007116/sub-20976``, whose sign change the reviewer judged wrong twice) and the smallest
+#: contrast of a fixture the default sign misses (+0.036).
+R1_CONTRAST_THRESHOLD = 0.03
+
+
+def r1_sign(contrast):
+    """R1's BBR sign: ``'opposite'`` when white matter is clearly brighter than grey."""
+    return 'opposite' if contrast > R1_CONTRAST_THRESHOLD else 'default'
 
 
 def contrast(work):

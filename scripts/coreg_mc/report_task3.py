@@ -19,8 +19,10 @@ import numpy as np
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'hmc_probe'))
 
+import freeze_comparators  # noqa: E402
 from report import (  # noqa: E402
     CSS,
     esc,
@@ -97,9 +99,8 @@ def signed_strip(cats, values, xlabel, label, w=680):
     return ''.join(out)
 
 
-def rule_sign(contrast):
-    """R1's proposed sign: the opposite sign when white matter is brighter than grey."""
-    return 'opposite' if contrast > 0 else 'default'
+rule_sign = freeze_comparators.r1_sign
+THRESHOLD = freeze_comparators.R1_CONTRAST_THRESHOLD
 
 
 def load(freeze):
@@ -167,6 +168,8 @@ def section_r1(fix, real, fig):
     inverted = f[f['contrast'] > 0]
     upright = f[f['contrast'] <= 0]
     flips = r[r['rule_sign'] == 'opposite']
+    positive = r[r['contrast'] > 0]
+    ruled = f[f['contrast'] > THRESHOLD]
     missed = f[f['default'] >= MISS_MM]
     rule_misses = int((f['rule'] >= MISS_MM).sum())
     exact = set(missed.index) == set(inverted.index)
@@ -250,22 +253,27 @@ def section_r1(fix, real, fig):
 proposed rule reads the contrast of the conventional reference before BBR runs: the median of the
 reference at eroded white-matter voxels minus its median at grey-matter-core voxels, both sampled
 through the <code>mri_coreg</code> initialization and divided by the median over the brain. A
-positive contrast selects the opposite sign.</p>
+contrast above {THRESHOLD:+.2f} selects the opposite sign. (Frozen on 2026-10-30 at zero;
+amended on 2026-11-02, below.)</p>
 <p>On the {len(f)} development fixtures, the {len(inverted)} with positive contrast
 ({', '.join(f'<code>{esc(n)}</code>' for n in inverted.index)},
 {inverted['contrast'].min():+.3f} to {inverted['contrast'].max():+.3f})
 {'are exactly' if exact else 'do not match'} the {len(missed)} the default sign misses by
-{MISS_MM:g} mm or more. The other {len(upright)} sit between {upright['contrast'].min():+.3f}
-and {upright['contrast'].max():+.3f}. The rule takes the default sign's {len(missed)} misses to
+{MISS_MM:g} mm or more, and {len(ruled)} of them lie above the threshold. The other
+{len(upright)} sit between {upright['contrast'].min():+.3f} and
+{upright['contrast'].max():+.3f}. The rule takes the default sign's {len(missed)} misses to
 {rule_misses}.</p>
 {chart}
 {fix_table}
-<p>Real data does not show the inversion. Across {len(r)} development runs the contrast is
-negative in every family; only {len(flips)} runs are positive, the largest at
-{r['contrast'].max():+.3f}, and on {len(flips) - len(changed)} of them both signs get the same
-verdict. The default sign has {total['default']} gross failures and the opposite sign
-{total['opposite']}; the rule has {total['rule']}. {shared} of the failures are runs every arm
-fails (<a href="#review">below</a>), so they say nothing about the sign.</p>
+<p>Real data does not show the inversion. Across {len(r)} development runs only
+{len(positive)} have a positive contrast, the largest at {r['contrast'].max():+.3f}:
+{', '.join(f'<code>{esc(d)}/{esc(n)}</code> ({c:+.3f})' for (d, n), c in positive['contrast'].items())}.
+At zero the rule changed the sign on all of them; on the one of these the reviewer saw in both
+development batches, the opposite sign was judged worse both times and flagged as misaligned once.
+The threshold now sits between that run and the smallest fixture miss, and the rule changes the
+sign on {len(flips)} development runs. The default sign has {total['default']} gross failures and
+the opposite sign {total['opposite']}; the rule has {total['rule']}. {shared} of the failures are
+runs every arm fails (<a href="#review">below</a>), so they say nothing about the sign.</p>
 {real_table}
 <p class="note">Fail and ambiguous are the adopted gross-failure verdicts (more than 5 mm
 inconsistent with every partner when there are two or more; with a single partner both runs are
@@ -605,6 +613,8 @@ FSL arm. The optimizer's own result is the measure of BBR's capture range.</p>
 # ---------------------------------------------------------------------------------------------
 #: The smallest known-answer size the figures must resolve, and the rate they must reach (gate 4).
 GATE_MM, GATE_RATE = 2.0, 0.8
+#: Frozen 2026-11-02: consistency pairs whose noise floor exceeds this (mm) are excluded.
+FLOOR_LIMIT_MM = 3.0
 
 
 def section_dev_review(choices, real, section_id, title, intro):
@@ -751,7 +761,8 @@ def section_dev_review(choices, real, section_id, title, intro):
     )
     flipped = rr[rr['arm_A'].str.contains('opposite') | rr['arm_B'].str.contains('opposite')]
     flipped_text = ''.join(
-        f' On <code>{esc(r.run)}</code> R1&rsquo;s rule takes the opposite sign; '
+        f' On <code>{esc(r.run)}</code> R1 was shown with the opposite sign (the rule as '
+        'frozen at zero); '
         f'{"R1" if r.who == "R1" else "R2" if r.who == "R2" else "neither"} was preferred'
         f'{" and R1 was flagged as misaligned" if "opposite" in r.failed else ""}.'
         for r in flipped.itertuples()
@@ -852,7 +863,7 @@ def build(freeze, capture=None, choices=()):
             f'{rf["sign_n"]} sign pairs.</li>'
         )
     rev, rev_bullet, rev_nav = '\n'.join(revs), '\n'.join(rev_bullets), '\n'.join(nav)
-    lo, hi = f1['margin']
+    _, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -864,20 +875,24 @@ def build(freeze, capture=None, choices=()):
 </style>"""
     summary = f"""
 <ul class="findings">
-<li><b>R1: take the opposite BBR sign when the reference's white matter is brighter than its grey
-matter.</b> On the {f1['fixtures']} development fixtures the contrast is positive
-{'on exactly' if f1['exact'] else 'not only on'} the {f1['missed']} the default sign misses by
-{MISS_MM:g} mm or more; the rule leaves {f1['rule_misses']} misses. The margin is narrow
-({lo:+.3f} against {hi:+.3f}).</li>
-<li><b>On real data R1 is production.</b> The contrast is negative in every family; the rule
-changes the sign on {f1['flips']} of the development runs and the verdict on {f1['changed']}.
-The fixtures' inverted GRASE and spiral contrast is not seen in this sample.</li>
+<li><b>R1 (frozen, amended 2026-11-02): take the opposite BBR sign when the reference's
+contrast exceeds {THRESHOLD:+.2f}.</b> On the {f1['fixtures']} development fixtures the contrast
+is positive {'on exactly' if f1['exact'] else 'not only on'} the {f1['missed']} the default sign
+misses by {MISS_MM:g} mm or more; the rule leaves {f1['rule_misses']} misses. The margin is
+narrow: the largest real contrast is {f1['max_real']:+.3f}, the smallest fixture miss
+{hi:+.3f}.</li>
+<li><b>On real data R1 is production.</b> The rule changes the sign on {f1['flips']} of the
+development runs and the verdict on {f1['changed']}. The fixtures' inverted GRASE and spiral
+contrast is not seen in this sample.</li>
 <li><b>R2: P-mean with the default sign, eligibility as the HMC probe set it.</b> P-mean is the best
 of the four levels on {f2['best']} of {f2['n']} eligible runs. At least 4 pairs is what removes the
 bad runs; the edge limit of 0.5 is kept because no other limit does better.</li>
 <li><b>The perfusion image is the weaker comparator on real data.</b> The best level beats the
-conventional reference on {f2['beats']:.0%} of eligible runs. The development review batch decides
-the comparator per family; these numbers point to R1 everywhere.</li>
+conventional reference on {f2['beats']:.0%} of eligible runs. R1 is frozen as the comparator in
+every family (2026-11-02), from these numbers and the two development review batches.</li>
+<li><b>Frozen from the review (2026-11-02):</b> the tie distance is the larger of
+{GATE_MM:g} mm (the smallest known-answer size detected at {GATE_RATE:.0%} or better) and the
+run's noise floor; the floor limit is {FLOOR_LIMIT_MM:g} mm.</li>
 {cap_bullet}
 {rev_bullet}
 </ul>"""

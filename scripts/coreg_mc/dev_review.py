@@ -36,6 +36,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / 'hmc_probe'))
 
+import freeze_comparators  # noqa: E402
 import review  # noqa: E402
 import run_real  # noqa: E402
 import scoring  # noqa: E402
@@ -51,7 +52,7 @@ R2_ARM = 'FSL P-mean default'
 
 def r1_arm(contrast):
     """R1's frozen rule: the opposite sign when white matter is brighter than grey."""
-    return f'FSL conventional {"opposite" if contrast > 0 else "default"}'
+    return f'FSL conventional {freeze_comparators.r1_sign(contrast)}'
 
 
 def floors(dev_real):
