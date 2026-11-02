@@ -1297,3 +1297,9 @@ exited 0.
 | 5 | Passing the gross-failure rule does not prove R1 is right on a known-answer run | Recorded as a limitation of the detection rate (Task 3 notes) |
 | 6 | R1's +0.03 threshold was tuned on one reviewed subject | Already recorded with the amendment; the maintainer's decision |
 | - | The report's frozen values are constants, not validated against its inputs | Rejected: they are decisions recorded in this plan, and the report shows the evidence beside them |
+
+**Final Codex code review of the fixes (`5cb9965`, 2026-11-02).** Two findings, both fixed. (1)
+The held-out guard missed noise-seed variants (`<name>_ho__s<seed>`, the HMC probe's naming); it
+now strips the seed suffix first. None exists in this probe yet. (2) When detection is not
+monotonic in size, the report would have said no size reached 80 %; it now says no size reaches it
+together with every larger size.

@@ -675,8 +675,8 @@ def section_dev_review(choices, real, section_id, title, intro):
         )
     else:
         resolvable_text = (
-            f'No known-answer size is detected at {GATE_RATE:.0%} or better, so no comparison '
-            'pair counts as resolvable.'
+            f'No known-answer size is detected at {GATE_RATE:.0%} or better together with every '
+            'larger size, so no comparison pair counts as resolvable.'
         )
     smallest = valid[valid['size_mm'] == valid['size_mm'].min()]
     smallest_text = (

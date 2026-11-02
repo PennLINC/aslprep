@@ -145,13 +145,14 @@ def read_tables(folder, suffix):
     return pd.concat(tables, ignore_index=True)
 
 
-#: Held-out fixtures carry these suffixes (plan: "Fixtures"); Task 3 must never score them.
+#: Held-out fixtures carry these suffixes (plan: "Fixtures"), before any ``__s<seed>`` noise-seed
+#: suffix (as in ``hmc_probe/estimator_screen.py``); Task 3 must never score them.
 HELD_OUT_SUFFIXES = ('_ho', '_ho2')
 
 
 def development_fixtures(names):
-    """``names``, refusing any held-out fixture."""
-    held = [n for n in names if n.endswith(HELD_OUT_SUFFIXES)]
+    """``names``, refusing any held-out fixture or seed variant of one."""
+    held = [n for n in names if n.split('__s')[0].endswith(HELD_OUT_SUFFIXES)]
     if held:
         raise ValueError(f'held-out fixtures may not be scored in Task 3: {held}')
 
