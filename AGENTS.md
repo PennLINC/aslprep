@@ -206,10 +206,11 @@ ASLPrep's tox config references `python scripts/fetch_templates.py` as a `comman
 ASLPrep now follows the same CI trigger-condition pattern as XCP-D:
 
 - **GitHub lockfile workflow** (`.github/workflows/pixi-lock.yml`):
-  - Trigger: every `pull_request_target` event.
-  - Always runs checkout + "latest commit touched dependency files?" check.
-  - Lockfile update steps run only when latest commit touched `pyproject.toml` or `pixi.lock`.
-  - Lockfile push-back is restricted to same-repo PR branches; fork PRs do not push.
+  - Trigger: every `pull_request` event (not `pull_request_target`; `actions/checkout` refuses to check out a fork's head there).
+  - Fork PRs run `validate-lockfile` with read-only permissions and no persisted credentials: `pixi lock --check` only, no push.
+  - Same-repo PRs run `update-lockfile` (the only job with `contents: write`), which regenerates `pixi.lock` with DataLad and pushes it back to the PR branch with a plain, non-forced push.
+  - Both jobs look for `pyproject.toml` or `pixi.lock` edits anywhere in the PR (`git diff base...HEAD`), not only the latest commit, and skip their pixi steps otherwise.
+  - `check-lockfile` is an aggregate job that fails unless exactly the applicable job succeeded; require it, not the two underlying jobs, as the status check.
 
 - **CircleCI image workflow** (`.circleci/continue_config.yml` — `config.yml` is only the path-filtering setup workflow):
   - Image rebuild trigger uses cache marker restoration keyed by `Dockerfile` + `pixi.lock` checksums (`build-v5-...`).
