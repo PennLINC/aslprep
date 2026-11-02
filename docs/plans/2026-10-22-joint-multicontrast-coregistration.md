@@ -357,6 +357,26 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
     2 repeats and 20 known-answer pairs: 46 figures, 138 images, 85 MB, no leak. Pairs may
     repeat batch 1's, since the draw is from the same candidates with a new seed. Key and
     selection in `/home/tsalo/coreg-mc/task3/review-dev2`, never published.
+  - Batch 2 results (2026-11-02, all 46 answered, no ties; `review-dev2/scored/choices.tsv`).
+    The reviewer found the flicker view the most useful change.
+    - Known-answer pairs (R1 passes on every run): 2 / 5 at 1 mm (3 wrong, chance), 9 / 10 at
+      2 mm, 5 / 5 at 4 mm. **Detection at 2 mm is 90 %: gate 4's bar is met**, and the figures
+      may be shown on held-out pairs.
+    - Repeats: 2 of 2 agree (pairs 1.9 and 2.0 mm apart).
+    - Sign: the default sign preferred on 12 of 12, the opposite flagged misaligned on 7. Over
+      both batches, 23 of 24.
+    - R1 vs R2 at 2 mm or more: R1 preferred on 3 of 5. R2's two wins have specific causes:
+      `ds004146/sub-0387_ses-01` (9.1 mm), where R1 is 10.1 mm inconsistent with its partner
+      (ambiguous), and `ds007116/sub-20976_ses-2_run-01` (7.3 mm), where R1's rule takes the
+      opposite sign (contrast +0.025) and the reviewer flagged R1 as misaligned. R2 also won
+      that pair in batch 1.
+    - R1's rule changes the sign on only three development runs: both sessions of
+      `ds007116/sub-20976` (+0.007, +0.025) and one run every arm fails. Every fixture the
+      default sign misses has a contrast of +0.036 or more. The one real sign change that was
+      reviewed was judged wrong, twice.
+    - Floor limits against the development pairs (R0, conventional frame): above 2 mm, 17 of
+      812 cross-run and 34 of 104 cross-session pairs; above 3 mm, 14 and 20; above 4 mm, 4 and
+      11.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,

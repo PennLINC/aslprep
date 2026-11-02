@@ -605,11 +605,11 @@ FSL arm. The optimizer's own result is the measure of BBR's capture range.</p>
 # ---------------------------------------------------------------------------------------------
 #: The smallest known-answer size the figures must resolve, and the rate they must reach (gate 4).
 GATE_MM, GATE_RATE = 2.0, 0.8
-#: Comparison pairs at least this far apart count as resolvable (the largest known-answer size).
-RESOLVABLE_MM = 4.0
 
 
-def section_dev_review(choices, real):
+def section_dev_review(choices, real, section_id, title, intro):
+    """One review batch, unblinded. Comparison pairs count as resolvable from the smallest
+    known-answer size the reviewer detected at ``GATE_RATE`` or better (on valid pairs)."""
     df = choices.fillna({'note': '', 'failed': ''})
     verdict = real.set_index(['dataset', 'run', 'arm'])['verdict']
 
@@ -648,6 +648,16 @@ def section_dev_review(choices, real):
     )
     gate = valid[valid['size_mm'] == GATE_MM]
     gate_rate = count(gate['outcome'], 'detected') / max(len(gate), 1)
+    rates = valid.groupby('size_mm')['outcome'].apply(lambda s: (s == 'detected').mean())
+    resolved = rates[rates >= GATE_RATE]
+    resolvable = float(resolved.index.min()) if len(resolved) else float(rates.index.max())
+    smallest = valid[valid['size_mm'] == valid['size_mm'].min()]
+    smallest_text = (
+        f'At {smallest["size_mm"].min():g} mm: {count(smallest["outcome"], "detected")} '
+        f'detected, {count(smallest["outcome"], "tie")} ties and '
+        f'{count(smallest["outcome"], "wrong")} wrong, out of {len(smallest)}.'
+    )
+    step = 100 / max(len(gate), 1)
     bad_base = ''.join(
         f'<li><code>{esc(r.run)}</code> ({r.size_mm:g} mm): R1 is {esc(r.base)} there; '
         f'you preferred the {"unmoved" if r.outcome == "detected" else "moved"} side'
@@ -677,16 +687,28 @@ def section_dev_review(choices, real):
     opposite_wins = sign[sign['preferred'] == 'FSL conventional opposite']
     contrast = runs_of(real).assign(run=lambda r: r['dataset'] + '/' + r['run'])
     contrast = contrast.set_index('run')['contrast']
-    rule_default = int((sign['run'].map(contrast).map(rule_sign) == 'default').sum())
+    rule_arm = 'FSL conventional ' + sign['run'].map(contrast).map(rule_sign)
+    rule_default = int((rule_arm == 'FSL conventional default').sum())
+    rule_agree = int((sign['preferred'] == rule_arm).sum())
     if rule_default == len(sign):
         rule_text = 'On all of these runs R1&rsquo;s rule picks the default sign'
     else:
         rule_text = f'R1&rsquo;s rule picks the default sign on {rule_default} of these runs'
+
+    if len(opposite_wins):
+        wins = ', '.join(
+            f'<code>{esc(r.run)}</code> ({fmt(r.distance_mm)} mm)'
+            for r in opposite_wins.itertuples()
+        )
+        opposite_text = f'The opposite sign was preferred on {wins}.'
+    else:
+        opposite_text = 'The opposite sign was never preferred.'
+
     rr = comp[comp['comparison'] == 'R1 vs R2'].copy()
     rr['band'] = np.where(
-        rr['distance_mm'] >= RESOLVABLE_MM,
-        f'&ge; {RESOLVABLE_MM:g} mm',
-        f'&lt; {RESOLVABLE_MM:g} mm',
+        rr['distance_mm'] >= resolvable,
+        f'&ge; {resolvable:g} mm',
+        f'&lt; {resolvable:g} mm',
     )
     who = {'FSL P-mean default': 'R2', 'tie': 'tie'}
     rr['who'] = rr['preferred'].map(who).fillna('R1')
@@ -707,12 +729,33 @@ def section_dev_review(choices, real):
         rr_rows,
         num_cols=(2, 3, 4),
     )
-    far = rr[rr['distance_mm'] >= RESOLVABLE_MM]
+    far = rr[rr['distance_mm'] >= resolvable]
     r2_far = far[far['who'] == 'R2']
     r2_far_items = ', '.join(
         f'<code>{esc(r.run)}</code> ({fmt(r.distance_mm)} mm)' for r in r2_far.itertuples()
     )
     r2_flagged = int(rr['failed'].str.contains('P-mean').sum())
+    epi = rr[rr['family'] == '2D EPI']
+    epi_far = epi[epi['distance_mm'] >= resolvable]
+    epi_text = ''
+    if len(epi_far) and epi_far['failed'].str.contains('P-mean').all():
+        epi_text = f', including every 2D EPI pair at least {resolvable:g} mm apart'
+
+    near = rr[(rr['distance_mm'] < resolvable) & (rr['who'] == 'R2')]
+    near_text = (
+        f'R2&rsquo;s {len(near)} other win{"s" if len(near) != 1 else ""} '
+        f'{"are" if len(near) != 1 else "is"} on pairs under {resolvable:g} mm apart, which the '
+        'known-answer pairs show the figures do not reliably resolve.'
+        if len(near)
+        else ''
+    )
+    flipped = rr[rr['arm_A'].str.contains('opposite') | rr['arm_B'].str.contains('opposite')]
+    flipped_text = ''.join(
+        f' On <code>{esc(r.run)}</code> R1&rsquo;s rule takes the opposite sign; '
+        f'{"R1" if r.who == "R1" else "R2" if r.who == "R2" else "neither"} was preferred'
+        f'{" and R1 was flagged as misaligned" if "opposite" in r.failed else ""}.'
+        for r in flipped.itertuples()
+    )
     passed = gate_rate >= GATE_RATE
     verdict_text = (
         'passes the plan&rsquo;s bar'
@@ -728,60 +771,87 @@ def section_dev_review(choices, real):
         'far_n': len(far),
         'default_wins': default_wins,
         'sign_n': len(sign),
+        'resolvable': resolvable,
     }
+    if len(invalid):
+        base_text = (
+            f'On {len(invalid)} pair{"s" if len(invalid) != 1 else ""} R1 does not pass the '
+            f'gross-failure rule:</p><ul>{bad_base}</ul><p>'
+        )
+    else:
+        base_text = 'R1 passes on every known-answer run. '
+
+    misses_text = f'The misses at {GATE_MM:g} mm and above: {miss_items}.' if len(misses) else ''
     body = f"""
-<section id="dev-review">
-<h2>The development review batch</h2>
-<p>{len(df)} figures, all answered: {len(comp)} comparisons, {len(repeats)} repeats and
+<section id="{section_id}">
+<h2>{title}</h2>
+<p>{intro} {len(df)} figures, all answered: {len(comp)} comparisons, {len(repeats)} repeats and
 {len(known)} known-answer pairs. Unblinded here because the batch is complete and development
 only.</p>
 <h3>Known-answer pairs</h3>
 <p>Each pairs R1's solution with the same solution moved by a random rigid error of the given
-size. A pair only has a right answer when R1's own solution is right. On {len(invalid)} pair R1
-does not pass the gross-failure rule:</p>
-<ul>{bad_base}</ul>
+size. A pair only has a right answer when R1's own solution is right. {base_text}</p>
 {known_table}
-<p>On the remaining pairs, detection at {GATE_MM:g} mm is {gate_rate:.0%}
-({count(gate['outcome'], 'detected')} of {len(gate)}), which {verdict_text}. No 1 mm pair was
-resolved; every one was called a tie. The misses at {GATE_MM:g} mm and above, on runs where R1
-passes: {miss_items}. With five pairs per size a single miss moves the rate by 20 points.</p>
+<p>On pairs where R1 passes, detection at {GATE_MM:g} mm is {gate_rate:.0%}
+({count(gate['outcome'], 'detected')} of {len(gate)}), which {verdict_text}. {smallest_text}
+{misses_text} With {len(gate)} pairs at {GATE_MM:g} mm a single miss moves the rate by
+{step:.0f} points. Pairs count as resolvable from {resolvable:g} mm, the smallest size detected
+at {GATE_RATE:.0%} or better.</p>
 <h3>Repeats</h3>
 <p>{agree} of {len(repeats)} repeats got the same choice:</p>
 <ul>{repeat_items}</ul>
 <h3>The BBR sign on real data</h3>
 <p>The default sign was preferred on {default_wins} of {len(sign)} pairs, and the opposite sign
-was flagged as misaligned on {opposite_flagged}. The opposite sign was preferred once, on
-{', '.join(f'<code>{esc(r.run)}</code> ({fmt(r.distance_mm)} mm)' for r in opposite_wins.itertuples())},
-below the size the figures resolve. {rule_text}, and the review prefers the sign R1 picks.</p>
+was flagged as misaligned on {opposite_flagged}. {opposite_text} {rule_text}, and the review
+prefers the sign the rule picks on {rule_agree} of {len(sign)}.</p>
 <h3>R1 against R2</h3>
 {rr_table}
-<p>On pairs at least {RESOLVABLE_MM:g} mm apart, R1 was preferred on {count(far['who'], 'R1')} of
+<p>On pairs at least {resolvable:g} mm apart, R1 was preferred on {count(far['who'], 'R1')} of
 {len(far)}, R2 on {len(r2_far)} ({r2_far_items or 'none'}). R2 was flagged as misaligned on
-{r2_flagged} pairs, including every 2D EPI pair. R2's other wins are on pairs under
-{RESOLVABLE_MM:g} mm apart, where the known-answer pairs show the figures do not reliably
-resolve a difference.</p>
+{r2_flagged} pairs{epi_text}. {near_text}{flipped_text}</p>
 </section>"""
     return facts, body
 
 
-def build(freeze, capture=None, choices=None):
+#: (section id, title, introduction) of each development review batch, in order.
+REVIEW_BATCHES = (
+    (
+        'dev-review',
+        'Development review batch 1',
+        'Full field of view, side-by-side panels only.',
+    ),
+    (
+        'dev-review-2',
+        'Development review batch 2',
+        (
+            'Panels cropped to the brain, with a flicker view; known-answer runs only where R1 '
+            'passes, 10 pairs at 2 mm.'
+        ),
+    ),
+)
+
+
+def build(freeze, capture=None, choices=()):
     fix, real = load(freeze)
     r1, f1 = section_r1(fix, real, 1)
     r2, f2 = section_r2(fix, real, 2)
     elig = section_eligibility(real)
     review = section_review(real)
     cap_bullet, cap = section_capture(pd.read_table(capture), fix) if capture else ('', '')
-    rev, rev_bullet = '', ''
-    if choices:
-        rf, rev = section_dev_review(pd.read_table(choices), real)
-        outcome = 'passes' if rf['passed'] else 'falls short: the figures are redesigned'
-        rev_bullet = (
-            f'<li><b>Development review: R1 for every family.</b> R1 was preferred on '
-            f'{rf["far_r1"]} of {rf["far_n"]} R1-against-R2 pairs at least {RESOLVABLE_MM:g} mm '
-            f'apart, and the default sign on {rf["default_wins"]} of {rf["sign_n"]} sign pairs. '
-            f'Known-answer detection at {GATE_MM:g} mm is {rf["gate_rate"]:.0%} of '
-            f'{rf["gate_n"]} and {outcome}.</li>'
+    revs, rev_bullets, nav = [], [], []
+    for path, (section_id, title, intro) in zip(choices, REVIEW_BATCHES, strict=False):
+        rf, body = section_dev_review(pd.read_table(path), real, section_id, title, intro)
+        revs.append(body)
+        nav.append(f'<a href="#{section_id}">{title.replace("Development review ", "")}</a>')
+        outcome = 'passes' if rf['passed'] else 'falls short, so the figures were redesigned'
+        rev_bullets.append(
+            f'<li><b>{title}:</b> known-answer detection at {GATE_MM:g} mm is '
+            f'{rf["gate_rate"]:.0%} of {rf["gate_n"]} and {outcome}. R1 was preferred on '
+            f'{rf["far_r1"]} of {rf["far_n"]} R1-against-R2 pairs at least '
+            f'{rf["resolvable"]:g} mm apart, and the default sign on {rf["default_wins"]} of '
+            f'{rf["sign_n"]} sign pairs.</li>'
         )
+    rev, rev_bullet, rev_nav = '\n'.join(revs), '\n'.join(rev_bullets), '\n'.join(nav)
     lo, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -823,7 +893,7 @@ joint arm is screened.</p>
 runs &middot; held-out data not used</p>
 <nav class="toc"><a href="#r1">R1 sign</a><a href="#r2">R2 level</a>
 <a href="#eligibility">Eligibility</a>{'<a href="#capture">Capture range</a>' if cap else ''}
-{'<a href="#dev-review">Review batch</a>' if rev else ''}
+{rev_nav}
 <a href="#review">For the reviewer</a></nav>
 </header>
 <section id="summary"><h2>Summary</h2>{summary}</section>
@@ -841,7 +911,13 @@ def main(argv=None):
     p.add_argument('--freeze', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--capture', type=Path, help="capture.py's table of the comparators")
-    p.add_argument('--review', type=Path, help="score_review.py's choices.tsv (development)")
+    p.add_argument(
+        '--review',
+        type=Path,
+        nargs='*',
+        default=(),
+        help="score_review.py's choices.tsv of each development batch, in order",
+    )
     args = p.parse_args(argv)
     args.out.write_text(build(args.freeze, args.capture, args.review))
 
