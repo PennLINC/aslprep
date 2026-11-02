@@ -440,6 +440,28 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
     schedule, and in the engine pilot its result barely moved from the `mri_coreg` start (0.51,
     0.98, 0.90 mm against the start's 0.35, 1.04, 0.72). It may stop on its convergence window
     almost at once. Check its iteration log before S1 is used as an ablation.
+- **ExploreASL and HCP-ASL registration code, read 2026-11-02** (a Task 1 item not recorded until
+  now; needed for the pseudo-CBF target):
+  - ExploreASL (`Modules/SubModule_ASL/xASL_wrp_RegisterASL.m`,
+    `Functions/ImageProcessing/xASL_im_CreatePseudoCBF.m`): centre of mass, then rigid
+    control -> T1w, then rigid CBF -> pseudo-CBF; each step is kept only if it improves the
+    Tanimoto coefficient, and the CBF step runs only when the spatial CoV is below 0.667. The
+    pseudo-tissue image is `pGM * 80 + pWM * 26.7` (grey to white 3:1), both maps first
+    smoothed to the ASL voxel size; the pseudo-CBF then mixes in an MNI CBF template
+    (inverse-warped, weighted by spatial CoV). **The probe's pseudo-CBF target is the
+    pseudo-tissue image** (`pGM + 0.334 pWM`, smoothed as the GM target is; CC is
+    scale-invariant); the template mix is left out, since the probe has no template
+    registration. The Tanimoto acceptance checks are a sequential safeguard Q1 does not model.
+  - HCP-ASL (`hcpasl/registration.py`, `calibration_correction.py`, `fully_corrected.py`):
+    FreeSurfer `bbregister --t2 --init-fsl` twice, first on the calibration image (for the
+    distortion and bias corrections), then on the corrected perfusion image for the final
+    ASL-to-T1w transform. That is R2's design (BBR on perfusion, grey brighter than white) on
+    FreeSurfer surfaces, so it lies outside the FSL path this probe covers (open decision 3).
+- **S1 check (Task 4, 2026-11-02).** S1's speed is not early stopping: it runs about 20
+  iterations per level, each about 1 ms on the ASL-resolution fixed image. A tighter
+  convergence threshold (1e-8) gives the same iterations and result on `rc_pcasl`, `rc_grase`
+  and `st_spiral`; a 20-iteration window runs 49–275 iterations without a better result (0.49
+  against 0.51 mm, 1.16 against 0.98, 0.90 unchanged). S1 stays as frozen.
 - **Task 3 complete (2026-11-02).** Every item the plan assigns it is frozen from development
   data only, before any J-arm is scored or any held-out fixture or run is scored by any arm.
   - Coverage: 259 of the 260 development runs. `ds007908/sub-9006_ses-1` (GRASE) has no
