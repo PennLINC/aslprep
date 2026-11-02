@@ -402,7 +402,27 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   - **The reviewer's calibration:** detection 2 / 5 at 1 mm, 9 / 10 at 2 mm, 5 / 5 at 4 mm;
     repeat agreement 3 of 4 over both batches (the disagreement on a 1.5 mm pair in batch 1).
     The held-out batches use the batch 2 figures (cropped panels and flicker).
-  - Still open in Task 3: the margins, the review set's sample, and the run-time budget.
+  - **Margins** (`margins.py`, `task3/freeze/margins.tsv`):
+    - **Accuracy, gates 2 and 3: 0.1 voxel** on the median RMS error over a family's fixtures.
+      R1's error: median 0.046 voxel, maximum 0.114. Arms of practically equal quality (the four
+      D3 levels against R1, 68 fixture comparisons) differ by +0.017 voxel at the median and at
+      most +0.053, so the margin is about twice the largest such gap: 0.375–0.6 mm at the
+      fixtures' 3.75–6 mm voxels, under the reviewer's 2 mm resolution and the 1.0 mm cross-run
+      noise floor.
+    - **Capture range, gate 3, and semi-synthetic recovery, gate 4:** at every level, the
+      J-arm's share of draws converging within 0.5 voxel is at least R1's less 5 percentage
+      points, on the optimizer's result (before fMRIPrep's fallback, which ANTs arms lack). R1
+      converges on 100 % at every level, so this asks 95 %; one fixture is 6 points.
+    - **Inconsistency, gate 4: 0.5 mm** on the family median, over subjects, of the J-arm's
+      minus R1's per-subject inconsistency (median over the subject's pairs, conventional frame,
+      pairs within the floor limit). Chance (the 95th percentile, over a bootstrap of subjects,
+      of the family median of R1's centred frame-to-frame difference) is 0.04–0.24 mm in the
+      groups with 11 or more subjects, but exceeds the margin in two small groups: 2D EPI across
+      sessions (0.66 mm, 7 subjects) and spirals across sessions (0.55 mm, 6 subjects). There,
+      an arm as good as R1 can fail by chance. The margin catches the arms the review judged
+      worse only in some groups (the opposite sign stays under it in 4 of 8), because
+      consistency cannot see an arm that is consistently wrong; the review judges accuracy.
+  - Still open in Task 3: the review set's sample and the run-time budget.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,

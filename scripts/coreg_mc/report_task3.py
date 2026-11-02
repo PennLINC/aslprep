@@ -824,6 +824,85 @@ prefers the sign the rule picks on {rule_agree} of {len(sign)}.</p>
     return facts, body
 
 
+# ---------------------------------------------------------------------------------------------
+# Margins
+# ---------------------------------------------------------------------------------------------
+#: Frozen 2026-11-02 (plan: "Frozen from the development review").
+ACCURACY_MARGIN_VOX = 0.1
+INCONSISTENCY_MARGIN_MM = 0.5
+CAPTURE_TOLERANCE = 0.05
+
+
+def section_margins(m):
+    """The frozen margins and the yardsticks from ``margins.py``."""
+
+    def value(yardstick, group):
+        hit = m[(m['yardstick'] == yardstick) & (m['group'] == group)]
+        return float(hit['value'].iloc[0]) if len(hit) else np.nan
+
+    def n_of(yardstick, group):
+        hit = m[(m['yardstick'] == yardstick) & (m['group'] == group)]
+        return int(hit['n'].iloc[0]) if len(hit) else 0
+
+    groups = list(dict.fromkeys(m.loc[m['yardstick'] == 'r1_inconsistency_mm', 'group']))
+    rows = [
+        [
+            esc(g),
+            str(n_of('r1_inconsistency_mm', g)),
+            fmt(value('r1_inconsistency_mm', g)),
+            fmt(value('chance_mm', g)),
+            fmt(value('worse_mm: FSL P-mean default', g)),
+            fmt(value('worse_mm: FSL conventional opposite', g)),
+        ]
+        for g in groups
+    ]
+    head = ['Family / pairs', 'Subjects', 'R1 (mm)', 'Chance (mm)']
+    head += ['P-mean &minus; R1', 'Opposite &minus; R1']
+    table = plain_table(head, rows, num_cols=(1, 2, 3, 4, 5))
+    noisy = [
+        f'{esc(g)} ({fmt(value("chance_mm", g))} mm, {n_of("chance_mm", g)} subjects)'
+        for g in groups
+        if value('chance_mm', g) > INCONSISTENCY_MARGIN_MM
+    ]
+    noisy_text = (
+        f'Chance exceeds the margin in {len(noisy)} group{"s" if len(noisy) != 1 else ""}: '
+        f'{", ".join(noisy)}; there an arm as good as R1 can fail by chance.'
+        if noisy
+        else 'Chance stays under the margin in every group with at least three subjects.'
+    )
+    missed = [
+        esc(g)
+        for g in groups
+        if value('worse_mm: FSL conventional opposite', g) < INCONSISTENCY_MARGIN_MM
+    ]
+    body = f"""
+<section id="margins">
+<h2>Margins</h2>
+<p>Frozen on 2026-11-02 from development data, before any J-arm is scored.</p>
+<ul>
+<li><b>Accuracy (gates 2 and 3): {ACCURACY_MARGIN_VOX:g} voxel</b> on the median RMS error over a
+family's fixtures. R1's own error has a median of {value('r1_error_vox', 'median'):.3f} voxel
+(maximum {value('r1_error_vox', 'max'):.3f}). Arms of practically equal quality, the four D3
+levels against R1, differ by {value('equivalent_vox', 'median'):+.3f} voxel at the median and
+at most {value('equivalent_vox', 'max'):+.3f}, so the margin is about twice the largest such
+gap.</li>
+<li><b>Capture range (gate 3) and semi-synthetic recovery (gate 4): R1&rsquo;s converged share
+less {CAPTURE_TOLERANCE * 100:g} percentage points</b> at every level, on the
+optimizer&rsquo;s result.</li>
+<li><b>Inconsistency (gate 4): {INCONSISTENCY_MARGIN_MM:g} mm</b> on the family median, over
+subjects, of the J-arm&rsquo;s minus R1&rsquo;s per-subject inconsistency.</li>
+</ul>
+{table}
+<p>Chance is the 95th percentile, over a bootstrap of subjects, of the family median of R1&rsquo;s
+inconsistency measured in the conventional frame minus the perfusion frame, centred: how far a
+family median moves when nothing changes. {noisy_text} Consistency cannot see an arm that is
+consistently wrong: the opposite sign, which the review judged worse (above), stays under the
+margin in {len(missed)} of {len(groups)} groups ({', '.join(missed)}). The computed
+outcomes guard against a J-arm that is less consistent; the review judges accuracy.</p>
+</section>"""
+    return body
+
+
 #: (section id, title, introduction) of each development review batch, in order.
 REVIEW_BATCHES = (
     (
@@ -842,7 +921,7 @@ REVIEW_BATCHES = (
 )
 
 
-def build(freeze, capture=None, choices=()):
+def build(freeze, capture=None, choices=(), margins=None):
     fix, real = load(freeze)
     r1, f1 = section_r1(fix, real, 1)
     r2, f2 = section_r2(fix, real, 2)
@@ -863,6 +942,15 @@ def build(freeze, capture=None, choices=()):
             f'{rf["sign_n"]} sign pairs.</li>'
         )
     rev, rev_bullet, rev_nav = '\n'.join(revs), '\n'.join(rev_bullets), '\n'.join(nav)
+    marg = section_margins(pd.read_table(margins)) if margins else ''
+    if marg:
+        rev_nav += '\n<a href="#margins">Margins</a>'
+        rev_bullet += (
+            f'\n<li><b>Margins (frozen 2026-11-02):</b> accuracy {ACCURACY_MARGIN_VOX:g} voxel, '
+            f'inconsistency {INCONSISTENCY_MARGIN_MM:g} mm, capture range and semi-synthetic '
+            f'recovery R1&rsquo;s converged share less {CAPTURE_TOLERANCE * 100:g} percentage '
+            'points.</li>'
+        )
     _, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -917,6 +1005,7 @@ runs &middot; held-out data not used</p>
 {elig}
 {cap}
 {rev}
+{marg}
 {review}
 </div>"""
 
@@ -933,8 +1022,9 @@ def main(argv=None):
         default=(),
         help="score_review.py's choices.tsv of each development batch, in order",
     )
+    p.add_argument('--margins', type=Path, help="margins.py's table of yardsticks")
     args = p.parse_args(argv)
-    args.out.write_text(build(args.freeze, args.capture, args.review))
+    args.out.write_text(build(args.freeze, args.capture, args.review, args.margins))
 
 
 if __name__ == '__main__':
