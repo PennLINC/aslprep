@@ -462,6 +462,37 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
   convergence threshold (1e-8) gives the same iterations and result on `rc_pcasl`, `rc_grase`
   and `st_spiral`; a 20-iteration window runs 49–275 iterations without a better result (0.49
   against 0.51 mm, 1.16 against 0.98, 0.90 unchanged). S1 stays as frozen.
+- **Task 4 rules, fixed 2026-11-02 before any J1 result** (maintainer's decisions):
+  - Grid: J1 over perfusion image (P-winsor, P-robust) x target (smoothed GM, pseudo-CBF) x
+    perfusion weight (0.2, 0.4, 0.6) x masking (none, the stage masks), anatomy fixed (the engine
+    pilot's direction): 24 variants. Each is compared with S1 and with the S2 and Q1 built from
+    the same perfusion image, target and masking (8 each).
+  - Gate 2, development part: a variant is **better** on a stress family (`st_*`, `rc_grase`,
+    the short series) when its family median error is lower than each matched ablation's by at
+    least 0.1 voxel (the accuracy margin), and **not worse elsewhere** when its family median
+    error is at most the best matched ablation's plus 0.1 voxel; both on the `raw` and the
+    `derivatives` forms where a family has both.
+  - **Keep at most two:** among passing variants, most stress families won, then lowest median
+    error over all development fixtures, then the simpler variant (P-winsor, GM target, weight
+    0.4, no mask). If none passes, J1 fails gate 2 and the probe reports a negative result.
+    (The tie-break's "no mask" is a slip: the frozen J1 is masked, and `gate2.py` counts masked
+    as simpler. It decides nothing, since no variant passes.)
+- **Task 4 result (2026-11-02): J1 fails gate 2.** `scripts/coreg_mc/screen.py` (42 arms on the
+  17 development fixtures, 714 runs, all with a transform; outputs in
+  `/home/tsalo/coreg-mc/task4`) and `gate2.py`. The frozen variants build the engine pilot's
+  commands and reproduce its transforms exactly on `rc_pcasl` and `st_spiral`. Report:
+  https://claude.ai/artifact/H4dqhbuJzV3ssQ1uN3jzso (`report_task4.py`).
+  - 0 of 24 variants pass. None wins a stress family (the closest: the short series, -0.018
+    voxel from the best matched ablation); all 24 fail GRASE, by about 0.2-0.3 voxel against S2.
+  - The cause is the static T1w MI term, the weakness carried from the engine pilot. On GRASE
+    (derivatives, raw) S1 has 0.21 and 0.41 voxel, S2 (P-winsor, pseudo-CBF, masked) 0.03 and
+    0.03, and the best J1 (P-robust, GM, w 0.4, no mask) 0.25 and 0.37: summing the terms keeps
+    S1's error. Q1, which runs the terms in turn, ends at the perfusion term's optimum.
+  - Nothing in the screen improves on production's chain: R1 has a median of 0.046 voxel over
+    these fixtures, the best S2 and Q1 arms 0.050 and 0.055, the best J1 0.079; every S2 and Q1
+    arm is within 0.033 voxel of R1.
+  - Per "Bounding the combinations", the extensions (J4-J6) are not run, and the probe reports a
+    negative result. Tasks 5-6 for J-arms do not run; Task 7 records the decision on #672.
 - **Task 3 complete (2026-11-02).** Every item the plan assigns it is frozen from development
   data only, before any J-arm is scored or any held-out fixture or run is scored by any arm.
   - Coverage: 259 of the 260 development runs. `ds007908/sub-9006_ses-1` (GRASE) has no

@@ -103,34 +103,58 @@ ALL_ARMS = ARMS | PILOT_ARMS
 INVERSE = {'S1-inv', 'S2-inv', 'J1-inv'}
 
 
-def gm_target(work, gm_probseg):
-    """The GM probability map smoothed to the ASL resolution, on the T1w grid."""
-    gm = nb.load(gm_probseg)
+#: ExploreASL's pseudo-tissue weights (``xASL_im_CreatePseudoCBF.m``: pGM * 80 + pWM * 26.7),
+#: normalized to GM; CC does not depend on scale.
+PSEUDO_CBF_WM = 26.7 / 80
+
+
+def _smoothed_target(work, probsegs, weights, name):
+    """A weighted sum of T1w-grid probability maps smoothed to the ASL resolution."""
     t1 = nb.load(work / 't1w_brain.nii.gz')
     asl = nb.load(work / 'conventional.nii.gz')
-    if gm.shape != t1.shape or not np.allclose(gm.affine, t1.affine, atol=1e-3):
-        raise ValueError(f'{gm_probseg} is not on the T1w grid')
+    data = np.zeros(t1.shape, np.float32)
+    for probseg, weight in zip(probsegs, weights, strict=True):
+        img = nb.load(probseg)
+        if img.shape != t1.shape or not np.allclose(img.affine, t1.affine, atol=1e-3):
+            raise ValueError(f'{probseg} is not on the T1w grid')
+
+        data += weight * np.asanyarray(img.dataobj, np.float32)
+
     t1_vox = np.sqrt((t1.affine[:3, :3] ** 2).sum(0))
     # The ASL voxel size along the T1w axes (rotation-aware, a conservative per-axis estimate).
     asl_vox = np.sqrt((asl.affine[:3, :3] ** 2).sum(0)).max()
     fwhm = np.sqrt(np.maximum(asl_vox**2 - t1_vox**2, 0))
     sigma_vox = fwhm / 2.3548 / t1_vox
-    data = gaussian_filter(np.asanyarray(gm.dataobj, np.float32), sigma_vox)
-    nb.Nifti1Image(data, t1.affine).to_filename(work / 'gm_target.nii.gz')
+    nb.Nifti1Image(gaussian_filter(data, sigma_vox), t1.affine).to_filename(work / name)
 
 
-def lowres(work):
+def gm_target(work, gm_probseg):
+    """The GM probability map smoothed to the ASL resolution, on the T1w grid."""
+    _smoothed_target(work, [gm_probseg], [1.0], 'gm_target.nii.gz')
+
+
+def pseudo_cbf_target(work, gm_probseg, wm_probseg):
+    """ExploreASL's pseudo-tissue image (GM + 0.334 WM), smoothed as the GM target is."""
+    _smoothed_target(
+        work,
+        [gm_probseg, wm_probseg],
+        [1.0, PSEUDO_CBF_WM],
+        'pseudocbf_target.nii.gz',
+    )
+
+
+def lowres(work, names=(('t1w_brain', 1), ('t1w_mask', 0), ('gm_target', 1))):
     """The anatomical fixed images on an isotropic grid at the ASL resolution.
 
     ANTs evaluates its metrics on the fixed image's grid; the 1 mm T1w grid gives no
     information the ASL image can use and makes dense CC far too slow. World coordinates are
-    unchanged, so transforms are unaffected.
+    unchanged, so transforms are unaffected. ``names`` are (image, interpolation order) pairs.
     """
     from nibabel.processing import resample_to_output
 
     asl = nb.load(work / 'conventional.nii.gz')
     vox = float(np.sqrt((asl.affine[:3, :3] ** 2).sum(0)).max())
-    for name, order in (('t1w_brain', 1), ('t1w_mask', 0), ('gm_target', 1)):
+    for name, order in names:
         img = nb.load(work / f'{name}.nii.gz')
         img = nb.Nifti1Image(np.asanyarray(img.dataobj, np.float32), img.affine)
         out = resample_to_output(img, voxel_sizes=(vox, vox, vox), order=order)
@@ -151,11 +175,12 @@ def write_init(work):
     return pull
 
 
-def ants_command(arm, init, prefix, schedule=SCHEDULE):
+def ants_command(arm, init, prefix, schedule=SCHEDULE, stages=None, masked=True):
     """One arm's ``antsRegistration`` call (container paths), writing ``<prefix>0GenericAffine.mat``.
 
     ``init`` is the pull (or, for an ``INVERSE`` arm, the push) as an ITK file; every stage uses
-    ``schedule``.
+    ``schedule``. ``stages`` replaces the arm's own (a screen variant); with ``masked`` false the
+    stages have no masks.
     """
     masks = '[/w/t1w_mask_lr.nii.gz,/w/mask.nii.gz]'
     if arm in INVERSE:
@@ -167,11 +192,13 @@ def ants_command(arm, init, prefix, schedule=SCHEDULE):
         '--winsorize-image-intensities [0.005,0.995] --use-histogram-matching 0',
         f'--random-seed {SEED} --initial-moving-transform {init}',
     ]
-    for terms in ALL_ARMS[arm]:
+    for terms in stages or ALL_ARMS[arm]:
         cmd.append('--transform Rigid[0.1]')
         cmd += [f'--metric {t}' for t in terms]
         cmd.append(schedule)
-        cmd.append(f'--masks {masks}')
+        if masked:
+            cmd.append(f'--masks {masks}')
+
     return ' '.join(cmd)
 
 
