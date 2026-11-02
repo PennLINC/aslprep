@@ -60,12 +60,14 @@ Both are resolved together by pixi when generating `pixi.lock`.
 2. **Commit and open a pull request.**
 
 3. **The `pixi-lock.yml` GitHub Action runs automatically** on every
-   `pull_request_target` event. It checks whether the latest commit touched
-   `pyproject.toml` or `pixi.lock` and only then runs lockfile update steps.
+   `pull_request` event. It checks whether the pull request touched
+   `pyproject.toml` or `pixi.lock` anywhere in its history and only then runs
+   the lockfile steps.
 
-4. **Lockfile push behavior depends on PR source:**
+4. **Lockfile behavior depends on PR source:**
    - **Same-repo branch PRs:** the workflow pushes updated `pixi.lock` back to the PR branch.
-   - **Fork PRs:** the workflow does **not** push (by design). In this case, update
+   - **Fork PRs:** the workflow only checks the lockfile (`pixi lock --check`), with
+     read-only permissions, and does **not** push. If the check fails, update
      `pixi.lock` manually in a Linux environment and push from the contributor branch.
 
 5. **Review the lockfile update.** Because `pixi.lock` is marked as binary in
@@ -139,26 +141,27 @@ In this repository, file changes only control a subset of behavior.
 
 ### GitHub Action: `.github/workflows/pixi-lock.yml`
 
-The workflow is triggered on every `pull_request_target` event. Inside the job:
+The workflow is triggered on every `pull_request` event. It runs one of two jobs,
+depending on where the PR branch lives, plus an aggregate job:
 
-- **Always runs**
-  - `Checkout pull request`
-  - `Check latest commit for dependency edits`
-- **Runs only if the latest commit touched one of these root files**
-  - `pyproject.toml`
-  - `pixi.lock`
-  - Conditional steps:
-    - `Find submitting repository`
-    - `Set git identity`
-    - `prefix-dev/setup-pixi`
-    - `Install the latest version of uv`
-    - `Update lockfile`
-- **Pushes updated lockfile only when both are true**
-  - Latest commit touched `pyproject.toml` or `pixi.lock`
-  - PR source branch is in this same repository (not a fork)
+- **`validate-lockfile`** (fork PRs only; `contents: read`, no persisted credentials)
+  - Always runs `Checkout pull request` and `Check pull request for dependency edits`.
+  - If the PR touched `pyproject.toml` or `pixi.lock`, runs `prefix-dev/setup-pixi`
+    and `pixi lock --check`. It never pushes.
+- **`update-lockfile`** (same-repo PRs only; the only job with `contents: write`)
+  - Always runs `Checkout pull request` and `Check pull request for dependency edits`.
+  - If the PR touched `pyproject.toml` or `pixi.lock`, runs `Set git identity`,
+    `prefix-dev/setup-pixi`, `Install the latest version of uv`, `Update lockfile`,
+    and pushes any new lockfile commit to the PR branch (non-forced).
+- **`check-lockfile`** (always)
+  - Fails unless exactly the applicable job above succeeded and the other was skipped.
+    This is the job to require as a status check.
+
+"Touched" means changed anywhere in the PR (`git diff <base>...HEAD`), not only
+in the latest commit.
 
 Practical implication: editing other files alone still starts the workflow,
-but lockfile update steps are skipped.
+but the pixi steps are skipped.
 
 ### CircleCI: `.circleci/config.yml`
 
