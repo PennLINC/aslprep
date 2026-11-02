@@ -831,6 +831,29 @@ prefers the sign the rule picks on {rule_agree} of {len(sign)}.</p>
 ACCURACY_MARGIN_VOX = 0.1
 INCONSISTENCY_MARGIN_MM = 0.5
 CAPTURE_TOLERANCE = 0.05
+#: Gate 5's budget: a J-arm's median time per run at most this multiple of R1's, no run over the
+#: cap (seconds, single-threaded, including the ``mri_coreg`` start).
+BUDGET_RATIO, BUDGET_CAP_S = 2.0, 300.0
+
+
+def budget_bullet(timing, review_set, manifest):
+    """The frozen run-time budget and review set, from ``time_arms.py`` and ``review_set.py``."""
+    w = timing.pivot_table(index=['dataset', 'run'], columns='step', values='seconds')
+    totals = {'R1': w['mri_coreg'] + w['bbr']}
+    totals |= {arm: w['mri_coreg'] + w[arm] for arm in ('J1', 'Q1', 'S2')}
+    med = {k: float(v.median()) for k, v in totals.items()}
+    held = manifest[manifest['side'] == 'held_out']
+    subjects = held[['dataset', 'subject']].drop_duplicates()
+    return (
+        f'<li><b>Run-time budget (gate 5):</b> a J-arm&rsquo;s median time per run at most '
+        f'{BUDGET_RATIO:g} times R1&rsquo;s chain ({med["R1"]:.0f} s at the median over '
+        f'{len(w)} development runs, so {BUDGET_RATIO * med["R1"]:.0f} s), and no run over '
+        f'{BUDGET_CAP_S / 60:g} minutes, single-threaded with the shared <code>mri_coreg</code> '
+        f'start. Now: J1 {med["J1"]:.0f} s, Q1 {med["Q1"]:.0f} s, S2 {med["S2"]:.0f} s.</li>\n'
+        f'<li><b>Review set:</b> one run per held-out subject, drawn by seed: {len(review_set)} '
+        f'runs from {len(held)} held-out runs and {len(subjects)} subjects, every family and '
+        'every spiral and GRASE subject included.</li>'
+    )
 
 
 def section_margins(m):
@@ -921,7 +944,7 @@ REVIEW_BATCHES = (
 )
 
 
-def build(freeze, capture=None, choices=(), margins=None):
+def build(freeze, capture=None, choices=(), margins=None, timing=None):
     fix, real = load(freeze)
     r1, f1 = section_r1(fix, real, 1)
     r2, f2 = section_r2(fix, real, 2)
@@ -951,6 +974,11 @@ def build(freeze, capture=None, choices=(), margins=None):
             f'recovery R1&rsquo;s converged share less {CAPTURE_TOLERANCE * 100:g} percentage '
             'points.</li>'
         )
+
+    if timing:
+        review_set = pd.read_table(HERE / 'review_set.tsv')
+        manifest = pd.read_table(HERE / 'manifest.tsv')
+        rev_bullet += '\n' + budget_bullet(pd.read_table(timing), review_set, manifest)
     _, hi = f1['margin']
     head = f"""<title>Coregistration Comparators</title>
 <meta name="claude:viewport-fit-sides" content="cover">
@@ -1023,8 +1051,9 @@ def main(argv=None):
         help="score_review.py's choices.tsv of each development batch, in order",
     )
     p.add_argument('--margins', type=Path, help="margins.py's table of yardsticks")
+    p.add_argument('--timing', type=Path, help="time_arms.py's table of run times")
     args = p.parse_args(argv)
-    args.out.write_text(build(args.freeze, args.capture, args.review, args.margins))
+    args.out.write_text(build(args.freeze, args.capture, args.review, args.margins, args.timing))
 
 
 if __name__ == '__main__':

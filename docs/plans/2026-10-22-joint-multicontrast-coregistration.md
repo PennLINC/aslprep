@@ -422,7 +422,26 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
       an arm as good as R1 can fail by chance. The margin catches the arms the review judged
       worse only in some groups (the opposite sign stays under it in 4 of 8), because
       consistency cannot see an arm that is consistently wrong; the review judges accuracy.
-  - Still open in Task 3: the review set's sample and the run-time budget.
+  - **Review set: one run per held-out subject** (`review_set.py`, seed 20261102,
+    `scripts/coreg_mc/review_set.tsv`), drawn before any figure exists. The held-out panel has
+    208 runs from 53 subjects, not the about 40 runs the review-load estimate assumed, so the
+    rule "keep every spiral and GRASE run" could not hold (98 runs, up to 392 pairs). Amended,
+    at the maintainer's decision: every subject is kept and contributes one random run, so every
+    spiral and GRASE subject is in. 53 runs: 2D EPI 11, 7 T 3D EPI 10, GRASE 18, GE 1, spirals
+    13. At most 212 pairs (two J-arms, each against R1 and Q1) before the tie distance drops
+    close pairs; up to a third over the agreed load in the worst case, in batches of about 50.
+    The computed outcomes still use all 208 held-out runs.
+  - **Run-time budget, gate 5** (`time_arms.py`, `task3/freeze/timing.tsv`; two development
+    runs per family, single-threaded, in the pinned image): a J-arm's median time per run at
+    most twice R1's chain, and no run over 5 minutes, both including the `mri_coreg` start every
+    arm shares. R1's chain (`mri_coreg` then FLIRT-BBR) takes 60 s at the median (36–107 s), so
+    the median limit is 119 s. Now: J1 28 s (median; 19–89 s), Q1 49 s, S2 45 s, S1 24 s.
+  - **Flag for Task 4:** S1's `antsRegistration` step takes 0.1–0.5 s for a 500x250-iteration
+    schedule, and in the engine pilot its result barely moved from the `mri_coreg` start (0.51,
+    0.98, 0.90 mm against the start's 0.35, 1.04, 0.72). It may stop on its convergence window
+    almost at once. Check its iteration log before S1 is used as an ablation.
+- **Task 3 complete (2026-11-02).** Every item the plan assigns it is frozen from development
+  data only, before any J-arm is scored or any held-out fixture or run is scored by any arm.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,
@@ -1001,7 +1020,8 @@ two are reconciled before Task 6 and any overlap is reported.
 The review set is every held-out run, fixed in Task 0 with the split. If the pairs it produces
 exceed the agreed review load (open decision 1), a random sample stratified by family is drawn
 by a recorded seed before any figure is made, always keeping every spiral and GRASE run. No run is
-added or dropped after its figures exist.
+added or dropped after its figures exist. (Amended in Task 3, 2026-11-02: one run per held-out
+subject, every subject kept; see the Task 3 notes.)
 
 Every computed metric runs on every run where it applies. An applicability table, fixed in Task 0, lists for every run and every metric and gate whether it
 applies (a cross-run score needs a comparable pair, semi-synthetic recovery applies everywhere),
