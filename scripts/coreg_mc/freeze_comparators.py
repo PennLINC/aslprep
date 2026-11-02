@@ -18,6 +18,8 @@ Per run (fixture or real) this collects:
   rewrites the work directory's inputs with identical content and registers nothing).
 - fixtures: each FSL arm's RMS error against truth, and the same eligibility record.
 
+Held-out fixtures and runs are refused; development runs with no result are listed.
+
 Usage (in WSL, ``aslprep-pvc`` environment, from the repository root)::
 
     python scripts/coreg_mc/freeze_comparators.py --fixtures <aslscan fixtures> \\
@@ -143,9 +145,41 @@ def read_tables(folder, suffix):
     return pd.concat(tables, ignore_index=True)
 
 
+#: Held-out fixtures carry these suffixes (plan: "Fixtures"); Task 3 must never score them.
+HELD_OUT_SUFFIXES = ('_ho', '_ho2')
+
+
+def development_fixtures(names):
+    """``names``, refusing any held-out fixture."""
+    held = [n for n in names if n.endswith(HELD_OUT_SUFFIXES)]
+    if held:
+        raise ValueError(f'held-out fixtures may not be scored in Task 3: {held}')
+
+    return names
+
+
+def coverage(gross, manifest):
+    """Refuse runs that are not development runs; return the development runs with no result."""
+    side = manifest.set_index(['dataset', 'run'])['side']
+    runs = gross[['dataset', 'run']].drop_duplicates()
+    keys = list(zip(runs['dataset'], runs['run'], strict=True))
+    other = [k for k in keys if side.get(k) != 'development']
+    if other:
+        raise ValueError(f'runs that are not development runs: {other}')
+
+    dev = manifest[manifest['side'] == 'development']
+    have = set(keys)
+    missing = [k for k in zip(dev['dataset'], dev['run'], strict=True) if k not in have]
+    for k in missing:
+        print(f'MISSING development run (no result): {k[0]}/{k[1]}', flush=True)
+
+    return missing
+
+
 def real_runs(dev_real, manifest, run_roots, adapted, license_file):
     """One row per development real run and FSL arm."""
     gross = read_tables(dev_real, 'gross')
+    coverage(gross, manifest)
     cons = read_tables(dev_real, 'consistency')
     cons = cons[cons['frame'] == 'conventional']
     # Every run's partners: each pair counts for both of its runs.
@@ -203,12 +237,13 @@ def main(argv=None):
     args.out.mkdir(parents=True, exist_ok=True)
     if args.reuse_fixtures and (args.out / 'fixtures.tsv').exists():
         fix = pd.read_table(args.out / 'fixtures.tsv')
+        development_fixtures(list(fix['fixture'].unique()))
     else:
         fix = fixtures(
             args.fixtures,
             args.fixture_runs,
             args.fixture_work,
-            args.names,
+            development_fixtures(args.names),
             args.license,
         )
         fix.to_csv(args.out / 'fixtures.tsv', sep='\t', index=False)

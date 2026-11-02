@@ -10,7 +10,8 @@ written to a tmpfs (``/out``) inside the container:
 - ``bbr``: FLIRT-BBR from it (R1's chain with the default sign);
 - ``S1``, ``S2``, ``Q1``, ``J1``: the frozen ANTs arms (``run_ants.ARMS``) from the same start.
 
-Writes one row per run and step (``seconds``, wall time inside the container).
+Writes one row per run and step (``seconds``, wall time inside the container). A step that exits
+nonzero, or a run missing a step, stops the script: a failed registration has no run time.
 
 Usage (in WSL, ``aslprep-pvc`` environment, from the repository root)::
 
@@ -69,6 +70,11 @@ def time_run(work, license_file):
     for line in out.splitlines():
         step, seconds, status = line.split()
         rows.append({'step': step, 'seconds': float(seconds), 'status': int(status)})
+
+    # A step that failed may have finished quickly; its time must never count toward a budget.
+    failed = [r['step'] for r in rows if r['status'] != 0]
+    if failed or len(rows) != len(STEPS):
+        raise RuntimeError(f'{work}: steps failed {failed}, {len(rows)} of {len(STEPS)} timed')
 
     return rows
 

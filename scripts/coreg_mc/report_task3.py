@@ -658,9 +658,26 @@ def section_dev_review(choices, real, section_id, title, intro):
     )
     gate = valid[valid['size_mm'] == GATE_MM]
     gate_rate = count(gate['outcome'], 'detected') / max(len(gate), 1)
+    # Resolvable from the smallest size at which this and every larger size reach GATE_RATE;
+    # infinite (no pair resolvable) when even the largest size falls short.
     rates = valid.groupby('size_mm')['outcome'].apply(lambda s: (s == 'detected').mean())
-    resolved = rates[rates >= GATE_RATE]
-    resolvable = float(resolved.index.min()) if len(resolved) else float(rates.index.max())
+    resolvable = np.inf
+    for size, rate in rates.sort_index(ascending=False).items():
+        if rate < GATE_RATE:
+            break
+
+        resolvable = float(size)
+
+    if np.isfinite(resolvable):
+        resolvable_text = (
+            f'Pairs count as resolvable from {resolvable:g} mm, the smallest size at which it '
+            f'and every larger size are detected at {GATE_RATE:.0%} or better.'
+        )
+    else:
+        resolvable_text = (
+            f'No known-answer size is detected at {GATE_RATE:.0%} or better, so no comparison '
+            'pair counts as resolvable.'
+        )
     smallest = valid[valid['size_mm'] == valid['size_mm'].min()]
     smallest_text = (
         f'At {smallest["size_mm"].min():g} mm: {count(smallest["outcome"], "detected")} '
@@ -715,11 +732,14 @@ def section_dev_review(choices, real, section_id, title, intro):
         opposite_text = 'The opposite sign was never preferred.'
 
     rr = comp[comp['comparison'] == 'R1 vs R2'].copy()
-    rr['band'] = np.where(
-        rr['distance_mm'] >= resolvable,
-        f'&ge; {resolvable:g} mm',
-        f'&lt; {resolvable:g} mm',
-    )
+    if np.isfinite(resolvable):
+        rr['band'] = np.where(
+            rr['distance_mm'] >= resolvable,
+            f'&ge; {resolvable:g} mm',
+            f'&lt; {resolvable:g} mm',
+        )
+    else:
+        rr['band'] = 'unresolved'
     who = {'FSL P-mean default': 'R2', 'tie': 'tie'}
     rr['who'] = rr['preferred'].map(who).fillna('R1')
     rr_rows = []
@@ -756,9 +776,17 @@ def section_dev_review(choices, real, section_id, title, intro):
         f'R2&rsquo;s {len(near)} other win{"s" if len(near) != 1 else ""} '
         f'{"are" if len(near) != 1 else "is"} on pairs under {resolvable:g} mm apart, which the '
         'known-answer pairs show the figures do not reliably resolve.'
-        if len(near)
+        if len(near) and np.isfinite(resolvable)
         else ''
     )
+    if np.isfinite(resolvable):
+        far_text = (
+            f'On pairs at least {resolvable:g} mm apart, R1 was preferred on '
+            f'{count(far["who"], "R1")} of {len(far)}, R2 on {len(r2_far)} '
+            f'({r2_far_items or "none"}).'
+        )
+    else:
+        far_text = 'No R1-against-R2 pair is resolvable in this batch.'
     flipped = rr[rr['arm_A'].str.contains('opposite') | rr['arm_B'].str.contains('opposite')]
     flipped_text = ''.join(
         f' On <code>{esc(r.run)}</code> R1 was shown with the opposite sign (the rule as '
@@ -806,8 +834,7 @@ size. A pair only has a right answer when R1's own solution is right. {base_text
 <p>On pairs where R1 passes, detection at {GATE_MM:g} mm is {gate_rate:.0%}
 ({count(gate['outcome'], 'detected')} of {len(gate)}), which {verdict_text}. {smallest_text}
 {misses_text} With {len(gate)} pairs at {GATE_MM:g} mm a single miss moves the rate by
-{step:.0f} points. Pairs count as resolvable from {resolvable:g} mm, the smallest size detected
-at {GATE_RATE:.0%} or better.</p>
+{step:.0f} points. {resolvable_text}</p>
 <h3>Repeats</h3>
 <p>{agree} of {len(repeats)} repeats got the same choice:</p>
 <ul>{repeat_items}</ul>
@@ -817,9 +844,8 @@ was flagged as misaligned on {opposite_flagged}. {opposite_text} {rule_text}, an
 prefers the sign the rule picks on {rule_agree} of {len(sign)}.</p>
 <h3>R1 against R2</h3>
 {rr_table}
-<p>On pairs at least {resolvable:g} mm apart, R1 was preferred on {count(far['who'], 'R1')} of
-{len(far)}, R2 on {len(r2_far)} ({r2_far_items or 'none'}). R2 was flagged as misaligned on
-{r2_flagged} pairs{epi_text}. {near_text}{flipped_text}</p>
+<p>{far_text} R2 was flagged as misaligned on {r2_flagged} pairs{epi_text}.
+{near_text}{flipped_text}</p>
 </section>"""
     return facts, body
 
@@ -957,12 +983,19 @@ def build(freeze, capture=None, choices=(), margins=None, timing=None):
         revs.append(body)
         nav.append(f'<a href="#{section_id}">{title.replace("Development review ", "")}</a>')
         outcome = 'passes' if rf['passed'] else 'falls short, so the figures were redesigned'
+        if np.isfinite(rf['resolvable']):
+            pairs_text = (
+                f'R1 was preferred on {rf["far_r1"]} of {rf["far_n"]} R1-against-R2 pairs at '
+                f'least {rf["resolvable"]:g} mm apart'
+            )
+        else:
+            pairs_text = 'No R1-against-R2 pair was resolvable'
+
         rev_bullets.append(
             f'<li><b>{title}:</b> known-answer detection at {GATE_MM:g} mm is '
-            f'{rf["gate_rate"]:.0%} of {rf["gate_n"]} and {outcome}. R1 was preferred on '
-            f'{rf["far_r1"]} of {rf["far_n"]} R1-against-R2 pairs at least '
-            f'{rf["resolvable"]:g} mm apart, and the default sign on {rf["default_wins"]} of '
-            f'{rf["sign_n"]} sign pairs.</li>'
+            f'{rf["gate_rate"]:.0%} of {rf["gate_n"]} and {outcome}. {pairs_text}, and the '
+            f'default sign was preferred on {rf["default_wins"]} of {rf["sign_n"]} sign '
+            'pairs.</li>'
         )
     rev, rev_bullet, rev_nav = '\n'.join(revs), '\n'.join(rev_bullets), '\n'.join(nav)
     marg = section_margins(pd.read_table(margins)) if margins else ''

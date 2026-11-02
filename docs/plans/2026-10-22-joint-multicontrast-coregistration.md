@@ -442,6 +442,14 @@ by deliberately wrong ones: the truth with a random rigid error of 2, 4, 6, 8 or
     almost at once. Check its iteration log before S1 is used as an ablation.
 - **Task 3 complete (2026-11-02).** Every item the plan assigns it is frozen from development
   data only, before any J-arm is scored or any held-out fixture or run is scored by any arm.
+  - Coverage: 259 of the 260 development runs. `ds007908/sub-9006_ses-1` (GRASE) has no
+    result: ASLPrep was never run on that subject (no anatomical outputs), and the failure was
+    only in `run_real`'s `_failed.tsv`. `freeze_comparators.py` now lists any development run
+    with no result and refuses held-out fixtures and runs.
+  - The known-answer detection rate assumes R1's solution is right on the runs used. Passing the
+    gross-failure rule does not prove that: a 1–4 mm R1 error can pass, and a random move could
+    then improve it. R1's per-subject inconsistency (0.3–0.7 mm at the family median) makes such
+    errors uncommon, but the rate is a lower bound only in that sense.
   - For review: every arm fails on the three `ds004856/sub-3131` runs (a failure of the direct
     registration between them, not of the arms), and 18 single-partner runs are more than 5 mm
     inconsistent with the conventional reference (`ds007116` 6, `kashyap` 6, `ds003823`,
@@ -1274,3 +1282,18 @@ dataset's top-level files, the subject's directory, the mounted source), and reu
 match. Runs recorded before the stamp match on the rest, since their inputs have not changed. (2)
 An R0 that failed its reproduction check was still scored. It is now excluded from every table and
 listed as excluded, not counted as a failure.
+
+**Codex adversarial review of Task 3 (2026-11-02).** Seven findings on `3318885^..fc1ade8`, each
+checked against the code and data; four fixed, two recorded as known limitations, one rejected.
+None changes a frozen value: no held-out data reached any frozen table, and every timed step
+exited 0.
+
+| # | Finding | Change |
+|---|---|---|
+| 1 | Nothing stops held-out fixtures or runs reaching the freeze | `freeze_comparators.py` refuses held-out fixtures (`_ho`, `_ho2`) and runs not marked development |
+| 2 | A failed timed step would still count toward gate 5 | `time_arms.py` stops on a nonzero exit status or a missing step |
+| 3 | The resolvable size fell back to the largest size when none reached 80 %, and assumed rates rise with size | Resolvable from the smallest size at which it and every larger size reach 80 %; otherwise none |
+| 4 | Missing development runs pass silently | Missing runs are listed; one is (`ds007908/sub-9006_ses-1`, never preprocessed), recorded in the Task 3 notes |
+| 5 | Passing the gross-failure rule does not prove R1 is right on a known-answer run | Recorded as a limitation of the detection rate (Task 3 notes) |
+| 6 | R1's +0.03 threshold was tuned on one reviewed subject | Already recorded with the amendment; the maintainer's decision |
+| - | The report's frozen values are constants, not validated against its inputs | Rejected: they are decisions recorded in this plan, and the report shows the evidence beside them |
