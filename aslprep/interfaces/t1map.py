@@ -1,4 +1,4 @@
-"""Interfaces that use a quantitative T1 map in the tissue-T1 kinetic model."""
+"""Interfaces that use a quantitative T1 map: in the tissue-T1 kinetic model and for M0."""
 
 import os
 
@@ -302,4 +302,89 @@ class UnmixTissueR1(SimpleInterface):
             },
             'FitStatus': {str(code): label for code, label in R1_FIT_STATUS.items()},
         }
+        return runtime
+
+
+class _CorrectM0RecoveryInputSpec(BaseInterfaceInputSpec):
+    in_file = File(exists=True, mandatory=True, desc='The M0 scan, with one or more volumes.')
+    t1map = File(exists=True, mandatory=True, desc='The T1 map, on the grid of the M0 scan.')
+    metadata = traits.Dict(desc="The T1 map's sidecar, whose Units decide its scale if present.")
+    repetition_time = traits.Float(
+        mandatory=True,
+        desc='Repetition time of the M0 scan, in seconds.',
+    )
+    fallback_t1 = traits.Float(
+        mandatory=True,
+        desc='T1, in seconds, of the voxels where the T1 map has no T1.',
+    )
+
+
+class _CorrectM0RecoveryOutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='The M0 scan, corrected for incomplete T1 recovery.')
+
+
+class CorrectM0Recovery(SimpleInterface):
+    """Correct each voxel of an M0 scan for incomplete T1 recovery, with a T1 map on its grid.
+
+    See :func:`~aslprep.utils.t1map.m0_recovery_factors`.
+    """
+
+    input_spec = _CorrectM0RecoveryInputSpec
+    output_spec = _CorrectM0RecoveryOutputSpec
+
+    def _run_interface(self, runtime):
+        from aslprep.utils.t1map import m0_recovery_factors, t1_scale
+
+        m0_img = nb.load(self.inputs.in_file)
+        t1_img = nb.load(self.inputs.t1map)
+        if t1_img.shape[:3] != m0_img.shape[:3] or not np.allclose(
+            t1_img.affine,
+            m0_img.affine,
+            atol=1e-3,
+        ):
+            raise ValueError(
+                f'The T1 map {self.inputs.t1map} is not on the grid of the M0 scan '
+                f'{self.inputs.in_file}.'
+            )
+
+        t1 = np.asanyarray(t1_img.dataobj, dtype=np.float64)
+        if t1.ndim == 4 and t1.shape[3] == 1:
+            t1 = t1[..., 0]
+
+        if t1.ndim != 3:
+            raise ValueError(f'The T1 map must be a 3D image, but it has shape {t1.shape}.')
+
+        metadata = self.inputs.metadata if isdefined(self.inputs.metadata) else {}
+        scale, how = t1_scale(t1, metadata)
+        factors, fallback = m0_recovery_factors(
+            t1 * scale,
+            self.inputs.repetition_time,
+            self.inputs.fallback_t1,
+        )
+
+        m0 = np.asanyarray(m0_img.dataobj, dtype=np.float64)
+        if m0.ndim == 4:
+            factors = factors[..., None]
+            signal = np.mean(m0, axis=3) > 0
+        else:
+            signal = m0 > 0
+
+        n_fallback = int(np.count_nonzero(fallback & signal))
+        if n_fallback:
+            config.loggers.interface.warning(
+                f'The T1 map {self.inputs.t1map} has no T1 in {n_fallback} of the '
+                f'{int(np.count_nonzero(signal))} voxels with M0 signal, which were corrected '
+                f'for T1 recovery with a T1 of {self.inputs.fallback_t1:g} s.'
+            )
+
+        config.loggers.interface.info(
+            f'Corrected the M0 scan for T1 recovery in each voxel, with the T1 map {how}.'
+        )
+        header = m0_img.header.copy()
+        header.set_data_dtype(np.float32)
+        out_file = os.path.join(runtime.cwd, 'm0scan_recovered.nii.gz')
+        nb.Nifti1Image((m0 * factors).astype(np.float32), m0_img.affine, header).to_filename(
+            out_file
+        )
+        self._results['out_file'] = out_file
         return runtime

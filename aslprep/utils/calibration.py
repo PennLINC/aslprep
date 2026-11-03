@@ -126,6 +126,7 @@ def resolve_calibration(
     basil=False,
     kinetic_model='consensus',
     external_att=False,
+    m0_t1map=None,
 ):
     """Resolve the calibration and physiological parameters for an ASL run.
 
@@ -156,6 +157,12 @@ def resolve_calibration(
     external_att : :obj:`bool`, optional
         Whether an ATT map from a multi-delay run is available, for the tissue-T1 model of
         single-delay data (see :func:`~aslprep.utils.bids.collect_external_att`).
+    m0_t1map : :obj:`str` or None, optional
+        BIDS URI of a T1 map on the grid of the separate M0 scan
+        (see :func:`~aslprep.utils.bids.collect_m0scan_t1map`). If the M0 scan needs a T1
+        recovery correction, each voxel is corrected with its own T1, before the M0 scan is
+        resampled (see :class:`~aslprep.interfaces.t1map.CorrectM0Recovery`), and the
+        specification has no ``M0RecoveryFactor``.
 
     Returns
     -------
@@ -182,6 +189,7 @@ def resolve_calibration(
         estimate_t1tissue,
         estimate_t1wm,
     )
+    from aslprep.utils.t1map import MAX_M0_RECOVERY_T1
 
     if kinetic_model not in KINETIC_MODELS:
         raise ValueError(
@@ -291,11 +299,29 @@ def resolve_calibration(
         )
 
     recovery = m0tr is not None and m0tr < M0_RECOVERY_TR_THRESHOLD
+    # Only a separate M0 scan is corrected in each voxel, before it is resampled to the ASL grid
+    voxelwise = recovery and m0type == 'Separate' and m0_t1map is not None
+    if voxelwise:
+        correction = 'voxelwise saturation recovery'
+        description = (
+            'Correction of the calibration image for incomplete T1 recovery: division of each '
+            'voxel by 1 - exp(-TR / T1), with the T1 of the voxel from a T1 map on the grid of '
+            'the M0 scan (M0RecoveryT1Map), before the M0 scan was resampled to the ASL grid '
+            f'(Alsop et al., 2015). T1s above {MAX_M0_RECOVERY_T1:g} s were capped at '
+            f'{MAX_M0_RECOVERY_T1:g} s, and voxels without a T1 were corrected with TissueT1.'
+        )
+    else:
+        correction = 'saturation recovery' if recovery else 'none'
+        description = (
+            'Correction of the calibration image for incomplete T1 recovery: '
+            'division by 1 - exp(-TR / T1 of tissue) (Alsop et al., 2015).'
+        )
     params['M0RecoveryCorrection'] = _parameter(
-        'saturation recovery' if recovery else 'none',
+        correction,
         'inferred',
         (
             f'M0 repetition time below {M0_RECOVERY_TR_THRESHOLD:g} s'
+            + (', and a T1 map on the grid of the M0 scan' if voxelwise else '')
             if recovery
             else (
                 'No M0 repetition time'
@@ -303,20 +329,30 @@ def resolve_calibration(
                 else f'M0 repetition time of at least {M0_RECOVERY_TR_THRESHOLD:g} s'
             )
         ),
-        (
-            'Correction of the calibration image for incomplete T1 recovery: '
-            'division by 1 - exp(-TR / T1 of tissue) (Alsop et al., 2015).'
-        ),
+        description,
     )
+    if voxelwise:
+        params['M0RecoveryT1Map'] = _parameter(
+            m0_t1map,
+            'measured',
+            m0_t1map,
+            'T1 map on the grid of the M0 scan, whose T1s corrected each voxel for T1 recovery.',
+        )
+
     if recovery:
         t1tissue = estimate_t1tissue(field_strength)
         params['TissueT1'] = _parameter(
             t1tissue,
             'default',
             f'Gray matter T1 at {field_strength:g} T (Wright et al., 2008)',
-            'T1 of tissue used to correct the calibration image for incomplete T1 recovery.',
+            (
+                'T1 of tissue used to correct the calibration image for incomplete T1 recovery'
+                + (', in the voxels where the T1 map has no T1.' if voxelwise else '.')
+            ),
             units='s',
         )
+
+    if recovery and not voxelwise:
         params['M0RecoveryFactor'] = _parameter(
             1 / (1 - np.exp(-m0tr / t1tissue)),
             'inferred',
@@ -956,7 +992,8 @@ def basil_calibration_inputs(calibration):
         inputs['m0tr'] = calibration_value(calibration, 'M0RepetitionTime')
         inputs['t1tissue_calib'] = calibration_value(calibration, 'TissueT1')
     else:
-        # A TR at the threshold tells oxford_asl not to correct the calibration image.
+        # A TR at the threshold tells oxford_asl not to correct the calibration image, which
+        # either needs no correction or was corrected voxelwise before it was resampled.
         inputs['m0tr'] = max(
             calibration_value(calibration, 'M0RepetitionTime', M0_RECOVERY_TR_THRESHOLD),
             M0_RECOVERY_TR_THRESHOLD,

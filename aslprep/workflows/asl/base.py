@@ -20,7 +20,9 @@ from aslprep.utils.bids import collect_run_data
 from aslprep.utils.calibration import (
     DEFAULT_M0_SCALE,
     DEFAULT_SMOOTH_KERNEL,
+    M0_RECOVERY_TR_THRESHOLD,
     calibration_kinetic_model,
+    calibration_value,
     resolve_calibration,
 )
 from aslprep.utils.gradwarp import gradwarp_metadata, resolve_gradwarp_plan
@@ -310,15 +312,40 @@ def init_asl_wf(
             ):
                 config.loggers.workflow.warning(warning)
 
+    m0tr = infer_m0tr(
+        aslcontext=run_data['aslcontext'],
+        metadata=metadata,
+        m0scan_metadata=run_data['m0scan_metadata'],
+    )
+    # A T1 map on the grid of a separate M0 scan corrects each of its voxels for T1 recovery
+    m0scan_t1map = None
+    if (
+        processing_target != 'cbf'
+        and metadata.get('M0Type') == 'Separate'
+        and run_data['m0scan']
+        and m0tr is not None
+        and np.mean(m0tr) < M0_RECOVERY_TR_THRESHOLD
+        and 't1map' not in (config.workflow.ignore or [])
+    ):
+        from aslprep.utils.bids import collect_m0scan_t1map
+
+        m0scan_t1map = collect_m0scan_t1map(
+            layout,
+            config.execution.derivatives or {},
+            run_data['m0scan'],
+            bids_filters=config.execution.bids_filters,
+        )
+        if m0scan_t1map is not None:
+            config.loggers.workflow.info(
+                f'{asl_file}: the M0 scan will be corrected for T1 recovery in each voxel, with '
+                f'the T1 map {m0scan_t1map["uri"]}.'
+            )
+
     calibration = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
             metadata,
-            m0tr=infer_m0tr(
-                aslcontext=run_data['aslcontext'],
-                metadata=metadata,
-                m0scan_metadata=run_data['m0scan_metadata'],
-            ),
+            m0tr=m0tr,
             m0scan_metadata=run_data['m0scan_metadata'],
             m0_scale=m0_scale,
             m0_scale_source='user' if m0_scale != DEFAULT_M0_SCALE else 'default',
@@ -328,9 +355,17 @@ def init_asl_wf(
             basil=basil,
             kinetic_model=config.workflow.kinetic_model,
             external_att=external_att is not None,
+            m0_t1map=None if m0scan_t1map is None else m0scan_t1map['uri'],
         )
         for warning in calibration['Warnings']:
             config.loggers.workflow.warning(f'{asl_file}: {warning}')
+
+    if (
+        calibration is None
+        or calibration_value(calibration, 'M0RecoveryCorrection')
+        != 'voxelwise saturation recovery'
+    ):
+        m0scan_t1map = None
 
     with_model = calibration is not None
 
@@ -597,6 +632,26 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
             ('outputnode.m0scan_gradwarp_field', 'inputnode.m0scan_gradwarp_field'),
         ]),
     ])  # fmt:skip
+
+    if m0scan_t1map is not None:
+        from aslprep.interfaces.t1map import CorrectM0Recovery
+
+        # The M0 scan is corrected on its own grid, which it shares with the T1 map, and then
+        # resampled to the ASL grid. The uncorrected scan still gives the M0-to-ASL registration.
+        correct_m0_recovery = pe.Node(
+            CorrectM0Recovery(
+                in_file=run_data['m0scan'],
+                t1map=m0scan_t1map['t1map'],
+                metadata=m0scan_t1map['metadata'],
+                repetition_time=calibration_value(calibration, 'M0RepetitionTime'),
+                fallback_t1=calibration_value(calibration, 'TissueT1'),
+            ),
+            name='correct_m0_recovery',
+            mem_gb=1,
+        )
+        workflow.connect([
+            (correct_m0_recovery, asl_native_wf, [('out_file', 'inputnode.m0scan')]),
+        ])  # fmt:skip
 
     # Calculate CBF
     # Compute CBF from ASLRef-space ASL data.
