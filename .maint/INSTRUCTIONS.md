@@ -66,6 +66,9 @@ Both are resolved together by pixi when generating `pixi.lock`.
 
 4. **Lockfile behavior depends on PR source:**
    - **Same-repo branch PRs:** the workflow pushes updated `pixi.lock` back to the PR branch.
+     It does not push a lockfile whose only change is the workspace package's own
+     version (which changes with every commit), and it does not run again on a head
+     commit pushed by `nipreps[bot]`.
    - **Fork PRs:** the workflow only checks the lockfile (`pixi lock --check`), with
      read-only permissions, and does **not** push. If the check fails, update
      `pixi.lock` manually in a Linux environment and push from the contributor branch.
