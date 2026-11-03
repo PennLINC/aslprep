@@ -209,6 +209,7 @@ ASLPrep now follows the same CI trigger-condition pattern as XCP-D:
   - Trigger: every `pull_request` event (not `pull_request_target`; `actions/checkout` refuses to check out a fork's head there).
   - Fork PRs run `validate-lockfile` with read-only permissions and no persisted credentials: `pixi lock --check` only, no push.
   - Same-repo PRs run `update-lockfile` (the only job with `contents: write`), which regenerates `pixi.lock` with DataLad and pushes it back to the PR branch with a plain, non-forced push.
+  - `pixi lock` rewrites the workspace package's hatch-vcs version (`version:`, `sha256:`, `editable:` lines of the `pypi: ./` entries) on every commit, even when `pixi lock --check` passes. `update-lockfile` therefore pushes only when `git diff -I '^  (version|sha256|editable): '` against the PR head still shows changes, and skips entirely when the head commit is authored by `nipreps[bot]`. Without both guards each bot push retriggers the workflow and it loops (seen on PennLINC/qsirecon#396).
   - Both jobs look for `pyproject.toml` or `pixi.lock` edits anywhere in the PR (`git diff base...HEAD`), not only the latest commit, and skip their pixi steps otherwise.
   - `check-lockfile` is an aggregate job that fails unless exactly the applicable job succeeded; require it, not the two underlying jobs, as the status check.
 
