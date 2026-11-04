@@ -115,6 +115,97 @@ def t1_scale(values, metadata):
     return 1.0, f'read as seconds, as its median ({median:g}) does not exceed 100'
 
 
+#: Brain median above which an R1 map without ``Units`` is read as per second, not per
+#: millisecond (brain R1 is about 0.2-2 per second, or 0.0002-0.002 per millisecond).
+PER_SECOND_THRESHOLD = 0.1
+
+_R1_UNITS = {
+    's-1': 1.0,
+    's^-1': 1.0,
+    '1/s': 1.0,
+    'hz': 1.0,
+    'ms-1': 1e3,
+    'ms^-1': 1e3,
+    '1/ms': 1e3,
+}
+
+
+def r1_scale(values, metadata):
+    """Find the factor that converts an R1 map to per second, and say how it was decided.
+
+    Parameters
+    ----------
+    values : :obj:`numpy.ndarray`
+        The R1 map's values.
+    metadata : :obj:`dict`
+        The R1 map's sidecar. ``Units`` (``s-1`` or ``ms-1``) decides the scale when present.
+
+    Returns
+    -------
+    scale : :obj:`float`
+        1 for per second, 1000 for per millisecond.
+    how : :obj:`str`
+        How the units were decided.
+
+    Raises
+    ------
+    ValueError
+        If ``Units`` is not a unit of rate ASLPrep knows, or the map has no positive values.
+    """
+    units = metadata.get('Units')
+    if units is not None:
+        scale = _R1_UNITS.get(str(units).strip().lower().replace(' ', ''))
+        if scale is None:
+            raise ValueError(
+                f'The R1 map has Units {units!r}; expected per second or per millisecond.'
+            )
+
+        return scale, f'Units {units!r} in its sidecar'
+
+    positive = values[np.isfinite(values) & (values > 0)]
+    if not positive.size:
+        raise ValueError('The R1 map has no positive values.')
+
+    median = float(np.median(positive))
+    if median > PER_SECOND_THRESHOLD:
+        return 1.0, f'read as per second, as its median ({median:g}) exceeds 0.1'
+    return 1e3, f'read as per millisecond, as its median ({median:g}) does not exceed 0.1'
+
+
+def coregistration_r1(values, metadata, suffix):
+    """Convert a T1 or R1 map to R1, in per second, for registration to the anatomical image.
+
+    Parameters
+    ----------
+    values : :obj:`numpy.ndarray`
+        The map's values.
+    metadata : :obj:`dict`
+        The map's sidecar, whose ``Units`` decide its scale if present
+        (see :func:`t1_scale` and :func:`r1_scale`).
+    suffix : {'T1map', 'R1map'}
+        Whether the map is of T1 or of R1.
+
+    Returns
+    -------
+    r1 : :obj:`numpy.ndarray`
+        R1 (1 / T1), in per second, where the map has a finite, positive value, and 0 elsewhere.
+    how : :obj:`str`
+        How the units were decided.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    if suffix == 'T1map':
+        scale, how = t1_scale(values, metadata)
+    elif suffix == 'R1map':
+        scale, how = r1_scale(values, metadata)
+    else:
+        raise ValueError(f'Expected a T1map or an R1map, not {suffix!r}.')
+
+    valid = np.isfinite(values) & (values > 0)
+    scaled = np.where(valid, values * scale, 1.0)
+    r1 = np.where(valid, 1 / scaled if suffix == 'T1map' else scaled, 0.0)
+    return r1, how
+
+
 def pure_tissue_mask(tissue_probability, csf_probability):
     """Select voxels of one tissue that partial volume effects leave unmixed.
 
