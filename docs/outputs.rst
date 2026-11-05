@@ -576,6 +576,8 @@ the same gray matter T1 to correct it for incomplete T1 recovery.
 When *ASLPrep* does not correct the M0 image (a repetition time of at least 5 s),
 it gives ``oxford_asl`` a repetition time of 5 s,
 because ``oxford_asl`` otherwise assumes 3.2 s and corrects the M0 image.
+It does the same when it has already corrected each voxel of the M0 scan with a T1 map on its grid
+(see :ref:`cbf_preproc`), so that BASIL uses the same corrected M0 image.
 An ``M0Estimate``, which BIDS defines as the M0 of arterial blood,
 is given to ``oxford_asl`` as a single M0 value (``--M0``), multiplied by the M0 scale,
 so that ``oxford_asl`` does not divide it by the partition coefficient

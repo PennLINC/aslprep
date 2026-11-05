@@ -47,6 +47,7 @@ from aslprep.utils.cbf import (
 )
 from aslprep.utils.misc import estimate_asl_mem_usage
 from aslprep.utils.pvc import check_lr_pvc_supported
+from aslprep.utils.t1map import MAX_M0_RECOVERY_T1
 from aslprep.workflows.asl.outputs import BASE_INPUT_FIELDS
 from aslprep.workflows.asl.pv import init_asl_pv_wf, init_lr_pvc_wf, lr_pvc_fields
 
@@ -286,6 +287,7 @@ Cerebral blood flow computation and denoising
             config.loggers.workflow.warning(warning)
 
     m0_str = ''
+    voxelwise_recovery = False
     # The tissue-T1 kinetic model's parameters, if the calibration was resolved for it
     tissue_t1 = None if calibration is None else tissue_t1_kinetics(calibration)
     # The T1 map's tissue T1s replace the defaults at run time
@@ -301,18 +303,34 @@ Cerebral blood flow computation and denoising
         recovery_tr = calibration_value(calibration, 'M0RepetitionTime')
         t1tissue = calibration_value(calibration, 'TissueT1')
         m0_threshold = calibration_value(calibration, 'M0Threshold')
+        # The M0 scan was corrected in each voxel before it reached this workflow
+        voxelwise_recovery = (
+            calibration_value(calibration, 'M0RecoveryCorrection')
+            == 'voxelwise saturation recovery'
+        )
 
     if processing_target == 'cbf':
         # Pre-calculated CBF is not calibrated.
         pass
 
     elif m0type in ('Included', 'Separate'):
-        m0_str = (
+        m0_str = ''
+        if voxelwise_recovery:
+            m0_str += (
+                f'As the TR of the calibration volumes was less than 5 seconds ({recovery_tr}), '
+                'each voxel of the calibration volumes was divided by 1 - exp(-TR / T1) to '
+                'compensate for incomplete T1 recovery [@alsop_recommended_2015], with the T1 '
+                'of the voxel from a T1 map on the grid of the calibration volumes '
+                f'(capped at {MAX_M0_RECOVERY_T1:g} s, and {t1tissue:g} s [@wright2008water] '
+                'where the map had no T1), before they were resampled to the ASL reference. '
+            )
+
+        m0_str += (
             'Calibration (M0) volumes associated with the ASL scan were smoothed with a '
             f'Gaussian kernel (FWHM={smooth_kernel} mm) and the average calibration image was '
             f'calculated. '
         )
-        if t1tissue is not None:
+        if t1tissue is not None and not voxelwise_recovery:
             m0_str += (
                 f'As the TR of the calibration volumes was less than 5 seconds ({recovery_tr}), '
                 'the average calibration volume was divided by 1 - exp(-TR / T1) to '

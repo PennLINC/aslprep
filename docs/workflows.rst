@@ -579,6 +579,30 @@ so *ASLPrep* divides the M0 image by :math:`1 - e^{-TR / T_{1,tissue}}`
 :footcite:p:`alsop_recommended_2015`.
 BASIL makes the same correction from the repetition time it is given.
 
+:math:`T_{1,tissue}` is the gray matter T1, so this one correction overcorrects white matter
+(whose T1 is shorter) and undercorrects CSF.
+Some sequences acquire the M0 scan as one of the images that a T1 map is fitted from, for example
+the first of two saturation-recovery images with different recovery times.
+If a separate M0 scan has a ``T1map`` (in ``anat`` or ``perf``, in a ``--derivatives`` dataset or
+the raw dataset) on exactly its grid, *ASLPrep* divides each voxel of the M0 scan by
+:math:`1 - e^{-TR / T_1}` with the voxel's own :math:`T_1`, before the scan is resampled onto the
+ASL grid, so no registration is needed.
+*ASLPrep* only checks that the map shares the grid, so the map must have been computed from images
+that were not corrected or moved after acquisition (as one computed from the M0 scan itself is):
+a map that was corrected for gradient nonlinearity or motion and then resampled back onto the same
+grid passes the check, but no longer lines up with the uncorrected M0 scan.
+The uncorrected scan is still used for its registration to the ASL reference.
+:math:`T_1` is capped at 5 s, which bounds the correction in CSF and noise,
+and voxels without a :math:`T_1` (zero, negative or not a number) get the gray matter T1.
+The map's units come from the ``Units`` field of its sidecar or, without one, from its values,
+as for the :ref:`T1 map of the tissue-T1 model <tissue_t1_from_t1map>`.
+The ``M0RecoveryCorrection`` calibration parameter is then ``voxelwise saturation recovery``,
+``M0RecoveryT1Map`` names the map, and BASIL is given a repetition time of 5 s,
+so that it does not correct the M0 image again.
+Derivative maps are searched before the raw dataset, and if a dataset has more than one map on the
+grid, select one with the ``m0scan_t1map`` key of ``--bids-filter-file``.
+``--ignore t1map`` turns the voxelwise correction off.
+
 BIDS defines ``M0Estimate`` as the M0 of arterial blood,
 so *ASLPrep* does not divide it by the blood-brain partition coefficient
 (:math:`\lambda` in the equations below), as it does for an M0 image of tissue.
@@ -1004,7 +1028,8 @@ participant's quantitative T1 map, when there is one, instead of using the defau
   parameters when the workflow runs, with the source ``measured``, so the CBF fit, local-regression
   partial volume correction, the ``desc-calibration_parameters.json`` file and the ``Model``
   metadata of the CBF and ATT maps all use them. BASIL keeps its own tissue T1, and the
-  correction of the M0 image for incomplete T1 recovery keeps the default gray matter T1.
+  correction of the M0 image for incomplete T1 recovery keeps the default gray matter T1
+  (unless a T1 map shares the grid of the M0 scan; see :ref:`cbf_preproc`).
 
 ``--t1map-method local-regression`` (experimental) also uses regional differences in tissue T1,
 which one median per tissue leaves out (motor cortex, for example, has a shorter T1 than the rest

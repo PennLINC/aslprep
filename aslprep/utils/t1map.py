@@ -1,4 +1,4 @@
-"""Measure tissue T1s from a quantitative T1 map, for the tissue-T1 kinetic model."""
+"""Use a quantitative T1 map: tissue T1s for the tissue-T1 kinetic model, and M0 recovery."""
 
 from __future__ import annotations
 
@@ -19,6 +19,11 @@ PLAUSIBLE_T1_RATIO = (0.6, 1.5)
 
 #: Brain median above which a T1 map without ``Units`` is read as milliseconds.
 MILLISECONDS_THRESHOLD = 100
+
+#: Largest T1, in seconds, used to correct an M0 image for incomplete T1 recovery.
+#: Longer T1s, in CSF or noise, are capped, which bounds the correction (to 3.0 at a TR of 2 s),
+#: as T1 maps from a ratio of two images are noisy, and often extrapolated, there.
+MAX_M0_RECOVERY_T1 = 5.0
 
 #: Default edge, in mm, of the cube in which the local-regression method unmixes R1.
 DEFAULT_KERNEL_MM = 7.0
@@ -377,3 +382,33 @@ def implausible_t1_warnings(medians, field_strength):
                 'and that it is a T1 map registered to the anatomical image.'
             )
     return warnings
+
+
+def m0_recovery_factors(t1, repetition_time, fallback_t1):
+    """Find the factor that corrects each voxel of an M0 image for incomplete T1 recovery.
+
+    An M0 image acquired with a repetition time (TR) shorter than the T1 of a voxel has
+    recovered only 1 - exp(-TR / T1) of its equilibrium magnetization there
+    (Alsop et al., 2015). With the T1 of each voxel, from a T1 map on the M0 image's grid,
+    each voxel is divided by its own recovery, rather than all of them by that of gray matter.
+
+    Parameters
+    ----------
+    t1 : :obj:`numpy.ndarray`
+        T1, in seconds, on the M0 image's grid. Non-finite and non-positive values have no T1.
+    repetition_time : :obj:`float`
+        Repetition time of the M0 image, in seconds.
+    fallback_t1 : :obj:`float`
+        T1, in seconds, of voxels without one (the gray matter T1 of the scalar correction).
+
+    Returns
+    -------
+    factors : :obj:`numpy.ndarray`
+        1 / (1 - exp(-TR / T1)) in each voxel, with T1 at most :data:`MAX_M0_RECOVERY_T1`.
+    fallback : :obj:`numpy.ndarray` of :obj:`bool`
+        The voxels without a T1, which were corrected with ``fallback_t1``.
+    """
+    t1 = np.asarray(t1, dtype=np.float64)
+    fallback = ~(np.isfinite(t1) & (t1 > 0))
+    t1 = np.where(fallback, fallback_t1, np.minimum(t1, MAX_M0_RECOVERY_T1))
+    return 1 / -np.expm1(-repetition_time / t1), fallback
