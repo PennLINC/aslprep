@@ -341,6 +341,24 @@ def init_asl_wf(
                 f'the T1 map {m0scan_t1map["uri"]}.'
             )
 
+    # A T1 (or, failing that, an R1) map on the grid of a separate M0 scan gives the R1 image
+    # registered to the anatomical image, whatever the M0 scan's TR
+    coreg_r1map = None
+    if (
+        metadata.get('M0Type') == 'Separate'
+        and run_data['m0scan']
+        and 't1map' not in (config.workflow.ignore or [])
+    ):
+        from aslprep.utils.bids import collect_m0scan_t1map
+
+        coreg_r1map = collect_m0scan_t1map(
+            layout,
+            config.execution.derivatives or {},
+            run_data['m0scan'],
+            bids_filters=config.execution.bids_filters,
+            suffixes=('T1map', 'R1map'),
+        )
+
     calibration = None
     if processing_target != 'cbf':
         calibration = resolve_calibration(
@@ -579,6 +597,7 @@ voxels, so that voxels without an estimate did not blend into neighboring estima
         gradwarp_plan=gradwarp_plan,
         m0scan_gradwarp_plan=m0scan_gradwarp_plan,
         asl2anat_init=asl2anat_init,
+        coreg_r1map=coreg_r1map,
         omp_nthreads=omp_nthreads,
     )
 

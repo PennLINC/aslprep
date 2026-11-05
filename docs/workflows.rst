@@ -1449,6 +1449,51 @@ of the original affine registration.
 The computed :ref:`CBF <cbf_preproc>` is registered to T1w using the transformation from ASL-T1w
 registration.
 
+.. _asl_reg_r1:
+
+Registering R1 from a T1 map on the grid of the M0 scan
+-------------------------------------------------------
+
+Some sequences acquire the M0 scan as one of the images that a T1 map is fitted from, for example
+the first of two saturation-recovery images with different recovery times.
+Such a map lies on the M0 scan's grid and has much stronger gray-white contrast than the M0 scan,
+so *ASLPrep* registers its R1 (:math:`1 / T_1`) to the anatomical image instead of the ASL
+reference.
+The map is found as for the :ref:`voxelwise M0 recovery correction <cbf_preproc>`:
+a ``T1map``, or failing that an ``R1map``, of the participant (in ``anat`` or ``perf``, in the
+M0 scan's session) on exactly the grid of a separate (``M0Type: Separate``) M0 scan,
+searched for in each ``--derivatives`` dataset and then in the raw dataset, whatever the M0
+scan's repetition time.
+Within a dataset, a ``T1map`` wins over an ``R1map``,
+and if a dataset has more than one map of that suffix on the grid,
+select one with the ``m0scan_t1map`` key of ``--bids-filter-file``.
+The map's units come from the ``Units`` field of its sidecar (``s`` or ``ms`` for a T1 map,
+``s-1`` or ``ms-1`` for an R1 map) or, without one, from its values.
+R1 is :math:`1 / T_1` in s\ :sup:`-1` where the map has a finite, positive value, and 0 elsewhere.
+
+R1 is moved into the frame of the ASL reference with the M0 scan's transform to it
+(``from-m0scan_to-aslref``), corrected for distortion as the M0 scan is,
+and masked with the brain mask estimated from the ASL reference.
+It is used only when the ASL reference was made from the separate M0 scan,
+so that this transform is between images of the same contrast,
+and the M0 scan has a single volume.
+Otherwise, or if the ASL-to-T1w transform is reused from ``--derivatives``,
+the ASL reference is registered as usual.
+
+As in a T1-weighted image, and unlike in the M0 scan, white matter is brighter than gray matter
+in R1, so the BBR contrast is reversed: ``flirt`` is given ``-bbrslope 0.5`` (rather than its
+default of -0.5), and ``bbregister`` (with ``--fs-reconall``) the ``--t1`` contrast.
+The rest of the chain (``mri_coreg``, then BBR, then the check against ``mri_coreg``) is
+unchanged, as are the ASL reference, its outputs, head-motion correction, and the
+``from-aslref_to-T1w`` transform's name.
+The transform's sidecar records ``RegistrationImage: R1map`` and the map's BIDS URI in
+``RegistrationImageSources``, and the methods boilerplate describes the registration.
+``--ignore t1map`` turns this off.
+
+On 35 runs of a dataset with a T1 map from the M0 scan's saturation-recovery pair, the transform
+from R1 was within 0.53 mm (median 0.31 mm) of the one from the M0-based reference,
+with no gross failures.
+
 
 Resampling ASL and CBF runs onto standard spaces
 ================================================

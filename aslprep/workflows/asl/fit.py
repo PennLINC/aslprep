@@ -101,6 +101,7 @@ def init_asl_fit_wf(
     gradwarp_plan: GradwarpPlan | None = None,
     m0scan_gradwarp_plan: GradwarpPlan | None = None,
     asl2anat_init: str | None = None,
+    coreg_r1map: dict | None = None,
     omp_nthreads: int = 1,
     name: str = 'asl_fit_wf',
 ) -> pe.Workflow:
@@ -159,6 +160,14 @@ def init_asl_fit_wf(
         coregistration (``'t1w'`` or ``'t2w'``).
         If :obj:`None`, ``config.workflow.asl2anat_init`` is used,
         with ``'auto'`` resolved to ``'t1w'``.
+    coreg_r1map
+        A T1 or R1 map on the grid of the separate M0 scan, as returned by
+        :func:`~aslprep.utils.bids.collect_m0scan_t1map`, or :obj:`None`.
+        If the separate M0 scan is the reference volume type, and has one volume, the map's R1,
+        moved into the frame of the coregistration reference with the M0 scan's transform and
+        masked with the ASL brain mask, is registered to the anatomical image in place of the
+        coregistration reference, with the boundary-based registration's contrast reversed.
+        The coregistration reference itself, and the transform's name, do not change.
 
     Inputs
     ------
@@ -284,6 +293,9 @@ def init_asl_fit_wf(
     aslref_mask = precomputed.get('aslref_mask')
 
     gradwarp = gradwarp_plan is not None and gradwarp_plan.warp_dim is not None
+    m0scan_gradwarp = bool(
+        m0scan and m0scan_gradwarp_plan is not None and m0scan_gradwarp_plan.warp_dim is not None
+    )
     gradwarp_jacobian = 'gradwarp-jacobian' not in (config.workflow.ignore or [])
     if gradwarp:
         # These depend on the corrected geometry, and derivatives do not record whether (or how)
@@ -359,6 +371,12 @@ def init_asl_fit_wf(
         prioritize_m0=use_ge,
     )
     skip_hmc = skips_motion_correction(aslcontext, use_ge)
+    use_r1 = use_coregistration_r1(
+        coreg_r1map,
+        m0scan=m0scan,
+        reference_volume_type=reference_volume_type,
+        aslref2anat_xform=aslref2anat_xform,
+    )
 
     hmcref_buffer = pe.Node(
         niu.IdentityInterface(fields=['aslref', 'asl_file']),
@@ -539,7 +557,7 @@ def init_asl_fit_wf(
     # The separate M0 scan may have been corrected differently on the scanner, and may have
     # a different slice orientation, so it gets its own field. As it is resampled onto the ASL
     # reference grid before correction, the field is generated on that grid.
-    if m0scan and m0scan_gradwarp_plan is not None and m0scan_gradwarp_plan.warp_dim is not None:
+    if m0scan_gradwarp:
         m0scan_gradwarp_wf = init_gradwarp_wf(
             plan=m0scan_gradwarp_plan,
             asl_file=m0scan,
@@ -981,6 +999,59 @@ def init_asl_fit_wf(
                 name='ds_aslreg_wf',
             )
 
+        # The image registered to the anatomical image: the coregistration reference, or R1
+        regsource = (regref_buffer, 'aslref')
+        regmetadata = (asl_reg_wf, 'outputnode.metadata')
+        if use_r1:
+            config.loggers.workflow.info(
+                'Stage 5: Registering the R1 of %s to the anatomical image',
+                coreg_r1map['uri'],
+            )
+            asl_r1_wf = init_asl_r1_wf(
+                coreg_r1map=coreg_r1map,
+                fieldmap_id=fieldmap_id,
+                metadata=metadata,
+                asl_file=asl_file,
+                m0scan_gradwarp=m0scan_gradwarp,
+            )
+            workflow.connect([
+                (fmapref_buffer, asl_r1_wf, [('out', 'inputnode.aslref')]),
+                (m0scanreg_buffer, asl_r1_wf, [('m0scan2aslref_xfm', 'inputnode.m0scan2aslref_xfm')]),
+                # The mask estimated from the ASL data, as the anatomical one needs this registration
+                (aslmask_buffer if aslref_mask else aslstrip_buffer, asl_r1_wf, [
+                    ('aslmask', 'inputnode.asl_mask'),
+                ]),
+            ])  # fmt:skip
+            if fieldmap_id:
+                workflow.connect([(aslref_fmap, asl_r1_wf, [('out_file', 'inputnode.fieldmap')])])
+
+            if m0scan_gradwarp:
+                workflow.connect([
+                    (m0scan_gradwarp_wf, asl_r1_wf, [
+                        ('outputnode.gradwarp_field', 'inputnode.m0scan_gradwarp_field'),
+                    ]),
+                ])  # fmt:skip
+
+            reverse_bbr_contrast(asl_reg_wf)
+            bbr_wf = asl_reg_wf.get_node('bbreg_wf') or asl_reg_wf.get_node('fsl_bbr_wf')
+            bbr_wf.__desc__ = (bbr_wf.__desc__ or '') + R1_COREGISTRATION_DESC.format(
+                uri=coreg_r1map['uri'],
+            )
+            regsource = (asl_r1_wf, 'outputnode.r1_brain')
+
+            # The transform's sidecar records the image that was registered
+            r1_metadata = pe.Node(
+                niu.Function(function=_update_dict, output_names=['out_dict']),
+                name='r1_metadata',
+                run_without_submitting=True,
+            )
+            r1_metadata.inputs.update = {
+                'RegistrationImage': 'R1map',
+                'RegistrationImageSources': [coreg_r1map['uri']],
+            }
+            workflow.connect([(asl_reg_wf, r1_metadata, [('outputnode.metadata', 'in_dict')])])
+            regmetadata = (r1_metadata, 'out_dict')
+
         workflow.connect([
             (inputnode, asl_reg_wf, [
                 ('t1w_preproc', 'inputnode.t1w_preproc'),
@@ -991,12 +1062,10 @@ def init_asl_fit_wf(
                 ('subject_id', 'inputnode.subject_id'),
                 ('fsnative2t1w_xfm', 'inputnode.fsnative2t1w_xfm'),
             ]),
-            (regref_buffer, asl_reg_wf, [('aslref', 'inputnode.ref_bold_brain')]),
+            (regsource[0], asl_reg_wf, [(regsource[1], 'inputnode.ref_bold_brain')]),
             (regref_buffer, ds_aslreg_wf, [('aslref', 'inputnode.source_files')]),
-            (asl_reg_wf, ds_aslreg_wf, [
-                ('outputnode.itk_bold_to_t1', 'inputnode.xform'),
-                ('outputnode.metadata', 'inputnode.metadata'),
-            ]),
+            (asl_reg_wf, ds_aslreg_wf, [('outputnode.itk_bold_to_t1', 'inputnode.xform')]),
+            (regmetadata[0], ds_aslreg_wf, [(regmetadata[1], 'inputnode.metadata')]),
             (ds_aslreg_wf, outputnode, [('outputnode.xform', 'aslref2anat_xfm')]),
             (asl_reg_wf, summary, [('outputnode.fallback', 'fallback')]),
         ])  # fmt:skip
@@ -1334,6 +1403,218 @@ def init_asl_native_wf(
     ])  # fmt:skip
 
     return workflow
+
+
+#: Boilerplate for the registration of R1 to the anatomical image, formatted with the map's URI.
+R1_COREGISTRATION_DESC = (
+    ' The image registered to the anatomical image was not the ASL reference, but the R1 '
+    '(1 / T1) of a quantitative map on the grid of the M0 scan ({uri}), moved into the frame '
+    "of the ASL reference with the M0 scan's transform and masked with the ASL brain mask, "
+    'as its gray-white contrast is much stronger than that of the M0 scan. As white matter is '
+    'brighter than gray matter in R1, the contrast of the boundary-based registration was '
+    'reversed.'
+)
+
+
+def use_coregistration_r1(coreg_r1map, *, m0scan, reference_volume_type, aslref2anat_xform):
+    """Decide whether R1, from a map on the grid of the M0 scan, is registered to the anatomy.
+
+    The M0 scan's transform to the ASL reference moves the map into the coregistration
+    reference's frame. It is used only when the reference was made from the separate M0 scan,
+    so that the transform is between images of the same contrast, and only when the M0 scan
+    has one volume, so that there is one transform.
+
+    Parameters
+    ----------
+    coreg_r1map : :obj:`dict` or None
+        The map, from :func:`~aslprep.utils.bids.collect_m0scan_t1map`.
+    m0scan : :obj:`str` or None
+        The separate M0 scan.
+    reference_volume_type : :obj:`str`
+        The volume type of the ASL reference (see :func:`select_reference_volume_type`).
+    aslref2anat_xform : :obj:`str` or None
+        A precomputed ASL-to-anatomical transform, in which case there is no registration.
+
+    Returns
+    -------
+    :obj:`bool`
+    """
+    if coreg_r1map is None or not m0scan or aslref2anat_xform:
+        return False
+
+    reason = None
+    if reference_volume_type != 'separate_m0scan':
+        reason = f'the ASL reference was made from the {reference_volume_type} volumes'
+    elif nb.load(m0scan).ndim == 4 and nb.load(m0scan).shape[3] > 1:
+        reason = 'the M0 scan has more than one volume'
+
+    if reason is not None:
+        config.loggers.workflow.info(
+            'Not registering the R1 of %s to the anatomical image, as %s; '
+            'the ASL reference is registered instead.',
+            coreg_r1map['uri'],
+            reason,
+        )
+        return False
+
+    return True
+
+
+def reverse_bbr_contrast(asl_reg_wf):
+    """Set a registration workflow's boundary-based registration for white matter brighter.
+
+    fMRIPrep's boundary-based registrations expect gray matter brighter than white matter, as in
+    a T2*-weighted image. FLIRT's default slope (-0.5) is reversed, and FreeSurfer's
+    ``bbregister`` is given the T1 contrast. Without boundary-based registration, nothing changes.
+
+    Parameters
+    ----------
+    asl_reg_wf : :obj:`~nipype.pipeline.engine.Workflow`
+        The workflow from :func:`~fmriprep.workflows.bold.registration.init_bold_reg_wf`.
+    """
+    fsl_bbr_wf = asl_reg_wf.get_node('fsl_bbr_wf')
+    flt_bbr = fsl_bbr_wf.get_node('flt_bbr') if fsl_bbr_wf is not None else None
+    if flt_bbr is not None:
+        flt_bbr.inputs.bbrslope = 0.5
+
+    bbreg_wf = asl_reg_wf.get_node('bbreg_wf')
+    bbregister = bbreg_wf.get_node('bbregister') if bbreg_wf is not None else None
+    if bbregister is not None:
+        bbregister.inputs.contrast_type = 't1'
+
+
+def init_asl_r1_wf(
+    *,
+    coreg_r1map: dict,
+    fieldmap_id: str | None,
+    metadata: dict,
+    asl_file: str,
+    m0scan_gradwarp: bool = False,
+    name: str = 'asl_r1_wf',
+) -> pe.Workflow:
+    """Bring R1, from a map on the grid of the M0 scan, into the coregistration reference's frame.
+
+    The map is converted to R1 on its own grid, put on the ASL reference grid, moved with the
+    M0 scan's transform to the ASL reference, corrected for distortion as the M0 scan is, and
+    masked with the ASL brain mask.
+    (It has no workflow graph here, as it needs an existing map to be built.)
+
+    Parameters
+    ----------
+    coreg_r1map
+        The map, from :func:`~aslprep.utils.bids.collect_m0scan_t1map`.
+    fieldmap_id
+        ID of the fieldmap that corrects the ASL series, if any.
+    metadata
+        The ASL file's metadata, for its distortion parameters.
+    asl_file
+        The ASL file.
+    m0scan_gradwarp
+        Whether the M0 scan has a gradient nonlinearity field (``m0scan_gradwarp_field``).
+
+    Inputs
+    ------
+    aslref
+        The image on whose grid the coregistration reference lies.
+    m0scan2aslref_xfm
+        The M0 scan's transform to the ASL reference.
+    asl_mask
+        The ASL brain mask.
+    fieldmap
+        The fieldmap, in the frame of the ASL reference, if any.
+    m0scan_gradwarp_field
+        The M0 scan's gradient nonlinearity field, if any.
+
+    Outputs
+    -------
+    r1_brain
+        R1, in the frame of the coregistration reference, masked with the ASL brain mask.
+    """
+    from niworkflows.engine.workflows import LiterateWorkflow as Workflow
+    from niworkflows.interfaces.nibabel import ApplyMask
+
+    from aslprep.interfaces.ants import RegridImage
+    from aslprep.interfaces.t1map import CoregistrationR1
+
+    workflow = Workflow(name=name)
+
+    inputnode = pe.Node(
+        niu.IdentityInterface(
+            fields=[
+                'aslref',
+                'm0scan2aslref_xfm',
+                'asl_mask',
+                'fieldmap',
+                'm0scan_gradwarp_field',
+            ],
+        ),
+        name='inputnode',
+    )
+    outputnode = pe.Node(niu.IdentityInterface(fields=['r1_brain']), name='outputnode')
+
+    coreg_r1 = pe.Node(
+        CoregistrationR1(
+            in_file=coreg_r1map['t1map'],
+            metadata=coreg_r1map['metadata'],
+            suffix=coreg_r1map['suffix'],
+        ),
+        name='coreg_r1',
+        mem_gb=1,
+    )
+    # As the M0 scan is, before its transform is applied (an M0 scan on the grid is passed through)
+    regrid_r1 = pe.Node(
+        RegridImage(interpolation='Linear', transforms=['identity'], input_image_type=0),
+        name='regrid_r1',
+    )
+    # R1 is a quantitative map, so it is not modulated by any Jacobian
+    aslref_r1 = pe.Node(
+        ResampleSeries(jacobian=False, gradwarp_jacobian=False),
+        name='aslref_r1',
+    )
+    mask_r1 = pe.Node(ApplyMask(), name='mask_r1')
+
+    workflow.connect([
+        (inputnode, regrid_r1, [('aslref', 'reference_image')]),
+        (coreg_r1, regrid_r1, [('out_file', 'input_image')]),
+        (inputnode, aslref_r1, [
+            ('aslref', 'ref_file'),
+            ('m0scan2aslref_xfm', 'transforms'),
+        ]),
+        (regrid_r1, aslref_r1, [('output_image', 'in_file')]),
+        (aslref_r1, mask_r1, [('out_file', 'in_file')]),
+        (inputnode, mask_r1, [('asl_mask', 'in_mask')]),
+        (mask_r1, outputnode, [('out_file', 'r1_brain')]),
+    ])  # fmt:skip
+
+    if fieldmap_id:
+        # This assumes that the M0 scan and the ASL file have the same distortion, as the
+        # resampling of the M0 scan does.
+        distortion_params = pe.Node(
+            DistortionParameters(
+                metadata=metadata,
+                in_file=asl_file,
+                fallback=config.workflow.fallback_total_readout_time,
+            ),
+            name='distortion_params',
+            run_without_submitting=True,
+        )
+        workflow.connect([
+            (inputnode, aslref_r1, [('fieldmap', 'fieldmap')]),
+            (distortion_params, aslref_r1, [
+                ('readout_time', 'ro_time'),
+                ('pe_direction', 'pe_dir'),
+            ]),
+        ])  # fmt:skip
+
+    if m0scan_gradwarp:
+        workflow.connect([(inputnode, aslref_r1, [('m0scan_gradwarp_field', 'gradwarp_field')])])
+
+    return workflow
+
+
+def _update_dict(in_dict, update):
+    """Return a copy of a dictionary, updated with another."""
+    return {**(in_dict or {}), **update}
 
 
 def _select_ref(sbref_files, aslref_files):

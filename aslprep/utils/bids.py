@@ -420,17 +420,24 @@ def collect_t1map(layout, derivatives, subject_id, session_id=None, bids_filters
     }
 
 
-def collect_m0scan_t1map(layout, derivatives, m0scan, bids_filters=None):
-    """Find a quantitative T1 map on the grid of a separate M0 scan.
+#: Quantitative relaxation maps that :func:`collect_m0scan_t1map` can find, with their names.
+M0SCAN_MAP_NAMES = {'T1map': 'T1 maps', 'R1map': 'R1 maps'}
+
+
+def collect_m0scan_t1map(layout, derivatives, m0scan, bids_filters=None, suffixes=('T1map',)):
+    """Find a quantitative T1 (or R1) map on the grid of a separate M0 scan.
 
     Some sequences acquire the M0 scan as one of the images a T1 map is fitted from
     (for example, the first of two saturation-recovery images with different recovery times).
     Such a map lies on the M0 scan's grid, so it can correct each voxel of the M0 scan for
-    incomplete T1 recovery without a registration.
-    Every ``T1map`` of the participant (in ``anat`` or ``perf``, in the M0 scan's session, or
-    without a session for an M0 scan without one) on
+    incomplete T1 recovery without a registration, and its R1 can replace the M0 scan as the
+    image registered to the anatomical image.
+    Every map of the participant with one of ``suffixes`` (in ``anat`` or ``perf``, in the M0
+    scan's session, or without a session for an M0 scan without one) on
     exactly the M0 scan's grid is a candidate. Each derivatives dataset is searched first, in
     order, and then the raw dataset, and the first dataset with a candidate is used.
+    Within that dataset, the first suffix with a candidate is used, so that a ``T1map`` wins
+    over an ``R1map`` when ``suffixes`` is ``('T1map', 'R1map')``.
 
     Parameters
     ----------
@@ -442,17 +449,21 @@ def collect_m0scan_t1map(layout, derivatives, m0scan, bids_filters=None):
         The M0 scan.
     bids_filters : :obj:`dict` or None, optional
         The ``--bids-filter-file`` filters. An ``m0scan_t1map`` entry narrows the query.
+    suffixes : :obj:`tuple` of :obj:`str`, optional
+        The suffixes to look for (``T1map``, ``R1map`` or both), in order of precedence.
 
     Returns
     -------
     :obj:`dict` or None
-        None if there is no T1 map on the grid. Otherwise, ``t1map`` (the path), ``metadata``
-        (its sidecar) and ``uri`` (a BIDS URI naming it).
+        None if there is no map on the grid. Otherwise, ``t1map`` (the path, of a T1 or an R1
+        map), ``suffix`` (``T1map`` or ``R1map``), ``metadata`` (its sidecar) and ``uri``
+        (a BIDS URI naming it).
 
     Raises
     ------
     ValueError
-        If the first dataset with a T1 map on the grid has more than one.
+        If the first dataset with a map on the grid has more than one with the first suffix
+        found there.
     """
     from bids.layout import Query
 
@@ -462,34 +473,39 @@ def collect_m0scan_t1map(layout, derivatives, m0scan, bids_filters=None):
         # A map from another session was acquired in another position, however it was gridded
         'session': entities.get('session') or Query.NONE,
         'datatype': ['anat', 'perf'],
-        'suffix': 'T1map',
         'extension': ['.nii', '.nii.gz'],
-        **((bids_filters or {}).get('m0scan_t1map') or {}),
     }
+    filters = (bids_filters or {}).get('m0scan_t1map') or {}
 
     datasets = [(name, _get_layout(Path(path))) for name, path in derivatives.items()]
     datasets.append(('raw', layout))
     for label, dataset in datasets:
-        found = [
-            path for path in dataset.get(return_type='file', **query) if _same_grid(path, m0scan)
-        ]
-        if len(found) > 1:
-            raise ValueError(
-                f'Found {len(found)} T1 maps on the grid of the M0 scan {m0scan} in '
-                f'{dataset.root}: {sorted(found)}. Use the "m0scan_t1map" key of '
-                '--bids-filter-file to select one.'
-            )
+        for suffix in suffixes:
+            found = [
+                path
+                for path in dataset.get(
+                    return_type='file', **{**query, 'suffix': suffix, **filters}
+                )
+                if _same_grid(path, m0scan)
+            ]
+            if len(found) > 1:
+                raise ValueError(
+                    f'Found {len(found)} {M0SCAN_MAP_NAMES[suffix]} on the grid of the M0 scan '
+                    f'{m0scan} in {dataset.root}: {sorted(found)}. Use the "m0scan_t1map" key '
+                    'of --bids-filter-file to select one.'
+                )
 
-        if found:
-            # Not resolved, so that a DataLad (git-annex) symlink still lies inside its dataset
-            relpath = Path(
-                os.path.relpath(os.path.abspath(found[0]), os.path.abspath(dataset.root))
-            )
-            return {
-                't1map': found[0],
-                'metadata': dataset.get_metadata(found[0]),
-                'uri': f'bids:{label}:{relpath.as_posix()}',
-            }
+            if found:
+                # Not resolved, so that a DataLad (git-annex) symlink still lies inside its dataset
+                relpath = Path(
+                    os.path.relpath(os.path.abspath(found[0]), os.path.abspath(dataset.root))
+                )
+                return {
+                    't1map': found[0],
+                    'suffix': suffix,
+                    'metadata': dataset.get_metadata(found[0]),
+                    'uri': f'bids:{label}:{relpath.as_posix()}',
+                }
 
     return None
 

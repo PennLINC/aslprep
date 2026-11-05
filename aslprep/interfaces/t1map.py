@@ -388,3 +388,53 @@ class CorrectM0Recovery(SimpleInterface):
         )
         self._results['out_file'] = out_file
         return runtime
+
+
+class _CoregistrationR1InputSpec(BaseInterfaceInputSpec):
+    in_file = File(
+        exists=True,
+        mandatory=True,
+        desc='The T1 or R1 map, on the grid of the M0 scan.',
+    )
+    metadata = traits.Dict(desc="The map's sidecar, whose Units decide its scale if present.")
+    suffix = traits.Enum('T1map', 'R1map', mandatory=True, desc='Whether the map is of T1 or R1.')
+
+
+class _CoregistrationR1OutputSpec(TraitedSpec):
+    out_file = File(exists=True, desc='R1, in per second, and 0 where the map has no value.')
+
+
+class CoregistrationR1(SimpleInterface):
+    """Convert a T1 or R1 map to R1, for registration to the anatomical image.
+
+    White matter is brighter than gray matter in R1, as in a T1-weighted image, and the gray-white
+    contrast of a T1 map from the M0 scan is much stronger than that of the M0 scan itself.
+    See :func:`~aslprep.utils.t1map.coregistration_r1`.
+    """
+
+    input_spec = _CoregistrationR1InputSpec
+    output_spec = _CoregistrationR1OutputSpec
+
+    def _run_interface(self, runtime):
+        from aslprep.utils.t1map import coregistration_r1
+
+        img = nb.load(self.inputs.in_file)
+        values = np.asanyarray(img.dataobj, dtype=np.float64)
+        if values.ndim == 4 and values.shape[3] == 1:
+            values = values[..., 0]
+
+        if values.ndim != 3:
+            raise ValueError(f'The map must be a 3D image, but it has shape {values.shape}.')
+
+        metadata = self.inputs.metadata if isdefined(self.inputs.metadata) else {}
+        r1, how = coregistration_r1(values, metadata, self.inputs.suffix)
+        config.loggers.interface.info(
+            f'Converted the {self.inputs.suffix} {self.inputs.in_file} to R1, with the map {how}.'
+        )
+
+        header = img.header.copy()
+        header.set_data_dtype(np.float32)
+        out_file = os.path.join(runtime.cwd, 'R1map.nii.gz')
+        nb.Nifti1Image(r1.astype(np.float32), img.affine, header).to_filename(out_file)
+        self._results['out_file'] = out_file
+        return runtime

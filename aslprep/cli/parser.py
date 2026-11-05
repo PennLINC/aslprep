@@ -369,7 +369,8 @@ def _build_parser():
             " * t1map: Ignore the participant's T1 maps, so the tissue-T1 kinetic model uses the "
             'default tissue T1s for the field strength, and an M0 scan with a short TR is '
             'corrected for T1 recovery with the default gray matter T1, even when a T1 map '
-            'shares its grid\n'
+            'shares its grid, and the ASL reference, not the R1 of a T1 or R1 map on the grid '
+            'of the M0 scan, is registered to the anatomical image\n'
             ' * att: Do not look for an ATT map from a multi-delay run, which the tissue-T1 '
             'kinetic model needs for single-delay runs\n'
             ' * cbf: Ignore CBF volumes in the ASL file (for example, maps calculated '
