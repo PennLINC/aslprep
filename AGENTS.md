@@ -208,8 +208,10 @@ ASLPrep now follows the same CI trigger-condition pattern as XCP-D:
 - **GitHub lockfile workflow** (`.github/workflows/pixi-lock.yml`):
   - Trigger: every `pull_request` event (not `pull_request_target`; `actions/checkout` refuses to check out a fork's head there).
   - Fork PRs run `validate-lockfile` with read-only permissions and no persisted credentials: `pixi lock --check` only, no push.
-  - Same-repo PRs run `update-lockfile` (the only job with `contents: write`), which regenerates `pixi.lock` with DataLad and pushes it back to the PR branch with a plain, non-forced push.
-  - `pixi lock` rewrites the workspace package's hatch-vcs version (`version:`, `sha256:`, `editable:` lines of the `pypi: ./` entries) on every commit, even when `pixi lock --check` passes. `update-lockfile` therefore pushes only when `git diff -I '^  (version|sha256|editable): '` against the PR head still shows changes, and skips entirely when the head commit is authored by `nipreps[bot]`. Without both guards each bot push retriggers the workflow and it loops (seen on PennLINC/qsirecon#396).
+  - Same-repo PRs run `update-lockfile` (the only job with `contents: write`). It checks out with `persist-credentials: false`, runs `pixi lock --check`, and then restores the committed file with `git checkout -- pixi.lock`. Only when the check failed does it run `datalad run ... -- pixi lock` and push the commit to the PR branch (plain, non-forced). The push step alone receives the token, through an `http.extraheader` on the command line.
+  - The reset matters: `pixi lock --check` exits 0 but still rewrites the workspace package's hatch-vcs version in `pixi.lock` on every commit. Until 2026-11, the check ran inside `datalad run`, so that rewrite was committed and pushed, and each bot push queued another run (PennLINC/qsirecon#396). Do not move the check back under `datalad run`.
+  - A push made with `GITHUB_TOKEN` does not start the bot commit's checks on its own: GitHub queues them as "action required", and a maintainer must approve them.
+  - Third-party actions are pinned to commit SHAs with a `# vX.Y.Z` comment.
   - Both jobs look for `pyproject.toml` or `pixi.lock` edits anywhere in the PR (`git diff base...HEAD`), not only the latest commit, and skip their pixi steps otherwise.
   - `check-lockfile` is an aggregate job that fails unless exactly the applicable job succeeded; require it, not the two underlying jobs, as the status check.
 
