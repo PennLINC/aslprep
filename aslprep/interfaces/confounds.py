@@ -24,6 +24,7 @@ from aslprep.utils.confounds import (
     CBF_THRESH_DEFAULTS,
     _gather_confounds,
     average_cbf_by_tissue,
+    compute_background_suppression_qc,
     compute_cbf_threshold_stats,
     compute_clipped_voxel_percentage,
     compute_qei,
@@ -176,6 +177,14 @@ class _ComputeCBFQCInputSpec(BaseInterfaceInputSpec):
         mandatory=False,
         desc='Separate M0 scan, as acquired. Used to check for clipped values.',
     )
+    aslcontext = File(
+        exists=True,
+        mandatory=False,
+        desc=(
+            'aslcontext file of asl_file. With asl_file, used to check how close the '
+            'background-suppressed control and label images are to the noise floor.'
+        ),
+    )
     # Non-GE-only inputs
     confounds_file = File(
         exists=True,
@@ -229,6 +238,70 @@ PVC_QC_METADATA = {
         'Description': (
             'Fraction of brain voxels where local-regression partial volume correction fit '
             'both gray and white matter.'
+        ),
+    },
+}
+
+#: Sidecar metadata of the background-suppression quality-control measures.
+BS_QC_METADATA = {
+    'bs_noise_floor': {
+        'LongName': 'Magnitude Noise Floor of the ASL File',
+        'Description': (
+            'Root mean squared magnitude of the background of the control and label volumes, '
+            'as acquired: what a voxel with no signal reads. Background voxels are more than '
+            '20 mm from the brain mask; the median over voxels is used, to ignore structures '
+            'outside the brain. n/a if the background is zero (masked by the scanner) or '
+            'the run has no control and label volumes.'
+        ),
+        'Units': 'arbitrary (the units of the ASL file)',
+    },
+    'bs_gm_signal_floor_ratio': {
+        'LongName': 'Gray Matter Control Signal over the Noise Floor',
+        'Description': (
+            'Median, over gray matter voxels, of the root mean squared control magnitude '
+            'divided by bs_noise_floor. Background suppression lowers this ratio. '
+            'Values near 1 mean the gray matter control signal is at the noise floor.'
+        ),
+    },
+    'bs_gm_deltam_retained': {
+        'LongName': 'Fraction of Gray Matter Delta-M Retained at the Noise Floor',
+        'Description': (
+            'Median, over gray matter voxels, of sqrt(1 - 1 / r^2), where r is the '
+            'control signal-to-floor ratio: the fraction of the label-control difference '
+            'that a magnitude image keeps at that ratio, from E[M^2] = A^2 + F^2. '
+            'For example, 0.87 at twice the floor and 0.94 at three times the floor. '
+            'It assumes the signal is not inverted (see bs_csf_profile_deltam_min).'
+        ),
+    },
+    'bs_perc_voxels_near_noise_floor': {
+        'LongName': 'Percentage of Brain Voxels near the Noise Floor',
+        'Description': (
+            'Percentage of brain mask voxels whose root mean squared control magnitude is '
+            'less than twice bs_noise_floor, where magnitude images lose more than 13% of '
+            'the label-control difference.'
+        ),
+        'Units': 'percent',
+    },
+    'bs_csf_profile_signal_floor_ratio_min': {
+        'LongName': 'Minimum Control Signal over the Noise Floor along CSF Fraction',
+        'Description': (
+            'Brain voxels are binned by CSF fraction (0-0.1, ..., 0.9-1). This is the '
+            'lowest median control signal-to-floor ratio across bins. Values near 1 mean '
+            'the net magnetization of some mixture of tissue and CSF is zero at readout: '
+            'tissue and CSF have opposite signs, so one of them is inverted.'
+        ),
+    },
+    'bs_csf_profile_deltam_min': {
+        'LongName': 'Minimum Delta-M along CSF Fraction',
+        'Description': (
+            'The lowest median delta-M (mean control minus mean label magnitude, '
+            'as acquired) across the CSF fraction bins of '
+            'bs_csf_profile_signal_floor_ratio_min, divided by the largest absolute '
+            'median across bins. Delta-M decreases toward 0 as CSF increases, so values '
+            'are positive when the static signal keeps its sign. Negative values mean '
+            'labeled voxels are brighter than control voxels, as when background '
+            'suppression inverts the tissue magnetization and the magnitude flips its sign; '
+            '-1 means the most negative bin is also the largest in absolute value.'
         ),
     },
 }
@@ -420,6 +493,18 @@ class ComputeCBFQC(SimpleInterface):
                 self.inputs.asl_mask,
             )
 
+        # Background suppression: control and label magnitudes near the noise floor or inverted
+        bs_metrics = dict.fromkeys(BS_QC_METADATA, np.nan)
+        if isdefined(self.inputs.asl_file) and isdefined(self.inputs.aslcontext):
+            bs_metrics = compute_background_suppression_qc(
+                asl_file=self.inputs.asl_file,
+                aslcontext=self.inputs.aslcontext,
+                mask=self.inputs.asl_mask,
+                gm=self.inputs.gm_tpm,
+                csf=self.inputs.csf_tpm,
+                tpm_threshold=thresh,
+            )['metrics']
+
         metrics_dict = {
             # Motion metrics
             'mean_fd': [mean_fd],
@@ -427,6 +512,8 @@ class ComputeCBFQC(SimpleInterface):
             # Clipping metrics
             'perc_voxels_clipped': [perc_voxels_clipped],
             'perc_voxels_clipped_m0scan': [perc_voxels_clipped_m0scan],
+            # Background suppression metrics
+            **{k: [v] for k, v in bs_metrics.items()},
             # Coregistration metrics
             'coreg_dice': [coreg_dice],
             'coreg_correlation': [coreg_correlation],
@@ -517,6 +604,8 @@ class ComputeCBFQC(SimpleInterface):
                 ),
                 'Units': 'percent',
             },
+            # Background suppression metrics
+            **BS_QC_METADATA,
             # Coregistration metrics
             'coreg_dice': {
                 'LongName': 'Coregistration Sørensen-Dice Coefficient',
