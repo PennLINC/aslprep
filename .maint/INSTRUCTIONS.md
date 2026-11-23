@@ -14,7 +14,9 @@ These change rarely and live outside the pixi ecosystem.
    - **FreeSurfer**: Update the version in the `curl` URL and the exclude file path.
    - **AFNI**: The current setup downloads the latest `linux_openmp_64.tgz` tarball
      (no pinned version). To pin, switch to a versioned URL.
-   - **AtlasPack**: Update the tag (e.g. `FROM pennlinc/atlaspack:0.1.0 AS atlaspack`).
+   - **AtlasPack**: Update the version in the release URL
+     (`https://github.com/PennLINC/AtlasPack/releases/download/<version>/atlaspack-<version>.tar.gz`)
+     and the SHA-256 hash, taken from that release's `SHA256SUMS` asset.
    - **Ubuntu base**: Update the tag (e.g. `ARG BASE_IMAGE=ubuntu:jammy-20250730`).
    - **System packages**: Add/remove `apt-get install` entries.
 
